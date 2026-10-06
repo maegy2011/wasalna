@@ -22,18 +22,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -53,19 +55,21 @@ import com.app.wasalna.domain.model.Location
 import kotlinx.coroutines.launch
 
 /**
- * Phase 5: Home — list of saved destinations, each with an Activate Alarm button.
+ * Phase 7: Home — polished welcome + large saved-location cards.
  *
- * On Activate: checks foreground location permission, then starts
- * [TrackingService] via [ContextCompat.startForegroundService] with the
- * target extras; shows "Tracking started" feedback. Listens for the
- * package-scoped [TrackingService.ACTION_DESTINATION_REACHED] broadcast
- * to surface a "Destination reached!" snackbar.
+ * - TopAppBar with hamburger ([onMenuClick]) — drawer opens from MainContainer.
+ * - Welcome header "Where are we going today?".
+ * - Saved locations as large Cards with name + Activate Alarm button.
+ * - Empty state: "No places saved yet. Let's add one!".
+ * - FAB navigates to Map tab.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onMenuClick: () -> Unit = {},
     onOpenMap: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenPaywall: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    onOpenPaywall: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -96,6 +100,16 @@ fun HomeScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Wasalna") },
+                navigationIcon = {
+                    IconButton(onClick = onMenuClick) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = onOpenMap) {
@@ -110,7 +124,7 @@ fun HomeScreen(
                 .padding(16.dp),
         ) {
             Text(
-                text = "My alarms",
+                text = "Where are we going today?",
                 style = MaterialTheme.typography.headlineSmall,
             )
             trackingName?.let { name ->
@@ -124,11 +138,11 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(12.dp))
             if (locations.isEmpty()) {
                 Text(
-                    text = "No saved destinations yet — tap + to add one.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "No places saved yet. Let's add one!",
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(locations, key = { it.id }) { location ->
                         LocationCard(
                             location = location,
@@ -155,11 +169,6 @@ fun HomeScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onOpenSettings) { Text("Settings") }
-                OutlinedButton(onClick = onOpenPaywall) { Text("Pro") }
-            }
         }
     }
 }
@@ -173,35 +182,40 @@ private fun LocationCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
                     text = location.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = "${location.latitude}, ${location.longitude}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete destination")
+                }
             }
-            Button(onClick = onActivate, enabled = !isTracking) {
+            Text(
+                text = "${location.latitude}, ${location.longitude}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onActivate,
+                enabled = !isTracking,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Icon(
                     Icons.Filled.AlarmOn,
                     contentDescription = null,
-                    modifier = Modifier.padding(end = 4.dp),
+                    modifier = Modifier.padding(end = 8.dp),
                 )
-                Text("Alarm")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete destination")
+                Text("Activate Alarm")
             }
         }
     }

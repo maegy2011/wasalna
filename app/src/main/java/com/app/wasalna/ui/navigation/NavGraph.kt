@@ -5,17 +5,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.app.wasalna.ui.screens.home.HomeScreen
-import com.app.wasalna.ui.screens.map.MapScreen
-import com.app.wasalna.ui.screens.PaywallScreen
-import com.app.wasalna.ui.screens.SettingsScreen
+import com.app.wasalna.ui.screens.main.MainContainerScreen
 import com.app.wasalna.ui.screens.permissions.PermissionsScreen
 import com.app.wasalna.ui.screens.splash.SplashScreen
 
 /**
- * Phase 3: Splash gates on onboarding state from DataStore.
- * - First launch → Splash → Permissions → Home (popping back-stack inclusively).
- * - Returning user (onboarding done) → Splash → Home directly.
+ * Phase 7: root graph — Splash → Permissions → Main (tabs container).
+ * Main route clears the onboarding back-stack inclusively.
  */
 @Composable
 fun NavGraph() {
@@ -27,7 +23,7 @@ fun NavGraph() {
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateHome = {
-                    navController.navigate(Screen.Home.route) {
+                    navController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 },
@@ -40,33 +36,16 @@ fun NavGraph() {
         }
         composable(Screen.Permissions.route) {
             PermissionsScreen(
-                // hiltViewModel() is the default param — explicit here for clarity.
                 viewModel = hiltViewModel(),
                 onDone = {
-                    navController.navigate(Screen.Home.route) {
+                    navController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Permissions.route) { inclusive = true }
                     }
                 },
             )
         }
-        composable(Screen.Home.route) {
-            HomeScreen(
-                onOpenMap = { navController.navigate(Screen.Map.route) },
-                onOpenSettings = { navController.navigate(Screen.Settings.route) },
-                onOpenPaywall = { navController.navigate(Screen.Paywall.route) },
-                // hiltViewModel() is the default param — explicit here for clarity.
-                viewModel = hiltViewModel(),
-            )
+        composable(Screen.Main.route) {
+            MainContainerScreen()
         }
-        composable(Screen.Map.route) {
-            MapScreen(
-                viewModel = hiltViewModel(),
-                onSaved = {
-                    navController.popBackStack(Screen.Home.route, inclusive = false)
-                },
-            )
-        }
-        composable(Screen.Settings.route) { SettingsScreen() }
-        composable(Screen.Paywall.route) { PaywallScreen() }
     }
 }
