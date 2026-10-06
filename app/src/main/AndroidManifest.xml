@@ -28,6 +28,12 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
+        <!-- Phase 5: background location engine (foreground service, location type). -->
+        <service
+            android:name=".data.service.TrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

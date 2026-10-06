@@ -5,7 +5,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.app.wasalna.ui.screens.HomeScreen
+import com.app.wasalna.ui.screens.home.HomeScreen
 import com.app.wasalna.ui.screens.map.MapScreen
 import com.app.wasalna.ui.screens.PaywallScreen
 import com.app.wasalna.ui.screens.SettingsScreen
@@ -54,6 +54,8 @@ fun NavGraph() {
                 onOpenMap = { navController.navigate(Screen.Map.route) },
                 onOpenSettings = { navController.navigate(Screen.Settings.route) },
                 onOpenPaywall = { navController.navigate(Screen.Paywall.route) },
+                // hiltViewModel() is the default param — explicit here for clarity.
+                viewModel = hiltViewModel(),
             )
         }
         composable(Screen.Map.route) {

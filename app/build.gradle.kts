@@ -97,6 +97,8 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.places)
     implementation(libs.coroutines.play.services)
+    // Phase 5: background location engine (FusedLocationProviderClient)
+    implementation(libs.play.services.location)
 
     debugImplementation(libs.compose.ui.tooling)
 }

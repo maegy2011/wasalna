@@ -10,11 +10,7 @@ import androidx.compose.ui.Modifier
 
 // Phase 3: Splash + Permissions moved to dedicated packages
 // (ui.screens.splash / ui.screens.permissions) with Hilt ViewModels.
-
-@Composable
-fun HomeScreen(onOpenMap: () -> Unit, onOpenSettings: () -> Unit, onOpenPaywall: () -> Unit) {
-    PlaceholderScreen(text = "Home — alarms list (Phase 3)")
-}
+// Phase 5: Home moved to ui.screens.home (HomeScreen + HomeViewModel).
 
 @Composable
 fun SettingsScreen() {
