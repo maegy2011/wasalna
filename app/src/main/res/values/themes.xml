@@ -4,4 +4,11 @@
         <item name="android:windowBackground">@color/wasalna_background</item>
         <item name="android:statusBarColor">@color/wasalna_primary_dark</item>
     </style>
+
+    <!-- Phase 6: full-screen alarm (no ActionBar, shows over lock screen). -->
+    <style name="Theme.Wasalna.NoActionBar" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#1A0505</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
 </resources>

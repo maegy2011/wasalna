@@ -43,5 +43,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Phase 6: full-screen destination alarm (lock-screen visible). -->
+        <activity
+            android:name=".ui.screens.alarm.AlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.Wasalna.NoActionBar" />
     </application>
 </manifest>

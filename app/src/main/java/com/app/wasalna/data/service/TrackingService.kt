@@ -117,6 +117,22 @@ class TrackingService : Service() {
 
         if (distanceM <= TRIGGER_RADIUS_METERS) {
             Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng")
+            // Phase 6: fire the full-screen alarm (works over the lock screen
+            // via showWhenLocked/turnScreenOn, no overlay permission needed).
+            val alarmIntent = Intent(
+                this,
+                com.app.wasalna.ui.screens.alarm.AlarmActivity::class.java,
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            }
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                Log.w(TAG, "DESTINATION_REACHED: overlay permission missing, trying Activity anyway")
+            }
+            try {
+                startActivity(alarmIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "DESTINATION_REACHED: AlarmActivity launch failed: ${e.message}")
+            }
             sendBroadcast(
                 Intent(ACTION_DESTINATION_REACHED).setPackage(packageName),
             )
