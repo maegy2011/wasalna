@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="wasalna_primary">#0D7C66</color>
+    <color name="wasalna_primary_dark">#0A5F4F</color>
+    <color name="wasalna_accent">#F2A007</color>
+    <color name="wasalna_background">#F7F5F0</color>
+    <color name="wasalna_surface">#FFFFFF</color>
+    <color name="ic_launcher_background">#0D7C66</color>
+</resources>

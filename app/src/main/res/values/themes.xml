@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Wasalna" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/wasalna_background</item>
+        <item name="android:statusBarColor">@color/wasalna_primary_dark</item>
+    </style>
+</resources>
