@@ -1,4 +1,5 @@
 import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -12,6 +13,17 @@ android {
     namespace = "com.app.wasalna"
     compileSdk = 36
 
+    // Phase 4: Google Maps API key from local.properties (graceful default empty).
+    // local.properties is gitignored and never committed.
+    val mapsApiKey: String = run {
+        val props = Properties()
+        val propFile = rootProject.file("local.properties")
+        if (propFile.exists()) {
+            propFile.inputStream().use { props.load(it) }
+        }
+        (props.getProperty("MAPS_API_KEY") ?: System.getenv("MAPS_API_KEY") ?: "").trim()
+    }
+
     defaultConfig {
         applicationId = "com.app.wasalna"
         minSdk = 26
@@ -23,6 +35,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey.ifEmpty { "YOUR_API_KEY_HERE" }
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
 
     buildTypes {
@@ -77,6 +91,12 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
+
+    // Phase 4: Google Maps + Places
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+    implementation(libs.places)
+    implementation(libs.coroutines.play.services)
 
     debugImplementation(libs.compose.ui.tooling)
 }

@@ -17,11 +17,6 @@ fun HomeScreen(onOpenMap: () -> Unit, onOpenSettings: () -> Unit, onOpenPaywall:
 }
 
 @Composable
-fun MapScreen() {
-    PlaceholderScreen(text = "Map — destination picker (Phase 3)")
-}
-
-@Composable
 fun SettingsScreen() {
     PlaceholderScreen(text = "Settings — elderly mode & units (Phase 4)")
 }

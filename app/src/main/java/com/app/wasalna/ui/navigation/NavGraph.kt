@@ -6,7 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.ui.screens.HomeScreen
-import com.app.wasalna.ui.screens.MapScreen
+import com.app.wasalna.ui.screens.map.MapScreen
 import com.app.wasalna.ui.screens.PaywallScreen
 import com.app.wasalna.ui.screens.SettingsScreen
 import com.app.wasalna.ui.screens.permissions.PermissionsScreen
@@ -56,7 +56,14 @@ fun NavGraph() {
                 onOpenPaywall = { navController.navigate(Screen.Paywall.route) },
             )
         }
-        composable(Screen.Map.route) { MapScreen() }
+        composable(Screen.Map.route) {
+            MapScreen(
+                viewModel = hiltViewModel(),
+                onSaved = {
+                    navController.popBackStack(Screen.Home.route, inclusive = false)
+                },
+            )
+        }
         composable(Screen.Settings.route) { SettingsScreen() }
         composable(Screen.Paywall.route) { PaywallScreen() }
     }
