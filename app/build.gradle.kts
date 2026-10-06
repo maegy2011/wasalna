@@ -69,6 +69,9 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.navigation.compose)
     implementation(libs.datastore.preferences)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
     implementation(libs.androidx.core.ktx)
 
     implementation(libs.hilt.android)
