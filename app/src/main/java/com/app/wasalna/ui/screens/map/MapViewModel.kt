@@ -12,12 +12,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.BuildConfig
 import com.app.wasalna.data.local.datastore.SettingsDataStore.MapEngines
+import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.domain.model.Location
+import com.app.wasalna.domain.model.SearchResult
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
@@ -60,6 +61,7 @@ class MapViewModel @Inject constructor(
     private val placesClient: PlacesClient,
     private val locationRepository: LocationRepository,
     private val settingsRepository: SettingsRepository,
+    private val nominatim: NominatimRepository,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -69,8 +71,10 @@ class MapViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _predictions = MutableStateFlow<List<AutocompletePrediction>>(emptyList())
-    val predictions: StateFlow<List<AutocompletePrediction>> = _predictions.asStateFlow()
+    // Phase 9-3-1-fix-1: unified hits from either engine (OSM/Nominatim or
+    // Google Places) — the UI renders SearchResult without caring.
+    private val _predictions = MutableStateFlow<List<SearchResult>>(emptyList())
+    val predictions: StateFlow<List<SearchResult>> = _predictions.asStateFlow()
 
     private val _selectedName = MutableStateFlow<String?>(null)
     val selectedName: StateFlow<String?> = _selectedName.asStateFlow()
@@ -206,39 +210,82 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Phase 9-3-1-fix-1: branched search.
+     * - OSM engine → Nominatim (FREE, no API key, no billing).
+     * - GOOGLE engine → Places Autocomplete (global, no country filter).
+     * Both map into unified SearchResult hits.
+     */
     fun searchPlaces(query: String) {
+        val engine = activeMapEngine.value
         viewModelScope.launch {
-            runCatching {
-                val builder = FindAutocompletePredictionsRequest.builder()
-                    .setQuery(query)
-                // Phase 9-3-2-fix: country restriction REMOVED entirely —
-                // global search restored to verify the Places API works and
-                // rule out the GPS country code as the request breaker.
-                // (GPS detection still runs for future use; it just no longer
-                // filters requests.)
-                // .setCountries(...) — disabled, see above.
-                val response = placesClient.findAutocompletePredictions(builder.build()).await()
-                response.autocompletePredictions
-            }.onSuccess {
-                _predictions.value = it
-                _searchError.value = null
-            }.onFailure { e ->
-                // Phase 9-3-2-fix: explicit Logcat + surfaced UI error so
-                // API key / billing denials (e.g. PLACES_API_ACCESS_DENIED)
-                // are visible instead of failing silently.
-                Log.e("PlacesAPI", "Search failed: ${e.message}")
-                Log.e(TAG, "Autocomplete failed: ${e.message}")
-                _predictions.value = emptyList()
-                _searchError.value = "Search failed: Check API Key or Billing"
+            if (engine == MapEngines.GOOGLE) {
+                searchGoogle(query)
+            } else {
+                searchOsm(query)
             }
         }
     }
 
-    fun fetchPlaceDetails(prediction: AutocompletePrediction) {
+    private suspend fun searchOsm(query: String) {
+        runCatching {
+            nominatim.searchPlaces(query).map { hit ->
+                SearchResult(name = hit.name, lat = hit.lat, lng = hit.lng)
+            }
+        }.onSuccess {
+            _predictions.value = it
+            _searchError.value = null
+        }.onFailure { e ->
+            Log.e(TAG, "Nominatim search failed: ${e.message}")
+            _predictions.value = emptyList()
+            _searchError.value = "Search failed: check your connection"
+        }
+    }
+
+    private suspend fun searchGoogle(query: String) {
+        runCatching {
+            val builder = FindAutocompletePredictionsRequest.builder()
+                .setQuery(query)
+            // Phase 9-3-2-fix: country restriction removed — global search.
+            val response = placesClient.findAutocompletePredictions(builder.build()).await()
+            response.autocompletePredictions.map { p ->
+                SearchResult(
+                    name = p.getPrimaryText(null).toString(),
+                    lat = null,
+                    lng = null,
+                    googlePlaceId = p.placeId,
+                )
+            }
+        }.onSuccess {
+            _predictions.value = it
+            _searchError.value = null
+        }.onFailure { e ->
+            Log.e("PlacesAPI", "Search failed: ${e.message}")
+            Log.e(TAG, "Autocomplete failed: ${e.message}")
+            _predictions.value = emptyList()
+            _searchError.value = "Search failed: Check API Key or Billing"
+        }
+    }
+
+    /**
+     * Phase 9-3-1-fix-1: result click.
+     * - OSM hit → lat/lng already known, select immediately.
+     * - Google hit → resolve lat/lng via FetchPlaceRequest.
+     */
+    fun fetchPlaceDetails(result: SearchResult) {
+        if (result.googlePlaceId == null && result.lat != null && result.lng != null) {
+            _selectedName.value = result.name
+            _selectedAddress.value = result.name
+            _selectedLatLng.value = LatLng(result.lat, result.lng)
+            _predictions.value = emptyList()
+            _searchQuery.value = result.name
+            return
+        }
+        val placeId = result.googlePlaceId ?: return
         viewModelScope.launch {
             runCatching {
                 val fields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG)
-                val request = FetchPlaceRequest.builder(prediction.placeId, fields).build()
+                val request = FetchPlaceRequest.builder(placeId, fields).build()
                 placesClient.fetchPlace(request).await().place
             }.onSuccess { place ->
                 _selectedName.value = place.name
@@ -256,17 +303,26 @@ class MapViewModel @Inject constructor(
      * Phase 9-2: map tap entry point (Google onMapClick + OSM tap helper).
      * Updates marker/camera source of truth, then reverse-geocodes the point
      * into a short readable address used as the saved name.
+     * Phase 9-3-1-fix-1: OSM taps → Nominatim reverse (free); Google taps →
+     * Android Geocoder. Both run on Dispatchers.IO with try-catch.
      */
     fun onMapClicked(lat: Double, lng: Double) {
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
         viewModelScope.launch {
-            val address = getAddressFromLatLng(lat, lng)
+            val address = if (activeMapEngine.value == MapEngines.GOOGLE) {
+                getAddressFromLatLng(lat, lng)
+            } else {
+                nominatim.reverseGeocode(lat, lng) ?: fallbackName(lat, lng)
+            }
             _selectedAddress.value = address
             _selectedName.value = address
             _searchQuery.value = address
         }
     }
+
+    private fun fallbackName(lat: Double, lng: Double): String =
+        "Selected Location (${lat.toString().take(5)}, ${lng.toString().take(5)})"
 
     /**
      * Phase 9-2: reverse-geocode off the main thread.
@@ -279,8 +335,7 @@ class MapViewModel @Inject constructor(
         withContext(Dispatchers.IO) {
             // Phase 9-2-fix: friendly fallback when Geocoder fails
             // (network issue / no address found) — never crash, never blank.
-            val fallback =
-                "Selected Location (${lat.toString().take(5)}, ${lng.toString().take(5)})"
+            val fallback = fallbackName(lat, lng)
             try {
                 val geocoder = Geocoder(appContext, Locale.getDefault())
                 val addresses: List<Address>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

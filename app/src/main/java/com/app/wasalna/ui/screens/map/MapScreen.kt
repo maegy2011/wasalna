@@ -310,18 +310,25 @@ fun MapScreen(
                     LazyColumn(
                         modifier = Modifier.heightIn(max = 350.dp),
                     ) {
-                        items(predictions, key = { it.placeId }) { prediction ->
+                        // Phase 9-3-1-fix-1: unified SearchResult hits — works
+                        // identically for OSM (Nominatim) and Google engines.
+                        items(
+                            predictions,
+                            key = { it.googlePlaceId ?: "${it.name}|${it.lat}|${it.lng}" },
+                        ) { result ->
                             ListItem(
                                 headlineContent = {
-                                    Text(prediction.getPrimaryText(null).toString())
+                                    Text(result.name)
                                 },
                                 supportingContent = {
-                                    Text(prediction.getSecondaryText(null).toString())
+                                    if (result.lat != null && result.lng != null) {
+                                        Text("${result.lat}, ${result.lng}")
+                                    }
                                 },
                                 modifier = Modifier.clickable {
                                     // a. fetch + marker update (ViewModel also clears
                                     //    predictions so the dropdown collapses).
-                                    viewModel.fetchPlaceDetails(prediction)
+                                    viewModel.fetchPlaceDetails(result)
                                     // c. hide the software keyboard.
                                     keyboardController?.hide()
                                 },
