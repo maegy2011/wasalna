@@ -25,3 +25,6 @@
 -keep class com.google.android.libraries.places.** { *; }
 -keep class com.google.android.gms.ads.** { *; }
 -dontwarn com.google.android.gms.**
+# R8 full-mode: Places shades gRPC — missing provider is reflective-only
+-dontwarn io.grpc.**
+-dontwarn com.google.common.**
