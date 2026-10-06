@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -44,6 +46,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -158,11 +162,54 @@ fun MapScreen(
             }
         },
     ) { padding ->
-        Column(
+        // Phase 9-3-1-fix: Box layout — map FIRST (background), floating
+        // search Column SECOND with zIndex(1f) so the dropdown floats ABOVE
+        // the map on both engines instead of being covered by it.
+        val keyboardController = LocalSoftwareKeyboardController.current
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            // --- Child 1 (background): the map fills everything. ---
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (activeEngine == MapEngines.GOOGLE) {
+                    GoogleMapBranch(
+                        selectedLatLng = selectedLatLng,
+                        selectedName = addressLine,
+                        cameraPositionState = cameraPositionState,
+                        onGoogleFailed = { viewModel.setMapEngine(MapEngines.OSM) },
+                        onMapClick = { latLng ->
+                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                        },
+                    )
+                } else {
+                    OsmMapView(
+                        selectedLatLng = selectedLatLng,
+                        selectedName = addressLine,
+                        modifier = Modifier.fillMaxSize(),
+                        onMapClick = { latLng ->
+                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                        },
+                    )
+                }
+                if (selectedLatLng == null && predictions.isEmpty()) {
+                    Text(
+                        text = "Search above or tap the map to pick a destination",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(16.dp),
+                    )
+                }
+            }
+            // --- Child 2 (foreground): floating search overlay. ---
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f),
+            ) {
             // Phase 9-1: engine toggle. Google locked for non-premium.
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
@@ -235,13 +282,22 @@ fun MapScreen(
                 },
             )
 
+            // Phase 9-3-1-fix: results dropdown floats ABOVE the map — solid
+            // surface background + 8.dp elevation + scrollable heightIn(350.dp)
+            // so 5+ results show comfortably without covering the screen.
             if (predictions.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 ) {
-                    LazyColumn {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 350.dp),
+                    ) {
                         items(predictions, key = { it.placeId }) { prediction ->
                             ListItem(
                                 headlineContent = {
@@ -251,7 +307,11 @@ fun MapScreen(
                                     Text(prediction.getSecondaryText(null).toString())
                                 },
                                 modifier = Modifier.clickable {
+                                    // a. fetch + marker update (ViewModel also clears
+                                    //    predictions so the dropdown collapses).
                                     viewModel.fetchPlaceDetails(prediction)
+                                    // c. hide the software keyboard.
+                                    keyboardController?.hide()
                                 },
                             )
                         }
@@ -266,39 +326,8 @@ fun MapScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (activeEngine == MapEngines.GOOGLE) {
-                    GoogleMapBranch(
-                        selectedLatLng = selectedLatLng,
-                        selectedName = addressLine,
-                        cameraPositionState = cameraPositionState,
-                        onGoogleFailed = { viewModel.setMapEngine(MapEngines.OSM) },
-                        onMapClick = { latLng ->
-                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
-                        },
-                    )
-                } else {
-                    OsmMapView(
-                        selectedLatLng = selectedLatLng,
-                        selectedName = addressLine,
-                        modifier = Modifier.fillMaxSize(),
-                        onMapClick = { latLng ->
-                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
-                        },
-                    )
-                }
-                if (selectedLatLng == null) {
-                    Text(
-                        text = "Search above or tap the map to pick a destination",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(16.dp),
-                    )
-                }
-            }
-        }
+            } // floating search Column
+        } // background/foreground Box
     }
 }
 
