@@ -56,9 +56,11 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker as OsmMarker
 
 private val DefaultCairo = LatLng(30.0444, 31.2357)
@@ -69,6 +71,8 @@ private val DefaultCairoGeo = GeoPoint(30.0444, 31.2357)
  * map filling the rest, Save FAB enabled only when a place is selected.
  * Phase 9-1: dual map engine — Free (OSM) default + Google for premium,
  * with a top toggle and graceful Google→OSM fallback.
+ * Phase 9-2: tap-to-select on both engines + reverse-geocoded address
+ * shown in/above the search bar and above the Save FAB.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +83,7 @@ fun MapScreen(
     val query by viewModel.searchQuery.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
     val selectedName by viewModel.selectedName.collectAsState()
+    val selectedAddress by viewModel.selectedAddress.collectAsState()
     val selectedLatLng by viewModel.selectedLatLng.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
@@ -97,7 +102,7 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(selectedLatLng ?: DefaultCairo, 12f)
     }
 
-    // Move Google camera whenever a place is selected.
+    // Move Google camera whenever a place is selected (search or tap).
     LaunchedEffect(selectedLatLng) {
         selectedLatLng?.let {
             runCatching {
@@ -106,19 +111,38 @@ fun MapScreen(
         }
     }
 
+    // Phase 9-2: address line shown in/above search + above Save FAB.
+    // Save uses this address as the Location name for map taps.
+    val addressLine: String? = selectedAddress ?: selectedName
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             // Enabled only when a destination is selected (hidden otherwise).
             if (selectedLatLng != null && selectedName != null) {
-            ExtendedFloatingActionButton(
-                onClick = { viewModel.saveDestination(onSaved) },
-                icon = {
-                    if (isSaving) CircularProgressIndicator(strokeWidth = 2.dp)
-                    else Icon(Icons.Default.Check, contentDescription = null)
-                },
-                text = { Text(if (isSaving) "Saving…" else "Save Destination") },
-            )
+                Column(
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    addressLine?.let { line ->
+                        Card(
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        ) {
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                    ExtendedFloatingActionButton(
+                        onClick = { viewModel.saveDestination(onSaved) },
+                        icon = {
+                            if (isSaving) CircularProgressIndicator(strokeWidth = 2.dp)
+                            else Icon(Icons.Default.Check, contentDescription = null)
+                        },
+                        text = { Text(if (isSaving) "Saving…" else "Save Destination") },
+                    )
+                }
             }
         },
     ) { padding ->
@@ -169,6 +193,16 @@ fun MapScreen(
                 )
             }
 
+            // Phase 9-2: selected address echoed in/above the search bar.
+            addressLine?.let { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                )
+            }
+
             OutlinedTextField(
                 value = query,
                 onValueChange = viewModel::onQueryChange,
@@ -215,7 +249,7 @@ fun MapScreen(
 
             selectedName?.let { name ->
                 Text(
-                    text = "Selected: $name",
+                    text = "Selected: ${addressLine ?: name}",
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
@@ -225,20 +259,26 @@ fun MapScreen(
                 if (activeEngine == MapEngines.GOOGLE) {
                     GoogleMapBranch(
                         selectedLatLng = selectedLatLng,
-                        selectedName = selectedName,
+                        selectedName = addressLine,
                         cameraPositionState = cameraPositionState,
                         onGoogleFailed = { viewModel.setMapEngine(MapEngines.OSM) },
+                        onMapClick = { latLng ->
+                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                        },
                     )
                 } else {
                     OsmMapView(
                         selectedLatLng = selectedLatLng,
-                        selectedName = selectedName,
+                        selectedName = addressLine,
                         modifier = Modifier.fillMaxSize(),
+                        onMapClick = { latLng ->
+                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                        },
                     )
                 }
                 if (selectedLatLng == null) {
                     Text(
-                        text = "Search above to pick a destination",
+                        text = "Search above or tap the map to pick a destination",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier
                             .align(Alignment.Center)
@@ -254,6 +294,7 @@ fun MapScreen(
  * Phase 9-1: Google branch. Before rendering, MapsInitializer is probed
  * inside runCatching — any init exception falls back to the free OSM
  * engine instead of crashing the screen.
+ * Phase 9-2: onMapClick forwards taps to MapViewModel.onMapClicked.
  */
 @Composable
 private fun GoogleMapBranch(
@@ -261,6 +302,7 @@ private fun GoogleMapBranch(
     selectedName: String?,
     cameraPositionState: com.google.maps.android.compose.CameraPositionState,
     onGoogleFailed: () -> Unit,
+    onMapClick: (LatLng) -> Unit,
 ) {
     val context = LocalContext.current
     var googleReady by remember { mutableStateOf(false) }
@@ -282,6 +324,7 @@ private fun GoogleMapBranch(
             selectedLatLng = selectedLatLng,
             selectedName = selectedName,
             modifier = Modifier.fillMaxSize(),
+            onMapClick = onMapClick,
         )
         return
     }
@@ -297,6 +340,7 @@ private fun GoogleMapBranch(
     GoogleMap(
         modifier = Modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
+        onMapClick = onMapClick,
     ) {
         selectedLatLng?.let { latLng ->
             Marker(
@@ -311,12 +355,16 @@ private fun GoogleMapBranch(
  * Phase 9-1: free OSM engine. MAPNIK tiles, multi-touch, marker at the
  * selected LatLng, camera recenters on selection. Lifecycle-aware with
  * onDetach() on dispose.
+ * Phase 9-2: tap-to-select via MapEventsOverlay. The overlay is recreated
+ * on every update block (never reused across recompositions) so its
+ * receiver always captures the latest onMapClick closure.
  */
 @Composable
 private fun OsmMapView(
     selectedLatLng: LatLng?,
     selectedName: String?,
     modifier: Modifier = Modifier,
+    onMapClick: (LatLng) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -350,6 +398,21 @@ private fun OsmMapView(
         factory = { mapView },
         modifier = modifier,
         update = { view ->
+            // CRITICAL OSM LESSON: recreate the events overlay every update —
+            // reusing one instance captures a stale onMapClick closure and
+            // taps get ignored.
+            view.overlays.removeAll { it is MapEventsOverlay }
+            val receiver = object : MapEventsReceiver {
+                override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                    p?.let { onMapClick(LatLng(it.latitude, it.longitude)) }
+                    return true
+                }
+
+                override fun longPressHelper(p: GeoPoint?): Boolean = false
+            }
+            view.overlays.add(0, MapEventsOverlay(receiver))
+
+            // Marker refresh: clear old markers, add the new one.
             val target = selectedLatLng?.let {
                 GeoPoint(it.latitude, it.longitude)
             } ?: DefaultCairoGeo

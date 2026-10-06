@@ -1,6 +1,13 @@
 package com.app.wasalna.ui.screens.map
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Address
+import android.location.Geocoder
+import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.BuildConfig
@@ -8,6 +15,7 @@ import com.app.wasalna.data.local.datastore.SettingsDataStore.MapEngines
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.Place
@@ -15,6 +23,8 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,20 +38,33 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
+import java.util.Locale
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Phase 4: destination search via Places Autocomplete + save via LocationRepository.
  * Phase 9-1: dual map engine — Free OSM default, Google Maps for premium.
- * Places autocomplete search is kept for both engines.
+ * Phase 9-2: map-click selection + GPS-based localized search (country filter)
+ * + reverse-geocoded address for tapped points.
  */
 @HiltViewModel
 class MapViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val placesClient: PlacesClient,
     private val locationRepository: LocationRepository,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
+
+    private val fusedClient by lazy {
+        LocationServices.getFusedLocationProviderClient(appContext)
+    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -54,6 +77,17 @@ class MapViewModel @Inject constructor(
 
     private val _selectedLatLng = MutableStateFlow<LatLng?>(null)
     val selectedLatLng: StateFlow<LatLng?> = _selectedLatLng.asStateFlow()
+
+    // Phase 9-2: human-readable address for the tapped/searched point.
+    // Shown in/above the search bar and above the Save FAB; used as the
+    // saved Location name for map taps.
+    private val _selectedAddress = MutableStateFlow<String?>(null)
+    val selectedAddress: StateFlow<String?> = _selectedAddress.asStateFlow()
+
+    // Phase 9-2: GPS-derived ISO country code (e.g. "EG"), detected once
+    // per session. Null = unknown/denied -> search runs unfiltered.
+    private val _countryCode = MutableStateFlow<String?>(null)
+    val countryCode: StateFlow<String?> = _countryCode.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
@@ -85,6 +119,7 @@ class MapViewModel @Inject constructor(
     val events: SharedFlow<String> = _events.asSharedFlow()
 
     private var fallbackNotifiedForGoogle = false
+    private var countryDetectStarted = false
 
     init {
         // Notify once if GOOGLE is preferred but no key is configured.
@@ -100,6 +135,8 @@ class MapViewModel @Inject constructor(
                 }
             }
         }
+        // Phase 9-2: detect country once per session for localized search.
+        detectCountryCode()
     }
 
     private var searchJob: Job? = null
@@ -117,13 +154,54 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Phase 9-2: GPS-based country detection, once per session.
+     * Guards on runtime location permission; when denied the country stays
+     * null and autocomplete search runs unfiltered.
+     */
+    fun detectCountryCode() {
+        if (countryDetectStarted) return
+        countryDetectStarted = true
+        viewModelScope.launch {
+            runCatching {
+                if (!hasLocationPermission()) {
+                    Log.w(TAG, "detectCountryCode: permission denied, search unfiltered")
+                    return@launch
+                }
+                val location = withContext(Dispatchers.IO) {
+                    withTimeoutOrNull(COUNTRY_LOC_TIMEOUT_MS) {
+                        runCatching { fusedClient.lastLocation.await() }.getOrNull()
+                    }
+                } ?: run {
+                    Log.w(TAG, "detectCountryCode: lastLocation null/timeout")
+                    return@launch
+                }
+                val code = withContext(Dispatchers.IO) {
+                    runCatching {
+                        getCountryCodeFromLocation(location.latitude, location.longitude)
+                    }.getOrNull()
+                }
+                if (!code.isNullOrBlank()) {
+                    _countryCode.value = code.uppercase(Locale.US)
+                    Log.i(TAG, "detectCountryCode: $code")
+                }
+            }.onFailure {
+                Log.e(TAG, "detectCountryCode failed: ${it.message}")
+            }
+        }
+    }
+
     fun searchPlaces(query: String) {
         viewModelScope.launch {
             runCatching {
-                val request = FindAutocompletePredictionsRequest.builder()
+                val builder = FindAutocompletePredictionsRequest.builder()
                     .setQuery(query)
-                    .build()
-                val response = placesClient.findAutocompletePredictions(request).await()
+                // Phase 9-2: localize predictions to the GPS country when known.
+                // Query text (Arabic/English) is passed through as-is.
+                _countryCode.value?.let { code ->
+                    builder.setCountries(listOf(code))
+                }
+                val response = placesClient.findAutocompletePredictions(builder.build()).await()
                 response.autocompletePredictions
             }.onSuccess { _predictions.value = it }
                 .onFailure {
@@ -141,6 +219,7 @@ class MapViewModel @Inject constructor(
                 placesClient.fetchPlace(request).await().place
             }.onSuccess { place ->
                 _selectedName.value = place.name
+                _selectedAddress.value = place.name
                 _selectedLatLng.value = place.latLng
                 _predictions.value = emptyList()
                 _searchQuery.value = place.name ?: _searchQuery.value
@@ -150,8 +229,99 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Phase 9-2: map tap entry point (Google onMapClick + OSM tap helper).
+     * Updates marker/camera source of truth, then reverse-geocodes the point
+     * into a short readable address used as the saved name.
+     */
+    fun onMapClicked(lat: Double, lng: Double) {
+        _selectedLatLng.value = LatLng(lat, lng)
+        _predictions.value = emptyList()
+        viewModelScope.launch {
+            val address = getAddressFromLatLng(lat, lng)
+            _selectedAddress.value = address
+            _selectedName.value = address
+            _searchQuery.value = address
+        }
+    }
+
+    /**
+     * Phase 9-2: reverse-geocode off the main thread.
+     * API 33+: async listener wrapped in suspendCancellableCoroutine.
+     * Older: blocking getFromLocation on Dispatchers.IO.
+     * Returns a short readable name, falling back to "lat,lng" on
+     * IOException or empty results.
+     */
+    suspend fun getAddressFromLatLng(lat: Double, lng: Double): String =
+        withContext(Dispatchers.IO) {
+            val fallback = "$lat,$lng"
+            try {
+                val geocoder = Geocoder(appContext, Locale.getDefault())
+                val addresses: List<Address>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    geocodeApi33(geocoder, lat, lng)
+                } else {
+                    @Suppress("DEPRECATION")
+                    runCatching { geocoder.getFromLocation(lat, lng, 1) }.getOrNull()
+                }
+                val first = addresses?.firstOrNull() ?: return@withContext fallback
+                first.subLocality
+                    ?: first.thoroughfare
+                    ?: first.locality
+                    ?: first.adminArea
+                    ?: fallback
+            } catch (e: IOException) {
+                Log.e(TAG, "getAddressFromLatLng IO failed: ${e.message}")
+                fallback
+            } catch (e: Exception) {
+                Log.e(TAG, "getAddressFromLatLng failed: ${e.message}")
+                fallback
+            }
+        }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            appContext, Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            appContext, Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    private suspend fun getCountryCodeFromLocation(lat: Double, lng: Double): String? {
+        val geocoder = Geocoder(appContext, Locale.getDefault())
+        val addresses: List<Address>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            geocodeApi33(geocoder, lat, lng)
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching { geocoder.getFromLocation(lat, lng, 1) }.getOrNull()
+        }
+        return addresses?.firstOrNull()?.countryCode
+    }
+
+    private suspend fun geocodeApi33(
+        geocoder: Geocoder,
+        lat: Double,
+        lng: Double,
+    ): List<Address>? = suspendCancellableCoroutine { cont ->
+        try {
+            geocoder.getFromLocation(lat, lng, 1, object : Geocoder.GeocodeListener {
+                override fun onGeocode(addresses: MutableList<Address>) {
+                    if (!cont.isCompleted) cont.resume(addresses.toList())
+                }
+
+                override fun onError(errorMessage: String?) {
+                    if (!cont.isCompleted) cont.resume(null)
+                }
+            })
+        } catch (e: Exception) {
+            if (!cont.isCompleted) cont.resumeWithException(e)
+        }
+    }
+
     fun clearSelection() {
         _selectedName.value = null
+        _selectedAddress.value = null
         _selectedLatLng.value = null
     }
 
@@ -210,6 +380,7 @@ class MapViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "MapViewModel"
+        private const val COUNTRY_LOC_TIMEOUT_MS = 8_000L
         const val MSG_GOOGLE_UNAVAILABLE = "Google Maps unavailable, using Free Maps"
         const val MSG_UPGRADE_FOR_GOOGLE = "Upgrade to First Class to use Google Maps"
     }
