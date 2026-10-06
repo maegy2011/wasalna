@@ -139,12 +139,27 @@ class MapViewModel @Inject constructor(
         detectCountryCode()
     }
 
+    // Phase 9-3-2-fix: surfaced search error for UI (Snackbar/error text).
+    // Null = no error. Set on Places failures (API key / billing issues).
+    private val _searchError = MutableStateFlow<String?>(null)
+    val searchError: StateFlow<String?> = _searchError.asStateFlow()
+
     private var searchJob: Job? = null
 
+    /**
+     * Phase 9-3-2-fix: trigger logic — queries shorter than 2 chars never
+     * hit the API (avoids empty/useless calls); an emptied query clears
+     * predictions immediately so the dropdown collapses.
+     */
     fun onQueryChange(query: String) {
         _searchQuery.value = query
         searchJob?.cancel()
         if (query.isBlank()) {
+            _predictions.value = emptyList()
+            _searchError.value = null
+            return
+        }
+        if (query.trim().length < 2) {
             _predictions.value = emptyList()
             return
         }
@@ -196,20 +211,26 @@ class MapViewModel @Inject constructor(
             runCatching {
                 val builder = FindAutocompletePredictionsRequest.builder()
                     .setQuery(query)
-                // Phase 9-2-fix: localize predictions to the GPS country ONLY
-                // when known (non-null AND non-empty). Otherwise fall back to
-                // global search so a slow/null detection never breaks search.
-                val code = _countryCode.value
-                if (!code.isNullOrBlank()) {
-                    builder.setCountries(listOf(code))
-                }
+                // Phase 9-3-2-fix: country restriction REMOVED entirely —
+                // global search restored to verify the Places API works and
+                // rule out the GPS country code as the request breaker.
+                // (GPS detection still runs for future use; it just no longer
+                // filters requests.)
+                // .setCountries(...) — disabled, see above.
                 val response = placesClient.findAutocompletePredictions(builder.build()).await()
                 response.autocompletePredictions
-            }.onSuccess { _predictions.value = it }
-                .onFailure {
-                    Log.e(TAG, "Autocomplete failed: ${it.message}")
-                    _predictions.value = emptyList()
-                }
+            }.onSuccess {
+                _predictions.value = it
+                _searchError.value = null
+            }.onFailure { e ->
+                // Phase 9-3-2-fix: explicit Logcat + surfaced UI error so
+                // API key / billing denials (e.g. PLACES_API_ACCESS_DENIED)
+                // are visible instead of failing silently.
+                Log.e("PlacesAPI", "Search failed: ${e.message}")
+                Log.e(TAG, "Autocomplete failed: ${e.message}")
+                _predictions.value = emptyList()
+                _searchError.value = "Search failed: Check API Key or Billing"
+            }
         }
     }
 

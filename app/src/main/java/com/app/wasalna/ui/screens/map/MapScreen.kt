@@ -91,6 +91,7 @@ fun MapScreen(
     val selectedName by viewModel.selectedName.collectAsState()
     val selectedAddress by viewModel.selectedAddress.collectAsState()
     val selectedLatLng by viewModel.selectedLatLng.collectAsState()
+    val searchError by viewModel.searchError.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     val activeEngine by viewModel.activeMapEngine.collectAsState()
@@ -282,6 +283,17 @@ fun MapScreen(
                 },
             )
 
+            // Phase 9-3-2-fix: surfaced Places error (API key / billing /
+            // ACCESS_DENIED) shown right below the search bar for debugging.
+            // The results list stays visible ONLY when predictions exist.
+            searchError?.let { err ->
+                Text(
+                    text = err,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                )
+            }
             // Phase 9-3-1-fix: results dropdown floats ABOVE the map — solid
             // surface background + 8.dp elevation + scrollable heightIn(350.dp)
             // so 5+ results show comfortably without covering the screen.
