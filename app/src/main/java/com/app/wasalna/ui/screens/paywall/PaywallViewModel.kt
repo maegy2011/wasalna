@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingResult
-import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.app.wasalna.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,9 +44,7 @@ class PaywallViewModel @Inject constructor(
         try {
             val client = BillingClient.newBuilder(activity)
                 .setListener { _, _ -> /* purchases updated: mock mode */ }
-                .enablePendingPurchases(
-                    PendingPurchasesParams.newBuilder().enableOneTimeProducts().build(),
-                )
+                .enablePendingPurchases()
                 .build()
             billingClient = client
             client.startConnection(
