@@ -102,6 +102,8 @@ dependencies {
     // Phase 8: Monetization — AdMob + Play Billing
     implementation(libs.play.services.ads)
     implementation(libs.billing.ktx)
+    // Phase 9-1: Free map engine (OpenStreetMap via osmdroid)
+    implementation(libs.osmdroid.android)
 
     debugImplementation(libs.compose.ui.tooling)
 }

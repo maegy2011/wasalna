@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import com.app.wasalna.BuildConfig
 import com.google.android.gms.ads.MobileAds
+import org.osmdroid.config.Configuration
 import com.google.android.libraries.places.api.Places
 import dagger.hilt.android.HiltAndroidApp
 
@@ -12,6 +13,13 @@ class WasalnaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Phase 9-1: osmdroid user-agent (required by OSM tile usage policy).
+        try {
+            Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
+            Log.i(TAG, "osmdroid user-agent set")
+        } catch (e: Exception) {
+            Log.e(TAG, "osmdroid config failed: ${e.message}")
+        }
         // Phase 8: initialize AdMob once (test App ID in manifest).
         try {
             MobileAds.initialize(this) {}

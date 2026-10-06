@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,10 @@ class SettingsDataStore @Inject constructor(
     val isSilentAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.SILENT_ALARM_ENABLED] ?: false }
 
+    // Phase 9-1: preferred map engine ("OSM" free default, "GOOGLE" premium).
+    val preferredMapEngine: Flow<String> =
+        dataStore.data.map { it[Keys.PREFERRED_MAP_ENGINE] ?: MapEngines.OSM }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -60,11 +65,23 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.SILENT_ALARM_ENABLED] = enabled }
     }
 
+    suspend fun setPreferredMapEngine(engine: String) {
+        val normalized = if (engine == MapEngines.GOOGLE) MapEngines.GOOGLE else MapEngines.OSM
+        dataStore.edit { it[Keys.PREFERRED_MAP_ENGINE] = normalized }
+    }
+
+    /** Phase 9-1: canonical map-engine values. */
+    object MapEngines {
+        const val OSM = "OSM"
+        const val GOOGLE = "GOOGLE"
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("is_onboarding_completed")
         val ELDERLY_MODE = booleanPreferencesKey("is_elderly_mode")
         val ALARM_LEAD_TIME_MINUTES = intPreferencesKey("alarm_lead_time_minutes")
         val PREMIUM = booleanPreferencesKey("is_premium")
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
+        val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
     }
 }

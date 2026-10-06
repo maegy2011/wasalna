@@ -28,3 +28,7 @@
 # R8 full-mode: Places shades gRPC — missing provider is reflective-only
 -dontwarn io.grpc.**
 -dontwarn com.google.common.**
+
+# Phase 9-1: osmdroid (Free OSM map engine)
+-keep class org.osmdroid.** { *; }
+-dontwarn org.osmdroid.**

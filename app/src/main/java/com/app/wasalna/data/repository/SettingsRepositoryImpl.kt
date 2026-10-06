@@ -26,6 +26,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isSilentAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isSilentAlarmEnabled
 
+    override val preferredMapEngine: Flow<String>
+        get() = settingsDataStore.preferredMapEngine
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -44,5 +47,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setSilentAlarmEnabled(enabled: Boolean) {
         settingsDataStore.setSilentAlarmEnabled(enabled)
+    }
+
+    override suspend fun setPreferredMapEngine(engine: String) {
+        settingsDataStore.setPreferredMapEngine(engine)
     }
 }

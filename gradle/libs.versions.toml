@@ -17,6 +17,7 @@ coroutinesPlayServices = "1.8.1"
 playServicesLocation = "21.3.0"
 playServicesAds = "23.0.0"
 billingKtx = "6.2.1"
+osmdroid = "6.1.18"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -45,6 +46,7 @@ coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
 billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billingKtx" }
+osmdroid-android = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

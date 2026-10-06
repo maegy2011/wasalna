@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Phase 1: permissions declared only, NOT requested at runtime yet -->
+    <!-- Phase 9-1: INTERNET + network state required by the free OSM tile engine. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />

@@ -14,6 +14,8 @@ interface SettingsRepository {
 
     val isSilentAlarmEnabled: Flow<Boolean>
 
+    val preferredMapEngine: Flow<String>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -23,4 +25,6 @@ interface SettingsRepository {
     suspend fun setPremium(premium: Boolean)
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
+
+    suspend fun setPreferredMapEngine(engine: String)
 }
