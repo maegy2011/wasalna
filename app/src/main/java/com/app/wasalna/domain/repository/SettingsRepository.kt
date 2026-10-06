@@ -12,6 +12,8 @@ interface SettingsRepository {
 
     val isPremium: Flow<Boolean>
 
+    val isSilentAlarmEnabled: Flow<Boolean>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -19,4 +21,6 @@ interface SettingsRepository {
     suspend fun setAlarmLeadTimeMinutes(minutes: Int)
 
     suspend fun setPremium(premium: Boolean)
+
+    suspend fun setSilentAlarmEnabled(enabled: Boolean)
 }

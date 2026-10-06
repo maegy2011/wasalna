@@ -2,6 +2,7 @@ package com.app.wasalna.data.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,6 +21,8 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Phase 5: background location engine (foreground service, type `location`).
@@ -57,6 +60,21 @@ class TrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            Log.i(TAG, "onStartCommand: STOP from notification")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "stopForeground: ${e.message}")
+            }
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action != ACTION_START) {
             Log.w(TAG, "onStartCommand: unknown action, stopping")
             stopSelf(startId)
@@ -70,12 +88,23 @@ class TrackingService : Service() {
             return START_NOT_STICKY
         }
 
+        val stopPending = PendingIntent.getService(
+            this,
+            0,
+            Intent(this, TrackingService::class.java).apply { action = ACTION_STOP },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Wasalna alarm active")
             .setContentText("Alarm is active... Sleep tight!")
             .setSmallIcon(android.R.drawable.ic_dialog_map)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                getString(com.app.wasalna.R.string.tracking_stop),
+                stopPending,
+            )
             .build()
 
         // API 29+ requires the FGS type at startForeground time.
@@ -117,21 +146,41 @@ class TrackingService : Service() {
 
         if (distanceM <= TRIGGER_RADIUS_METERS) {
             Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng")
-            // Phase 6: fire the full-screen alarm (works over the lock screen
-            // via showWhenLocked/turnScreenOn, no overlay permission needed).
-            val alarmIntent = Intent(
-                this,
-                com.app.wasalna.ui.screens.alarm.AlarmActivity::class.java,
-            ).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            }
-            if (!android.provider.Settings.canDrawOverlays(this)) {
-                Log.w(TAG, "DESTINATION_REACHED: overlay permission missing, trying Activity anyway")
-            }
-            try {
-                startActivity(alarmIntent)
-            } catch (e: Exception) {
-                Log.e(TAG, "DESTINATION_REACHED: AlarmActivity launch failed: ${e.message}")
+            val prefs = com.app.wasalna.data.local.datastore.SettingsDataStore(
+                applicationContext,
+            )
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                val silent = try {
+                    prefs.isSilentAlarmEnabled.first()
+                } catch (e: Exception) {
+                    Log.w(TAG, "silent read failed: ${e.message}")
+                    false
+                }
+                val premium = try {
+                    prefs.isPremium.first()
+                } catch (e: Exception) {
+                    Log.w(TAG, "premium read failed: ${e.message}")
+                    false
+                }
+                val alarmIntent = Intent(
+                    this@TrackingService,
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity::class.java,
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra(
+                        com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_SILENT,
+                        silent,
+                    )
+                    putExtra(
+                        com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_PREMIUM,
+                        premium,
+                    )
+                }
+                try {
+                    startActivity(alarmIntent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "AlarmActivity launch failed: ${e.message}")
+                }
             }
             sendBroadcast(
                 Intent(ACTION_DESTINATION_REACHED).setPackage(packageName),
@@ -215,6 +264,7 @@ class TrackingService : Service() {
         private const val TAG = "TrackingService"
 
         const val ACTION_START = "com.app.wasalna.action.START_TRACKING"
+        const val ACTION_STOP = "com.app.wasalna.action.STOP_TRACKING"
         const val EXTRA_LAT = "targetLat"
         const val EXTRA_LNG = "targetLng"
 

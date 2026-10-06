@@ -23,6 +23,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isPremium: Flow<Boolean>
         get() = settingsDataStore.isPremium
 
+    override val isSilentAlarmEnabled: Flow<Boolean>
+        get() = settingsDataStore.isSilentAlarmEnabled
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -37,5 +40,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setPremium(premium: Boolean) {
         settingsDataStore.setPremium(premium)
+    }
+
+    override suspend fun setSilentAlarmEnabled(enabled: Boolean) {
+        settingsDataStore.setSilentAlarmEnabled(enabled)
     }
 }

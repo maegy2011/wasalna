@@ -22,8 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.app.wasalna.R
 
 /**
  * Phase 7: Settings — Material3 switches bound to DataStore.
@@ -37,6 +39,8 @@ fun SettingsScreen(
 ) {
     val elderlyMode by viewModel.elderlyMode.collectAsState()
     val leadTime by viewModel.leadTimeMinutes.collectAsState()
+    val isPremium by viewModel.isPremium.collectAsState()
+    val silentAlarm by viewModel.silentAlarm.collectAsState()
 
     // DND override has no DataStore field — visual toggle only for now.
     var dndOverride by remember { mutableStateOf(false) }
@@ -48,7 +52,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = "Settings",
+            text = stringResource(R.string.settings_title),
             style = MaterialTheme.typography.headlineSmall,
         )
 
@@ -65,11 +69,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Elderly Mode",
+                        text = stringResource(R.string.settings_elderly_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Larger text and touch targets",
+                        text = stringResource(R.string.settings_elderly_sub),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -93,17 +97,50 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Force Alarm DND Override",
+                        text = stringResource(R.string.settings_dnd_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Ring even in Do Not Disturb (visual toggle)",
+                        text = stringResource(R.string.settings_dnd_sub),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Switch(
                     checked = dndOverride,
                     onCheckedChange = { dndOverride = it },
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_silent_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = if (isPremium) {
+                            stringResource(R.string.settings_silent_sub)
+                        } else {
+                            stringResource(R.string.settings_silent_locked)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = silentAlarm && isPremium,
+                    enabled = isPremium,
+                    onCheckedChange = viewModel::setSilentAlarm,
                 )
             }
         }

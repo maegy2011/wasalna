@@ -37,6 +37,9 @@ class SettingsDataStore @Inject constructor(
     val isPremium: Flow<Boolean> =
         dataStore.data.map { it[Keys.PREMIUM] ?: false }
 
+    val isSilentAlarmEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.SILENT_ALARM_ENABLED] ?: false }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -53,10 +56,15 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.PREMIUM] = premium }
     }
 
+    suspend fun setSilentAlarmEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.SILENT_ALARM_ENABLED] = enabled }
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("is_onboarding_completed")
         val ELDERLY_MODE = booleanPreferencesKey("is_elderly_mode")
         val ALARM_LEAD_TIME_MINUTES = intPreferencesKey("alarm_lead_time_minutes")
         val PREMIUM = booleanPreferencesKey("is_premium")
+        val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
     }
 }
