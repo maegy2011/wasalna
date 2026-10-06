@@ -8,9 +8,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -33,8 +40,10 @@ import com.app.wasalna.R
  * - Force Alarm DND Override → local visual toggle only (no DataStore field yet).
  * - Alarm Lead Time → slider 1..30 min, default 5.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onBack: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val elderlyMode by viewModel.elderlyMode.collectAsState()
@@ -45,17 +54,25 @@ fun SettingsScreen(
     // DND override has no DataStore field — visual toggle only for now.
     var dndOverride by remember { mutableStateOf(false) }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -178,5 +195,6 @@ fun SettingsScreen(
                 )
             }
         }
+    }
     }
 }

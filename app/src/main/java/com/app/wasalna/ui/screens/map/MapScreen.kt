@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lock
@@ -79,6 +80,7 @@ private val DefaultCairoGeo = GeoPoint(30.0444, 31.2357)
 fun MapScreen(
     viewModel: MapViewModel = hiltViewModel(),
     onSaved: () -> Unit = {},
+    onBack: () -> Unit = {},
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
@@ -116,6 +118,16 @@ fun MapScreen(
     val addressLine: String? = selectedAddress ?: selectedName
 
     Scaffold(
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { Text("Pick Destination") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             // Enabled only when a destination is selected (hidden otherwise).

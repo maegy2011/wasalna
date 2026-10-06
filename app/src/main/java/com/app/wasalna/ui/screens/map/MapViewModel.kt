@@ -196,9 +196,11 @@ class MapViewModel @Inject constructor(
             runCatching {
                 val builder = FindAutocompletePredictionsRequest.builder()
                     .setQuery(query)
-                // Phase 9-2: localize predictions to the GPS country when known.
-                // Query text (Arabic/English) is passed through as-is.
-                _countryCode.value?.let { code ->
+                // Phase 9-2-fix: localize predictions to the GPS country ONLY
+                // when known (non-null AND non-empty). Otherwise fall back to
+                // global search so a slow/null detection never breaks search.
+                val code = _countryCode.value
+                if (!code.isNullOrBlank()) {
                     builder.setCountries(listOf(code))
                 }
                 val response = placesClient.findAutocompletePredictions(builder.build()).await()
@@ -254,7 +256,10 @@ class MapViewModel @Inject constructor(
      */
     suspend fun getAddressFromLatLng(lat: Double, lng: Double): String =
         withContext(Dispatchers.IO) {
-            val fallback = "$lat,$lng"
+            // Phase 9-2-fix: friendly fallback when Geocoder fails
+            // (network issue / no address found) — never crash, never blank.
+            val fallback =
+                "Selected Location (${lat.toString().take(5)}, ${lng.toString().take(5)})"
             try {
                 val geocoder = Geocoder(appContext, Locale.getDefault())
                 val addresses: List<Address>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

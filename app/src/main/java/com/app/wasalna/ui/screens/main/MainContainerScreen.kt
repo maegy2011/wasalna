@@ -11,16 +11,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -30,7 +27,6 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,18 +45,22 @@ import com.app.wasalna.ui.navigation.Screen
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
 import com.app.wasalna.ui.screens.home.HomeScreen
 import com.app.wasalna.ui.screens.map.MapScreen
+import com.app.wasalna.ui.screens.myplaces.MyPlacesScreen
 import com.app.wasalna.ui.screens.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
 /**
- * Phase 7: Main container — drawer + bottom navigation + inner NavHost.
+ * Phase 9-2-fix: Main container — drawer + bottom navigation + inner NavHost.
  *
- * - Drawer: header (logo/name + plan) + Settings / Share / Rate / Contact.
- * - Bottom bar: Home, My Places (map), First Class (paywall).
+ * - NO shared TopAppBar (removed to fix duplicated headers): each screen
+ *   (Home / My Places / First Class / Settings / Map) owns its own header.
+ * - Bottom bar: Home → HomeScreen, My Places → MyPlacesScreen,
+ *   First Class → PaywallScreen.
+ * - MapScreen is NO LONGER a bottom tab — full-screen destination reached
+ *   via the "Add" buttons (Home FABCTA / MyPlaces FAB).
  * - Inner NavHost keeps tab state via launchSingleTop + restoreState/saveState.
  * - Settings lives in the inner graph (drawer entry, hidden from bottom bar).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainContainerScreen() {
     val innerNav = rememberNavController()
@@ -77,12 +77,8 @@ fun MainContainerScreen() {
     fun openDrawer() = scope.launch { drawerState.open() }
     fun closeDrawer() = scope.launch { drawerState.close() }
 
-    val topTitle = when {
-        isSelected(Screen.Map.route) -> "My Places"
-        isSelected(Screen.Paywall.route) -> "First Class"
-        isSelected(Screen.Settings.route) -> "Settings"
-        else -> "Wasalna"
-    }
+    // Bottom bar is hidden on the full-screen Map destination.
+    val showBottomBar = !isSelected(Screen.Map.route)
 
     fun navigateTab(route: String) {
         innerNav.navigate(route) {
@@ -91,6 +87,12 @@ fun MainContainerScreen() {
             }
             launchSingleTop = true
             restoreState = true
+        }
+    }
+
+    fun openMapFullScreen() {
+        innerNav.navigate(Screen.Map.route) {
+            launchSingleTop = true
         }
     }
 
@@ -178,36 +180,28 @@ fun MainContainerScreen() {
         },
     ) {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(topTitle) },
-                    navigationIcon = {
-                        IconButton(onClick = { openDrawer() }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Open menu")
-                        }
-                    },
-                )
-            },
             bottomBar = {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = isSelected(Screen.Home.route),
-                        onClick = { navigateTab(Screen.Home.route) },
-                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                        label = { Text("Home") },
-                    )
-                    NavigationBarItem(
-                        selected = isSelected(Screen.Map.route),
-                        onClick = { navigateTab(Screen.Map.route) },
-                        icon = { Icon(Icons.Filled.Place, contentDescription = null) },
-                        label = { Text("My Places") },
-                    )
-                    NavigationBarItem(
-                        selected = isSelected(Screen.Paywall.route),
-                        onClick = { navigateTab(Screen.Paywall.route) },
-                        icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
-                        label = { Text("First Class") },
-                    )
+                if (showBottomBar) {
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = isSelected(Screen.Home.route),
+                            onClick = { navigateTab(Screen.Home.route) },
+                            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                            label = { Text("Home") },
+                        )
+                        NavigationBarItem(
+                            selected = isSelected(Screen.MyPlaces.route),
+                            onClick = { navigateTab(Screen.MyPlaces.route) },
+                            icon = { Icon(Icons.Filled.Place, contentDescription = null) },
+                            label = { Text("My Places") },
+                        )
+                        NavigationBarItem(
+                            selected = isSelected(Screen.Paywall.route),
+                            onClick = { navigateTab(Screen.Paywall.route) },
+                            icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
+                            label = { Text("First Class") },
+                        )
+                    }
                 }
             },
         ) { padding ->
@@ -221,20 +215,29 @@ fun MainContainerScreen() {
                 composable(Screen.Home.route) {
                     HomeScreen(
                         onMenuClick = { openDrawer() },
-                        onOpenMap = { navigateTab(Screen.Map.route) },
-                        onOpenSettings = { navigateTab(Screen.Settings.route) },
+                        onOpenMap = { openMapFullScreen() },
                         onOpenPaywall = { navigateTab(Screen.Paywall.route) },
+                        viewModel = hiltViewModel(),
+                    )
+                }
+                composable(Screen.MyPlaces.route) {
+                    MyPlacesScreen(
+                        onMenuClick = { openDrawer() },
+                        onAddDestination = { openMapFullScreen() },
                         viewModel = hiltViewModel(),
                     )
                 }
                 composable(Screen.Map.route) {
                     MapScreen(
                         viewModel = hiltViewModel(),
-                        onSaved = { navigateTab(Screen.Home.route) },
+                        onSaved = { navigateTab(Screen.MyPlaces.route) },
+                        onBack = { navigateTab(Screen.MyPlaces.route) },
                     )
                 }
-                composable(Screen.Paywall.route) { PaywallScreen() }
-                composable(Screen.Settings.route) { SettingsScreen() }
+                composable(Screen.Paywall.route) { PaywallScreen(onMenuClick = { openDrawer() }) }
+                composable(Screen.Settings.route) {
+                    SettingsScreen(onBack = { navigateTab(Screen.Home.route) })
+                }
             }
         }
     }

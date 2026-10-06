@@ -13,13 +13,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Diamond
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,8 +42,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 /**
  * Phase 8: First Class paywall — beautiful mock with 3-day free trial.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaywallScreen(
+    onMenuClick: () -> Unit = {},
     viewModel: PaywallViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -49,9 +56,22 @@ fun PaywallScreen(
         (context as? Activity)?.let { viewModel.initBilling(it) }
     }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("First Class") },
+                navigationIcon = {
+                    IconButton(onClick = onMenuClick) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                    }
+                },
+            )
+        },
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(padding)
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -119,6 +139,7 @@ fun PaywallScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
     }
 }
 
