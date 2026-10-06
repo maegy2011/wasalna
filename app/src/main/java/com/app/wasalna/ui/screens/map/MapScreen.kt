@@ -61,15 +61,21 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker as OsmMarker
+import org.maplibre.android.camera.CameraPosition as MapLibreCameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory as MapLibreCameraUpdateFactory
+import org.maplibre.android.geometry.LatLng as MapLibreLatLng
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.plugins.annotation.SymbolManager
+import org.maplibre.android.plugins.annotation.SymbolOptions
 
 private val DefaultCairo = LatLng(30.0444, 31.2357)
-private val DefaultCairoGeo = GeoPoint(30.0444, 31.2357)
+private val DefaultCairoLibre = MapLibreLatLng(30.0444, 31.2357)
+
+/** Phase 10-1: free vector style — Google-like tiles, no API key. */
+private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
+private const val MARKER_IMAGE_ID = "wasalna-marker"
 
 /**
  * Phase 4: destination picker — search at top, predictions dropdown,
@@ -185,9 +191,8 @@ fun MapScreen(
                         },
                     )
                 } else {
-                    OsmMapView(
+                    MapLibreMapView(
                         selectedLatLng = selectedLatLng,
-                        selectedName = addressLine,
                         modifier = Modifier.fillMaxSize(),
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
@@ -380,9 +385,8 @@ private fun GoogleMapBranch(
     }
 
     if (googleFailed) {
-        OsmMapView(
+        MapLibreMapView(
             selectedLatLng = selectedLatLng,
-            selectedName = selectedName,
             modifier = Modifier.fillMaxSize(),
             onMapClick = onMapClick,
         )
@@ -412,80 +416,122 @@ private fun GoogleMapBranch(
 }
 
 /**
- * Phase 9-1: free OSM engine. MAPNIK tiles, multi-touch, marker at the
- * selected LatLng, camera recenters on selection. Lifecycle-aware with
- * onDetach() on dispose.
- * Phase 9-2: tap-to-select via MapEventsOverlay. The overlay is recreated
- * on every update block (never reused across recompositions) so its
- * receiver always captures the latest onMapClick closure.
+ * Phase 10-1: free MapLibre engine (OpenFreeMap vector tiles).
+ * Hosted in AndroidView with full lifecycle handling; marker via the
+ * annotation plugin's SymbolManager; taps forward to onMapClick.
+ * Search + Nominatim reverse-geocode logic is untouched (ViewModel).
  */
 @Composable
-private fun OsmMapView(
+private fun MapLibreMapView(
     selectedLatLng: LatLng?,
-    selectedName: String?,
     modifier: Modifier = Modifier,
     onMapClick: (LatLng) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
+    var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
+    var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
+    var lastCameraTarget by remember { mutableStateOf<MapLibreLatLng?>(null) }
+
     val mapView = remember(context) {
-        MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            controller.setZoom(12.0)
-            controller.setCenter(DefaultCairoGeo)
+        MapView(context).apply { onCreate(null) }
+    }
+
+    fun refreshMarker(target: LatLng?) {
+        val manager = symbolManager ?: return
+        runCatching {
+            manager.deleteAll()
+            target?.let {
+                manager.create(
+                    SymbolOptions()
+                        .withLatLng(MapLibreLatLng(it.latitude, it.longitude))
+                        .withIconImage(MARKER_IMAGE_ID),
+                )
+            }
+        }
+    }
+
+    fun moveCameraIfChanged(map: MapLibreMap, target: MapLibreLatLng, zoom: Double) {
+        if (lastCameraTarget != target) {
+            lastCameraTarget = target
+            runCatching {
+                map.animateCamera(
+                    MapLibreCameraUpdateFactory.newLatLngZoom(target, zoom),
+                    600,
+                )
+            }
         }
     }
 
     DisposableEffect(lifecycle, mapView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
                 Lifecycle.Event.ON_RESUME -> mapView.onResume()
                 Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDetach()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
                 else -> Unit
             }
         }
         lifecycle.addObserver(observer)
+        mapView.getMapAsync { map ->
+            mapRef = map
+            map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE)) { style ->
+                runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
+                symbolManager = SymbolManager(mapView, map, style).apply {
+                    iconAllowOverlap = true
+                }
+                refreshMarker(selectedLatLng)
+                val initial = selectedLatLng?.let {
+                    MapLibreLatLng(it.latitude, it.longitude)
+                } ?: DefaultCairoLibre
+                map.cameraPosition = MapLibreCameraPosition.Builder()
+                    .target(initial)
+                    .zoom(if (selectedLatLng != null) 15.0 else 12.0)
+                    .build()
+                lastCameraTarget = initial
+            }
+            map.addOnMapClickListener { point ->
+                onMapClick(LatLng(point.latitude, point.longitude))
+                true
+            }
+        }
         onDispose {
             lifecycle.removeObserver(observer)
-            mapView.onDetach()
+            runCatching { mapView.onDestroy() }
         }
     }
 
     AndroidView(
         factory = { mapView },
         modifier = modifier,
-        update = { view ->
-            // CRITICAL OSM LESSON: recreate the events overlay every update —
-            // reusing one instance captures a stale onMapClick closure and
-            // taps get ignored.
-            view.overlays.removeAll { it is MapEventsOverlay }
-            val receiver = object : MapEventsReceiver {
-                override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                    p?.let { onMapClick(LatLng(it.latitude, it.longitude)) }
-                    return true
-                }
-
-                override fun longPressHelper(p: GeoPoint?): Boolean = false
-            }
-            view.overlays.add(0, MapEventsOverlay(receiver))
-
-            // Marker refresh: clear old markers, add the new one.
+        update = {
+            val map = mapRef ?: return@AndroidView
+            refreshMarker(selectedLatLng)
             val target = selectedLatLng?.let {
-                GeoPoint(it.latitude, it.longitude)
-            } ?: DefaultCairoGeo
-            view.overlays.removeAll { it is OsmMarker }
-            val marker = OsmMarker(view).apply {
-                position = target
-                title = selectedName
-                setAnchor(OsmMarker.ANCHOR_CENTER, OsmMarker.ANCHOR_BOTTOM)
-            }
-            view.overlays.add(marker)
-            view.controller.setZoom(if (selectedLatLng != null) 15.0 else 12.0)
-            view.controller.setCenter(target)
-            view.invalidate()
+                MapLibreLatLng(it.latitude, it.longitude)
+            } ?: DefaultCairoLibre
+            moveCameraIfChanged(map, target, if (selectedLatLng != null) 15.0 else 12.0)
         },
     )
+}
+
+/** Programmatic pin bitmap (red dot, white core) — no drawable resource needed. */
+private fun makeMarkerBitmap(): android.graphics.Bitmap {
+    val size = 96
+    val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val outer = android.graphics.Paint().apply {
+        color = android.graphics.Color.parseColor("#D32F2F")
+        isAntiAlias = true
+    }
+    val inner = android.graphics.Paint().apply {
+        color = android.graphics.Color.WHITE
+        isAntiAlias = true
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4f, outer)
+    canvas.drawCircle(size / 2f, size / 2f, size / 5f, inner)
+    return bmp
 }

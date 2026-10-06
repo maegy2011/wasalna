@@ -42,6 +42,8 @@ class SettingsDataStore @Inject constructor(
         dataStore.data.map { it[Keys.SILENT_ALARM_ENABLED] ?: false }
 
     // Phase 9-1: preferred map engine ("OSM" free default, "GOOGLE" premium).
+    // Phase 10-1: "OSM" is now rendered by MapLibre + OpenFreeMap (value kept
+    // for DataStore compatibility — no migration needed).
     val preferredMapEngine: Flow<String> =
         dataStore.data.map { it[Keys.PREFERRED_MAP_ENGINE] ?: MapEngines.OSM }
 

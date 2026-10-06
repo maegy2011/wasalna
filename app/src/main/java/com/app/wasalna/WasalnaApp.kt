@@ -4,8 +4,8 @@ import android.app.Application
 import android.util.Log
 import com.app.wasalna.BuildConfig
 import com.google.android.gms.ads.MobileAds
-import org.osmdroid.config.Configuration
 import com.google.android.libraries.places.api.Places
+import org.maplibre.android.MapLibre
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
@@ -13,12 +13,12 @@ class WasalnaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Phase 9-1: osmdroid user-agent (required by OSM tile usage policy).
+        // Phase 10-1: MapLibre global init (required before any MapView).
         try {
-            Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
-            Log.i(TAG, "osmdroid user-agent set")
+            MapLibre.getInstance(this)
+            Log.i(TAG, "MapLibre initialized")
         } catch (e: Exception) {
-            Log.e(TAG, "osmdroid config failed: ${e.message}")
+            Log.e(TAG, "MapLibre init failed: ${e.message}")
         }
         // Phase 8: initialize AdMob once (test App ID in manifest).
         try {

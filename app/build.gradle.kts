@@ -30,8 +30,8 @@ android {
         targetSdk = 36
         // Versioning pattern (Wasalna): versionName = "<phase>" (e.g. 9.3.1
         // for Phase 9-3-1-fix), versionCode +1 on EVERY published APK build.
-        versionCode = 4
-        versionName = "9.3.3"
+        versionCode = 5
+        versionName = "10.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -104,8 +104,9 @@ dependencies {
     // Phase 8: Monetization — AdMob + Play Billing
     implementation(libs.play.services.ads)
     implementation(libs.billing.ktx)
-    // Phase 9-1: Free map engine (OpenStreetMap via osmdroid)
-    implementation(libs.osmdroid.android)
+    // Phase 10-1: Free map engine (MapLibre + OpenFreeMap vector tiles).
+    implementation(libs.maplibre.sdk)
+    implementation(libs.maplibre.annotation)
     // Phase 9-3-1-fix-1: Nominatim HTTP client (free search, decoupled from Google).
     implementation(libs.okhttp)
 
