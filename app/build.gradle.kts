@@ -28,8 +28,10 @@ android {
         applicationId = "com.app.wasalna"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0-phase1"
+        // Versioning pattern (Wasalna): versionName = "<phase>" (e.g. 9.3.1
+        // for Phase 9-3-1-fix), versionCode +1 on EVERY published APK build.
+        versionCode = 2
+        versionName = "9.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
