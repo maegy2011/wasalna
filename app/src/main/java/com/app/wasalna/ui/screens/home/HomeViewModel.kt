@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.repository.LocationRepository
+import com.app.wasalna.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,17 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
+
+    // Phase 8: premium gates ads + freemium location limit.
+    val isPremium: StateFlow<Boolean> =
+        settingsRepository.isPremium
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = false,
+            )
 
     val locations: StateFlow<List<Location>> =
         locationRepository.getAllLocations()

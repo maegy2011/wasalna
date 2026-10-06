@@ -52,16 +52,14 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.domain.model.Location
+import com.app.wasalna.ui.ads.AdBanner
+import com.app.wasalna.ui.ads.InterstitialHelper
 import kotlinx.coroutines.launch
 
 /**
- * Phase 7: Home — polished welcome + large saved-location cards.
- *
- * - TopAppBar with hamburger ([onMenuClick]) — drawer opens from MainContainer.
- * - Welcome header "Where are we going today?".
- * - Saved locations as large Cards with name + Activate Alarm button.
- * - Empty state: "No places saved yet. Let's add one!".
- * - FAB navigates to Map tab.
+ * Phase 8: Home + Monetization.
+ * - Banner ad above bottom (only when !premium).
+ * - FAB: freemium gate (2 places max) + interstitial for free users.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,6 +72,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val locations by viewModel.locations.collectAsState()
+    val isPremium by viewModel.isPremium.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var trackingName by remember { mutableStateOf<String?>(null) }
@@ -99,6 +98,31 @@ fun HomeScreen(
         onDispose { context.unregisterReceiver(receiver) }
     }
 
+    fun handleAddDestination() {
+        // Phase 8 freemium: free plan allows 2 places max.
+        if (!isPremium && locations.size >= 2) {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    "Free plan allows 2 places. Upgrade to First Class!",
+                )
+            }
+            Toast.makeText(
+                context,
+                "Free plan allows 2 places. Upgrade to First Class!",
+                Toast.LENGTH_LONG,
+            ).show()
+            onOpenPaywall()
+            return
+        }
+        if (!isPremium) {
+            InterstitialHelper.showInterstitial(context) {
+                onOpenMap()
+            }
+        } else {
+            onOpenMap()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -112,8 +136,14 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onOpenMap) {
+            FloatingActionButton(onClick = { handleAddDestination() }) {
                 Icon(Icons.Filled.Add, contentDescription = "Add destination")
+            }
+        },
+        bottomBar = {
+            // Phase 8: banner above BottomAppBar (BottomAppBar lives in MainContainer).
+            if (!isPremium) {
+                AdBanner()
             }
         },
     ) { padding ->

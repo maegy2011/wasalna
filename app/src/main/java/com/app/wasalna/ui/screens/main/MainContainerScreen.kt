@@ -46,7 +46,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.ui.navigation.Screen
-import com.app.wasalna.ui.screens.PaywallScreen
+import com.app.wasalna.ui.screens.paywall.PaywallScreen
 import com.app.wasalna.ui.screens.home.HomeScreen
 import com.app.wasalna.ui.screens.map.MapScreen
 import com.app.wasalna.ui.screens.settings.SettingsScreen

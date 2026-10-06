@@ -99,6 +99,9 @@ dependencies {
     implementation(libs.coroutines.play.services)
     // Phase 5: background location engine (FusedLocationProviderClient)
     implementation(libs.play.services.location)
+    // Phase 8: Monetization — AdMob + Play Billing
+    implementation(libs.play.services.ads)
+    implementation(libs.billing.ktx)
 
     debugImplementation(libs.compose.ui.tooling)
 }

@@ -3,6 +3,7 @@ package com.app.wasalna
 import android.app.Application
 import android.util.Log
 import com.app.wasalna.BuildConfig
+import com.google.android.gms.ads.MobileAds
 import com.google.android.libraries.places.api.Places
 import dagger.hilt.android.HiltAndroidApp
 
@@ -11,6 +12,13 @@ class WasalnaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Phase 8: initialize AdMob once (test App ID in manifest).
+        try {
+            MobileAds.initialize(this) {}
+            Log.i(TAG, "MobileAds initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "MobileAds init failed: ${e.message}")
+        }
         // Phase 4: initialize Places SDK once. Empty/placeholder key is tolerated —
         // map + autocomplete simply stay idle until a real key is supplied.
         try {

@@ -24,6 +24,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Wasalna"
         tools:targetApi="34">
+        <!-- Phase 8: AdMob test App ID (replace with real ID before release). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
         <!-- Phase 4: Google Maps API key injected via manifestPlaceholders from local.properties -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
