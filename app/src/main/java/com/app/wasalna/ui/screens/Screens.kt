@@ -5,26 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import kotlinx.coroutines.delay
 
-@Composable
-fun SplashScreen(onDone: () -> Unit) {
-    LaunchedEffect(Unit) {
-        delay(1200)
-        onDone()
-    }
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Wasalna وصلنا", style = MaterialTheme.typography.headlineMedium)
-    }
-}
-
-@Composable
-fun PermissionsScreen(onDone: () -> Unit) {
-    PlaceholderScreen(text = "Permissions — location & notifications (Phase 2)")
-}
+// Phase 3: Splash + Permissions moved to dedicated packages
+// (ui.screens.splash / ui.screens.permissions) with Hilt ViewModels.
 
 @Composable
 fun HomeScreen(onOpenMap: () -> Unit, onOpenSettings: () -> Unit, onOpenPaywall: () -> Unit) {
