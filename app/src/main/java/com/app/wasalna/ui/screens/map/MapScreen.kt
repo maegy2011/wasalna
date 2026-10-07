@@ -23,6 +23,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -91,6 +94,8 @@ fun MapScreen(
     val selectedLatLng by viewModel.selectedLatLng.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
+    val transportMode by viewModel.transportMode.collectAsState()
+    val etaMinutes by viewModel.etaMinutes.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -236,6 +241,43 @@ fun MapScreen(
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
+                }
+                // Phase 10.4.0: Vela-style multimodal ETA selector. Changing
+                // the mode recomputes route + ETA in the ViewModel.
+                if (selectedLatLng != null) {
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        TransportMode.entries.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = transportMode == mode,
+                                onClick = { viewModel.setTransportMode(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = TransportMode.entries.size,
+                                ),
+                                label = {
+                                    Text(
+                                        when (mode) {
+                                            TransportMode.WALK -> "🚶 Walk"
+                                            TransportMode.CAR -> "🚗 Car"
+                                            TransportMode.TRAIN -> "🚆 Train"
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                    }
+                    etaMinutes?.let { mins ->
+                        Text(
+                            text = "ETA: ~${formatEta(mins)} (${transportMode.name.lowercase().replaceFirstChar { it.uppercase() }})",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        )
+                    }
                 }
                 Box(
                     modifier = Modifier
@@ -396,6 +438,14 @@ private fun MapLibreMapView(
             moveCameraIfChanged(map, target, if (selectedLatLng != null) 15.0 else 12.0)
         },
     )
+}
+
+/** Phase 10.4.0: human-friendly ETA — minutes under 2h, else H h M min. */
+private fun formatEta(mins: Int): String {
+    if (mins < 120) return "$mins min${if (mins == 1) "" else "s"}"
+    val h = mins / 60
+    val m = mins % 60
+    return if (m == 0) "$h h" else "$h h $m min"
 }
 
 /**

@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.data.repository.OSRMRepository
+import com.app.wasalna.data.repository.OsrmRoute
 import com.app.wasalna.data.repository.VelaSearchRepository
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
@@ -63,6 +64,14 @@ class MapViewModel @Inject constructor(
     private val _routeGeoJson = MutableStateFlow<String?>(null)
     val routeGeoJson: StateFlow<String?> = _routeGeoJson.asStateFlow()
 
+    // Phase 10.4.0: multimodal ETA — user-selected transport mode +
+    // live minutes estimate. Null = not computed yet.
+    private val _transportMode = MutableStateFlow(TransportMode.CAR)
+    val transportMode: StateFlow<TransportMode> = _transportMode.asStateFlow()
+
+    private val _etaMinutes = MutableStateFlow<Int?>(null)
+    val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
+
     private val _selectedName = MutableStateFlow<String?>(null)
     val selectedName: StateFlow<String?> = _selectedName.asStateFlow()
 
@@ -109,11 +118,16 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** Phase 10-Fix: Photon keyless autocomplete — one step, coords included. */
+    /**
+     * Phase 10-Fix: Photon keyless autocomplete — one step, coords included.
+     * Phase 10.4.0: localized — the current GPS fix biases results toward
+     * the user's country/city; without a fix it falls back to global search.
+     */
     fun searchPlaces(query: String) {
         viewModelScope.launch {
+            val fix = currentFix()
             runCatching {
-                vela.suggest(query)
+                vela.suggest(query, lat = fix?.latitude, lon = fix?.longitude)
             }.onSuccess {
                 _predictions.value = it
                 _searchError.value = null
@@ -125,23 +139,41 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /**
-     * OSRM route from the user's last GPS position to the confirmed
-     * destination. Skipped silently when permission is denied or no fix
-     * is available — never blocks selection, never crashes.
-     */
-    private suspend fun maybeFetchRoute(destLat: Double, destLng: Double) {
-        if (!hasLocationPermission()) return
-        val start = withContext(Dispatchers.IO) {
+    /** Last GPS fix, guarded by permission with a short timeout. Null = none. */
+    private suspend fun currentFix(): android.location.Location? {
+        if (!hasLocationPermission()) return null
+        return withContext(Dispatchers.IO) {
             withTimeoutOrNull(LOC_TIMEOUT_MS) {
                 runCatching { fusedClient.lastLocation.await() }.getOrNull()
             }
-        } ?: return
-        _routeGeoJson.value = runCatching {
-            osrm.fetchRoute(start.latitude, start.longitude, destLat, destLng)
+        }
+    }
+
+    /**
+     * Phase 10.4.0: route + ETA refresh for the current destination under
+     * the selected transport mode. Called on every confirmed destination
+     * and on every mode change. Silent skip without a fix — never crashes.
+     */
+    private suspend fun refreshRouteAndEta(destLat: Double, destLng: Double) {
+        val start = currentFix() ?: return
+        val profile = _transportMode.value.osrmProfile
+        val route: OsrmRoute? = runCatching {
+            osrm.fetchRoute(start.latitude, start.longitude, destLat, destLng, profile)
         }.onFailure {
             Log.e(TAG, "route fetch failed: ${it.message}")
         }.getOrNull()
+        _routeGeoJson.value = route?.geoJson
+        _etaMinutes.value = route?.durationSec
+            ?.takeIf { it >= 0 }
+            ?.let { kotlin.math.round(it / 60.0).toInt().coerceAtLeast(1) }
+    }
+
+    /** Phase 10.4.0: user picks Walk/Car/Train → ETA + route recompute. */
+    fun setTransportMode(mode: TransportMode) {
+        if (_transportMode.value == mode) return
+        _transportMode.value = mode
+        val dest = _selectedLatLng.value ?: return
+        viewModelScope.launch { refreshRouteAndEta(dest.latitude, dest.longitude) }
     }
 
     /** Result click — Photon hits always carry lat/lng: select immediately. */
@@ -154,7 +186,7 @@ class MapViewModel @Inject constructor(
         _predictions.value = emptyList()
         _searchError.value = null
         _searchQuery.value = result.name
-        viewModelScope.launch { maybeFetchRoute(lat, lng) }
+        viewModelScope.launch { refreshRouteAndEta(lat, lng) }
     }
 
     /**
@@ -165,7 +197,7 @@ class MapViewModel @Inject constructor(
     fun onMapClicked(lat: Double, lng: Double) {
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
-        viewModelScope.launch { maybeFetchRoute(lat, lng) }
+        viewModelScope.launch { refreshRouteAndEta(lat, lng) }
         viewModelScope.launch {
             val address = nominatim.reverseGeocode(lat, lng) ?: fallbackName(lat, lng)
             _selectedAddress.value = address
@@ -192,6 +224,7 @@ class MapViewModel @Inject constructor(
         _selectedAddress.value = null
         _selectedLatLng.value = null
         _routeGeoJson.value = null
+        _etaMinutes.value = null
     }
 
     /** Persists the selected destination, then invokes [onSaved]. */
@@ -211,6 +244,7 @@ class MapViewModel @Inject constructor(
                 )
             }.onSuccess {
                 _routeGeoJson.value = null
+                _etaMinutes.value = null
                 onSaved()
             }.onFailure { Log.e(TAG, "saveDestination failed: ${it.message}") }
             _isSaving.value = false
@@ -221,4 +255,15 @@ class MapViewModel @Inject constructor(
         private const val TAG = "MapViewModel"
         private const val LOC_TIMEOUT_MS = 8_000L
     }
+}
+
+/**
+ * Phase 10.4.0: user-selected transport mode for the Vela-style ETA.
+ * Car and Train both route on the OSRM `driving` profile (train as a
+ * proxy); Walk uses the `foot` profile.
+ */
+enum class TransportMode(val osrmProfile: String) {
+    WALK("foot"),
+    CAR("driving"),
+    TRAIN("driving"),
 }

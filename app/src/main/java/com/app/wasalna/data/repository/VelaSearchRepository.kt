@@ -29,13 +29,20 @@ class VelaSearchRepository @Inject constructor() {
         .build()
 
     /**
-     * Keyless place autocomplete. Empty list on any failure —
+     * Keyless place autocomplete. When [lat]/[lon] are supplied Photon
+     * biases results toward the user's actual country/city; without them
+     * it falls back to unbiased global search. Empty list on any failure —
      * never throws (runs on Dispatchers.IO).
      */
-    suspend fun suggest(query: String): List<SearchResult> =
+    suspend fun suggest(
+        query: String,
+        lat: Double? = null,
+        lon: Double? = null,
+    ): List<SearchResult> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val url = PHOTON_URL + "?q=${encode(query)}&limit=5&lang=en"
+                val bias = if (lat != null && lon != null) "&lat=$lat&lon=$lon" else ""
+                val url = PHOTON_URL + "?q=${encode(query)}$bias&limit=10&lang=en"
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", NominatimRepository.USER_AGENT)

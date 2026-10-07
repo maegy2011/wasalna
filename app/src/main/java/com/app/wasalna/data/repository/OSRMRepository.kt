@@ -24,18 +24,20 @@ class OSRMRepository @Inject constructor() {
         .build()
 
     /**
-     * Returns a GeoJSON FeatureCollection string wrapping
-     * routes[0].geometry (LineString), ready for a MapLibre GeoJsonSource.
-     * Null when no route is available or the service fails.
+     * Phase 10.4.0: route + duration in one call. [profile] is an OSRM
+     * profile (`driving` for car/train proxy, `foot` for walk).
+     * Returns geometry (FeatureCollection string for MapLibre) plus
+     * routes[0].duration in seconds. Null when unavailable — never throws.
      */
     suspend fun fetchRoute(
         startLat: Double,
         startLng: Double,
         destLat: Double,
         destLng: Double,
-    ): String? = withContext(Dispatchers.IO) {
+        profile: String = "driving",
+    ): OsrmRoute? = withContext(Dispatchers.IO) {
         runCatching {
-            val url = "$BASE/route/v1/driving/" +
+            val url = "$BASE/route/v1/$profile/" +
                 "$startLng,$startLat;$destLng,$destLat" +
                 "?overview=full&geometries=geojson"
             val request = Request.Builder()
@@ -55,10 +57,11 @@ class OSRMRepository @Inject constructor() {
                 }
                 val routes = root.optJSONArray("routes") ?: return@runCatching null
                 if (routes.length() == 0) return@runCatching null
-                val geometry = routes.getJSONObject(0).optJSONObject("geometry")
+                val first = routes.getJSONObject(0)
+                val geometry = first.optJSONObject("geometry")
                     ?: return@runCatching null
                 // Wrap the LineString in a FeatureCollection for MapLibre.
-                JSONObject()
+                val geoJson = JSONObject()
                     .put("type", "FeatureCollection")
                     .put(
                         "features",
@@ -69,6 +72,7 @@ class OSRMRepository @Inject constructor() {
                                 .put("properties", JSONObject()),
                         ),
                     ).toString()
+                OsrmRoute(geoJson = geoJson, durationSec = first.optDouble("duration", -1.0))
             }
         }.onFailure {
             Log.e(TAG, "OSRM route failed: ${it.message}")
@@ -80,3 +84,9 @@ class OSRMRepository @Inject constructor() {
         const val BASE = "https://router.project-osrm.org"
     }
 }
+
+/** Phase 10.4.0: route geometry + ETA source. Negative duration = unknown. */
+data class OsrmRoute(
+    val geoJson: String,
+    val durationSec: Double,
+)
