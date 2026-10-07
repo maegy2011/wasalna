@@ -6,7 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,6 +85,8 @@ fun MyPlacesScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var trackingName by remember { mutableStateOf<String?>(null) }
+    // Phase 10.4.2.1: battery-optimization gate dialog state.
+    var showBatteryDialog by remember { mutableStateOf(false) }
     // Phase 10-Fix: local filter + rename dialog state (CRUD).
     var filter by remember { mutableStateOf("") }
     var renameTarget by remember { mutableStateOf<Location?>(null) }
@@ -178,19 +183,23 @@ fun MyPlacesScreen(
                             location = location,
                             isTracking = trackingName != null,
                             onActivate = {
-                                if (hasLocationPermission(context)) {
+                                // Phase 10.4.2.1: OEMs kill background work unless
+                                // unrestricted — block tracking until allowed.
+                                if (!hasLocationPermission(context)) {
+                                    Toast.makeText(
+                                        context,
+                                        "Location permission required — grant it in Permissions",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                } else if (!isBatteryUnrestricted(context)) {
+                                    showBatteryDialog = true
+                                } else {
                                     startTracking(context, location, transportMode)
                                     trackingName = location.name
                                     Toast.makeText(
                                         context,
                                         "Tracking started",
                                         Toast.LENGTH_SHORT,
-                                    ).show()
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Location permission required — grant it in Permissions",
-                                        Toast.LENGTH_LONG,
                                     ).show()
                                 }
                             },
@@ -201,6 +210,34 @@ fun MyPlacesScreen(
                 }
             }
         }
+    }
+    // Phase 10.4.2.1: blocking battery gate — no unrestricted battery,
+    // no background alarm (OEMs would silently kill it).
+    if (showBatteryDialog) {
+        AlertDialog(
+            onDismissRequest = { showBatteryDialog = false },
+            title = { Text("Unrestricted battery needed") },
+            text = {
+                Text(
+                    "You must allow unrestricted battery usage for the alarm " +
+                        "to work in the background. Otherwise the system may " +
+                        "kill tracking while the screen is off.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatteryDialog = false
+                    openBatterySettings(context)
+                }) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatteryDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
     // Phase 10-Fix: rename dialog (Update CRUD).
     renameTarget?.let { target ->
@@ -282,6 +319,23 @@ private fun SavedPlaceCard(
                 Text("Activate Alarm")
             }
         }
+    }
+}
+
+private fun isBatteryUnrestricted(context: Context): Boolean {
+    val pm = context.getSystemService(PowerManager::class.java) ?: return false
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun openBatterySettings(context: Context) {
+    runCatching {
+        val intent = Intent(
+            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:${context.packageName}"),
+        )
+        context.startActivity(intent)
+    }.onFailure {
+        Toast.makeText(context, "Open battery settings manually", Toast.LENGTH_LONG).show()
     }
 }
 

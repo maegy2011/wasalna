@@ -11,6 +11,7 @@ import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -59,6 +60,11 @@ class TrackingService : Service() {
     private lateinit var fusedClient: FusedLocationProviderClient
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val osrm = OSRMRepository()
+
+    // Phase 10.4.2.1: Partial WakeLock keeps the CPU awake while tracking
+    // so fixes keep flowing with the screen off. Acquired once per trip
+    // (12h safety timeout), released in onDestroy — never leaked.
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var targetLat: Double = Double.NaN
     private var targetLng: Double = Double.NaN
@@ -134,6 +140,7 @@ class TrackingService : Service() {
         targetName = intent.getStringExtra(EXTRA_NAME)?.ifBlank { null } ?: "Destination"
         mode = TransportMode.fromName(intent.getStringExtra(EXTRA_MODE))
         isPaused = false
+        acquireWakeLock()
 
         // Read the current silent flag once so the action label is correct.
         serviceScope.launch {
@@ -403,12 +410,47 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Phase 10.4.2.1: hold the CPU across screen-off deep sleep.
+     * 12-hour timeout is a safety net; normal trips release far earlier
+     * in onDestroy. Reference-counted default + isHeld guard = no leak.
+     */
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        runCatching {
+            val pm = getSystemService(PowerManager::class.java) ?: return
+            wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "Wasalna:TrackingWakeLock",
+            ).apply {
+                acquire(WAKELOCK_TIMEOUT_MS)
+            }
+            Log.i(TAG, "WakeLock acquired")
+        }.onFailure {
+            Log.w(TAG, "WakeLock acquire failed: ${it.message}")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        runCatching {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+                Log.i(TAG, "WakeLock released")
+            }
+        }.onFailure {
+            Log.w(TAG, "WakeLock release failed: ${it.message}")
+        }
+        wakeLock = null
+    }
+
     override fun onDestroy() {
         try {
             fusedClient.removeLocationUpdates(locationCallback)
         } catch (e: Exception) {
             Log.w(TAG, "onDestroy removeLocationUpdates: ${e.message}")
         }
+        // Phase 10.4.2.1: every stop path ends here — battery never leaks.
+        releaseWakeLock()
         serviceScope.cancel()
         isTracking = false
         super.onDestroy()
@@ -441,6 +483,9 @@ class TrackingService : Service() {
 
         /** Alarm trigger radius: 2 km before the destination. */
         const val TRIGGER_RADIUS_METERS = 2000f
+
+        /** Phase 10.4.2.1: WakeLock safety ceiling — 12 hours. */
+        private const val WAKELOCK_TIMEOUT_MS = 12L * 60L * 60L * 1000L
 
         private const val INITIAL_INTERVAL_MS = 10_000L
 
