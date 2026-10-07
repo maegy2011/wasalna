@@ -95,6 +95,10 @@ export ANDROID_SDK_ROOT=/opt/android-sdk ANDROID_HOME=/opt/android-sdk
 `https://mohamedadel.cfd/downloads/Wasalna-v<version>.apk` returns **HTTP 200**.
 Keystore / `google-services.json` / `.env` files are tracked locally on purpose —
 **never push this repo anywhere.**
+- **Signing (verified 7 Oct 2026):** no dedicated release keystore exists;
+  every published Wasalna APK is signed with the standard Android **debug** key
+  (`~/.android/debug.keystore`, `pass:android`) — keep it for update continuity.
+  A future dedicated keystore would break updates for existing installs.
 
 ## 4. Navigation
 
