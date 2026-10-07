@@ -1,5 +1,13 @@
 package com.app.wasalna.ui.screens.settings
 
+import android.app.Activity
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,12 +55,44 @@ import com.app.wasalna.R
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
+    onOpenPaywall: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val elderlyMode by viewModel.elderlyMode.collectAsState()
     val leadTime by viewModel.leadTimeMinutes.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     val silentAlarm by viewModel.silentAlarm.collectAsState()
+    val customRingtoneUri by viewModel.customRingtoneUri.collectAsState()
+
+    // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
+    // unreadable files are caught — a toast explains, nothing breaks.
+    val ringtoneLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        runCatching {
+            if (result.resultCode != Activity.RESULT_OK) return@runCatching
+            val data = result.data ?: return@runCatching
+            val uri: Uri? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            } ?: return@runCatching
+            uri?.let { picked ->
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        picked,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
+            viewModel.setCustomRingtoneUri(uri.toString())
+            Toast.makeText(context, "Custom ringtone saved", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "Couldn't use that audio file", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // DND override has no DataStore field — visual toggle only for now.
     var dndOverride by remember { mutableStateOf(false) }
@@ -158,6 +201,64 @@ fun SettingsScreen(
                     checked = silentAlarm && isPremium,
                     enabled = isPremium,
                     onCheckedChange = viewModel::setSilentAlarm,
+                )
+            }
+        }
+
+        // Phase 10.4.3.1: premium custom alarm ringtone (locked → paywall).
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            onClick = {
+                if (!isPremium) {
+                    onOpenPaywall()
+                } else {
+                    runCatching {
+                        val existing: Uri? = customRingtoneUri.ifBlank { null }?.let {
+                            runCatching { Uri.parse(it) }.getOrNull()
+                        } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                        val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Choose alarm sound")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                            if (existing != null) {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
+                            }
+                        }
+                        ringtoneLauncher.launch(picker)
+                    }.onFailure {
+                        Toast.makeText(context, "No ringtone picker found", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Custom Alarm Ringtone",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = if (!isPremium) {
+                            "First Class only"
+                        } else if (customRingtoneUri.isBlank()) {
+                            "System default"
+                        } else {
+                            "Custom tone set ✓"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Icon(
+                    if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
+                    contentDescription = if (!isPremium) "Premium only" else "Pick ringtone",
                 )
             }
         }

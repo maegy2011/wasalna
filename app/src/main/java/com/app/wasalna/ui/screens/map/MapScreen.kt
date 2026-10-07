@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
@@ -35,9 +37,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -53,6 +60,9 @@ import com.google.android.gms.maps.model.LatLng
 import org.maplibre.android.camera.CameraPosition as MapLibreCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory as MapLibreCameraUpdateFactory
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.modes.CameraMode
+import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -87,6 +97,11 @@ fun MapScreen(
     viewModel: MapViewModel = hiltViewModel(),
     onSaved: () -> Unit = {},
     onBack: () -> Unit = {},
+    // Phase 10.4.3.1: optional live-trip args (Home widget tap).
+    tripName: String? = null,
+    tripLat: Double? = null,
+    tripLng: Double? = null,
+    tripMode: String? = null,
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
@@ -98,6 +113,7 @@ fun MapScreen(
     val isSaving by viewModel.isSaving.collectAsState()
     val transportMode by viewModel.transportMode.collectAsState()
     val etaMinutes by viewModel.etaMinutes.collectAsState()
+    val recenterTarget by viewModel.recenterTarget.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -120,6 +136,15 @@ fun MapScreen(
     LaunchedEffect(selectedLatLng, transportMode) {
         if (selectedLatLng != null) {
             viewModel.refreshRouteAndEta()
+        }
+    }
+
+    // Phase 10.4.3.1: live-trip entry — consumed once per navigation.
+    val tripConsumed = remember(tripLat, tripLng) { mutableStateOf(false) }
+    LaunchedEffect(tripLat, tripLng) {
+        if (!tripConsumed.value && tripLat != null && tripLng != null) {
+            tripConsumed.value = true
+            viewModel.showTrip(tripName ?: "Active trip", tripLat, tripLng, tripMode)
         }
     }
 
@@ -301,6 +326,7 @@ fun MapScreen(
                     MapLibreMapView(
                         selectedLatLng = selectedLatLng,
                         routeGeoJson = routeGeoJson,
+                        recenterTarget = recenterTarget,
                         modifier = Modifier.fillMaxSize(),
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
@@ -314,6 +340,16 @@ fun MapScreen(
                                 .align(Alignment.Center)
                                 .padding(16.dp),
                         )
+                    }
+                    // Phase 10.4.3.1: My Location FAB (bottom-start, clear of
+                    // the Save FAB) — centers the camera on the live fix.
+                    SmallFloatingActionButton(
+                        onClick = { viewModel.recenterToMyLocation() },
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(16.dp),
+                    ) {
+                        Icon(Icons.Filled.MyLocation, contentDescription = "My location")
                     }
                 }
             }
@@ -331,6 +367,7 @@ fun MapScreen(
 private fun MapLibreMapView(
     selectedLatLng: LatLng?,
     routeGeoJson: String?,
+    recenterTarget: LatLng? = null,
     modifier: Modifier = Modifier,
     onMapClick: (LatLng) -> Unit = {},
 ) {
@@ -342,6 +379,7 @@ private fun MapLibreMapView(
     var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
     var lastCameraTarget by remember { mutableStateOf<MapLibreLatLng?>(null) }
     var lastRouteApplied by remember { mutableStateOf<String?>(null) }
+    var lastRecenterApplied by remember { mutableStateOf<LatLng?>(null) }
 
     val mapView = remember(context) {
         MapView(context).apply { onCreate(null) }
@@ -390,6 +428,8 @@ private fun MapLibreMapView(
             map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE)) { style ->
                 styleRef = style
                 lastRouteApplied = null
+                // Phase 10.4.3.1: live blue dot (guarded by runtime permission).
+                enableLocationComponent(context, map, style)
                 runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
                 // Phase 10-2: route source + styled line layer (created once
                 // per style; source data updates dynamically below).
@@ -445,6 +485,19 @@ private fun MapLibreMapView(
                 applyRoute(style, routeGeoJson)
                 lastRouteApplied = routeGeoJson
             }
+            // Phase 10.4.3.1: My Location jump — camera only, no selection.
+            if (recenterTarget != null && recenterTarget != lastRecenterApplied) {
+                lastRecenterApplied = recenterTarget
+                runCatching {
+                    map.animateCamera(
+                        MapLibreCameraUpdateFactory.newLatLngZoom(
+                            MapLibreLatLng(recenterTarget.latitude, recenterTarget.longitude),
+                            15.0,
+                        ),
+                        600,
+                    )
+                }
+            }
             refreshMarker(selectedLatLng)
             val target = selectedLatLng?.let {
                 MapLibreLatLng(it.latitude, it.longitude)
@@ -452,6 +505,33 @@ private fun MapLibreMapView(
             moveCameraIfChanged(map, target, if (selectedLatLng != null) 15.0 else 12.0)
         },
     )
+}
+
+/**
+ * Phase 10.4.3.1: enables the MapLibre LocationComponent (live blue dot).
+ * Requires granted fine location — silently skipped otherwise. The component
+ * manages its own engine + compass rendering; camera stays manual (NONE).
+ */
+@SuppressLint("MissingPermission")
+private fun enableLocationComponent(
+    context: android.content.Context,
+    map: MapLibreMap,
+    style: Style,
+) {
+    val fine = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION,
+    ) == PackageManager.PERMISSION_GRANTED
+    if (!fine) return
+    runCatching {
+        val options = LocationComponentActivationOptions.builder(context, style).build()
+        map.locationComponent.activateLocationComponent(options)
+        map.locationComponent.isLocationComponentEnabled = true
+        map.locationComponent.cameraMode = CameraMode.NONE
+        map.locationComponent.renderMode = RenderMode.NORMAL
+    }.onFailure {
+        Log.w("MapLibreLocation", "location component failed: ${it.message}")
+    }
 }
 
 /** Phase 10.4.0: human-friendly ETA — minutes under 2h, else H h M min. */

@@ -20,6 +20,8 @@ interface SettingsRepository {
 
     val transportMode: Flow<String>
 
+    val customRingtoneUri: Flow<String>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -35,6 +37,8 @@ interface SettingsRepository {
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
 
     suspend fun setTransportMode(mode: String)
+
+    suspend fun setCustomRingtoneUri(uri: String)
 
     suspend fun setPreferredMapEngine(engine: String)
 }

@@ -85,6 +85,32 @@ class MapViewModel @Inject constructor(
     private val _etaMinutes = MutableStateFlow<Int?>(null)
     val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
 
+    // Phase 10.4.3.1: one-shot camera jump (My Location FAB). The map
+    // consumes it and animates; never confused with a destination.
+    private val _recenterTarget = MutableStateFlow<LatLng?>(null)
+    val recenterTarget: StateFlow<LatLng?> = _recenterTarget.asStateFlow()
+
+    fun recenterToMyLocation() {
+        viewModelScope.launch {
+            currentFix()?.let { fix ->
+                _recenterTarget.value = LatLng(fix.latitude, fix.longitude)
+            }
+        }
+    }
+
+    /**
+     * Phase 10.4.3.1: Home widget tap → Map opens on the live trip:
+     * marker + mode + OSRM route follow automatically (reactive effect).
+     */
+    fun showTrip(name: String, lat: Double, lng: Double, modeName: String?) {
+        setTransportMode(TransportMode.fromName(modeName))
+        _selectedName.value = name
+        _selectedAddress.value = name
+        _selectedLatLng.value = LatLng(lat, lng)
+        _predictions.value = emptyList()
+        _searchQuery.value = name
+    }
+
     private val _selectedName = MutableStateFlow<String?>(null)
     val selectedName: StateFlow<String?> = _selectedName.asStateFlow()
 

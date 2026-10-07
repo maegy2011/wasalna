@@ -57,6 +57,10 @@ class SettingsDataStore @Inject constructor(
     val transportMode: Flow<String> =
         dataStore.data.map { it[Keys.TRANSPORT_MODE] ?: "CAR" }
 
+    // Phase 10.4.3.1: premium custom alarm ringtone (URI string, "" = none).
+    val customRingtoneUri: Flow<String> =
+        dataStore.data.map { it[Keys.CUSTOM_RINGTONE_URI] ?: "" }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -108,6 +112,10 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.TRANSPORT_MODE] = mode }
     }
 
+    suspend fun setCustomRingtoneUri(uri: String) {
+        dataStore.edit { it[Keys.CUSTOM_RINGTONE_URI] = uri }
+    }
+
     /** Phase 9-1: canonical map-engine values. */
     object MapEngines {
         const val OSM = "OSM"
@@ -123,5 +131,6 @@ class SettingsDataStore @Inject constructor(
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
         val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
+        val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
     }
 }

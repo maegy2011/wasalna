@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
+import android.net.Uri
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
@@ -48,7 +49,9 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
+import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.navigation.Screen
 import com.app.wasalna.ui.screens.home.HomeViewModel
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
@@ -117,8 +120,20 @@ fun MainContainerScreen() {
         }
     }
 
-    fun openMapFullScreen() {
-        innerNav.navigate(Screen.Map.route) {
+    /**
+     * Phase 10.4.3.1: null = blank picker; a trip carries its destination
+     * + mode so the map opens on the live visualization.
+     */
+    fun openMapFullScreen(trip: TripHistory? = null) {
+        val route = if (trip == null) {
+            Screen.Map.route
+        } else {
+            Screen.Map.route +
+                "?lat=${trip.destLat}&lng=${trip.destLng}" +
+                "&mode=${trip.transportMode.name}" +
+                "&name=${Uri.encode(trip.locationName)}"
+        }
+        innerNav.navigate(route) {
             launchSingleTop = true
         }
     }
@@ -281,7 +296,7 @@ fun MainContainerScreen() {
                 composable(Screen.Home.route) {
                     HomeScreen(
                         onMenuClick = { openDrawer() },
-                        onOpenMap = { openMapFullScreen() },
+                        onOpenMap = { trip -> openMapFullScreen(trip) },
                         onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                         viewModel = hiltViewModel(),
                     )
@@ -293,11 +308,24 @@ fun MainContainerScreen() {
                         viewModel = hiltViewModel(),
                     )
                 }
-                composable(Screen.Map.route) {
+                // Phase 10.4.3.1: optional live-trip args (Home widget tap).
+                composable(
+                    route = Screen.Map.route + "?lat={lat}&lng={lng}&mode={mode}&name={name}",
+                    arguments = listOf(
+                        navArgument("lat") { defaultValue = "" },
+                        navArgument("lng") { defaultValue = "" },
+                        navArgument("mode") { defaultValue = "" },
+                        navArgument("name") { defaultValue = "" },
+                    ),
+                ) { entry ->
                     MapScreen(
                         viewModel = hiltViewModel(),
                         onSaved = { navigateTab(Screen.MyPlaces.route) },
                         onBack = { navigateTab(Screen.MyPlaces.route) },
+                        tripName = entry.arguments?.getString("name")?.ifBlank { null },
+                        tripLat = entry.arguments?.getString("lat")?.toDoubleOrNull(),
+                        tripLng = entry.arguments?.getString("lng")?.toDoubleOrNull(),
+                        tripMode = entry.arguments?.getString("mode")?.ifBlank { null },
                     )
                 }
                 composable(Screen.TripsHistory.route) {
@@ -307,7 +335,10 @@ fun MainContainerScreen() {
                 }
                 composable(Screen.Paywall.route) { PaywallScreen(onMenuClick = { openDrawer() }) }
                 composable(Screen.Settings.route) {
-                    SettingsScreen(onBack = { navigateTab(Screen.Home.route) })
+                    SettingsScreen(
+                        onBack = { navigateTab(Screen.Home.route) },
+                        onOpenPaywall = { navigateTab(Screen.Paywall.route) },
+                    )
                 }
             }
         }

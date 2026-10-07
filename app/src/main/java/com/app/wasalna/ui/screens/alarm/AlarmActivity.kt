@@ -46,7 +46,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.app.wasalna.R
+import com.app.wasalna.data.local.datastore.SettingsDataStore
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Phase 6: full-screen alarm fired when TrackingService reaches the radius.
@@ -66,11 +71,14 @@ class AlarmActivity : ComponentActivity() {
     private var vibrator: Vibrator? = null
     private var stopped = false
     private var silentMode = false
+    // Phase 10.4.3.1: gates the custom ringtone in resolveAlarmUri().
+    private var premiumMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val wantSilent = intent.getBooleanExtra(EXTRA_SILENT, false)
         val isPremium = intent.getBooleanExtra(EXTRA_PREMIUM, false)
+        premiumMode = isPremium
         silentMode = wantSilent && isPremium
         Log.i(TAG, "onCreate: alarm firing silent=$silentMode")
 
@@ -151,9 +159,32 @@ class AlarmActivity : ComponentActivity() {
         return false
     }
 
-    private fun startSilentEarphoneSound() {
-        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+    /**
+     * Phase 10.4.3.1: premium custom ringtone wins; every failure (no URI,
+     * unreadable file, non-premium) falls back to the system alarm tone.
+     */
+    private fun resolveAlarmUri(isPremium: Boolean): android.net.Uri? {
+        val fallback = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        if (!isPremium) return fallback
+        return runCatching {
+            val custom = runBlocking(Dispatchers.IO) {
+                withTimeoutOrNull(2_000L) {
+                    SettingsDataStore(this@AlarmActivity).customRingtoneUri.first()
+                }
+            }.orEmpty()
+            if (custom.isBlank()) return fallback
+            val uri = android.net.Uri.parse(custom)
+            // Verify the file is actually readable before trusting it.
+            contentResolver.openInputStream(uri)?.close()
+            uri
+        }.onFailure {
+            Log.w(TAG, "custom ringtone unreadable, using default: ${it.message}")
+        }.getOrNull() ?: fallback
+    }
+
+    private fun startSilentEarphoneSound() {
+        val uri = resolveAlarmUri(premiumMode)
         if (uri == null) {
             Log.e(TAG, "silent: no ringtone, vibrate fallback")
             startVibrateOnly()
@@ -232,8 +263,7 @@ class AlarmActivity : ComponentActivity() {
     }
 
     private fun startAlarmSound() {
-        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val uri = resolveAlarmUri(premiumMode)
         if (uri == null) {
             Log.e(TAG, "startAlarmSound: no ringtone URI")
             return

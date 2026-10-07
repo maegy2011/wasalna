@@ -47,6 +47,20 @@ class SettingsViewModel @Inject constructor(
             initialValue = false,
         )
 
+    // Phase 10.4.3.1: premium custom ringtone URI ("" = system default).
+    val customRingtoneUri: StateFlow<String> =
+        settingsRepository.customRingtoneUri.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    fun setCustomRingtoneUri(uri: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setCustomRingtoneUri(uri) }
+        }
+    }
+
     fun setElderlyMode(enabled: Boolean) {
         viewModelScope.launch {
             runCatching { settingsRepository.setElderlyMode(enabled) }

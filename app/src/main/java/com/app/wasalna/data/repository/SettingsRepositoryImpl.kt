@@ -35,6 +35,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val transportMode: Flow<String>
         get() = settingsDataStore.transportMode
 
+    override val customRingtoneUri: Flow<String>
+        get() = settingsDataStore.customRingtoneUri
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -69,5 +72,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTransportMode(mode: String) {
         settingsDataStore.setTransportMode(mode)
+    }
+
+    override suspend fun setCustomRingtoneUri(uri: String) {
+        settingsDataStore.setCustomRingtoneUri(uri)
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.ads.AdBanner
 import com.app.wasalna.ui.ads.InterstitialHelper
 import kotlinx.coroutines.launch
@@ -51,7 +52,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onMenuClick: () -> Unit = {},
-    onOpenMap: () -> Unit,
+    // Phase 10.4.3.1: null = blank picker; a trip opens its live view.
+    onOpenMap: (TripHistory?) -> Unit,
     onOpenPaywall: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -81,10 +83,10 @@ fun HomeScreen(
         }
         if (!isPremium) {
             InterstitialHelper.showInterstitial(context) {
-                onOpenMap()
+                onOpenMap(null)
             }
         } else {
-            onOpenMap()
+            onOpenMap(null)
         }
     }
 
@@ -119,7 +121,7 @@ fun HomeScreen(
             // map to view/edit mode or destination.
             activeTrip?.let { trip ->
                 Card(
-                    onClick = onOpenMap,
+                    onClick = { onOpenMap(trip) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
