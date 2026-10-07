@@ -2,6 +2,7 @@ package com.app.wasalna.data.repository
 
 import android.util.Log
 import com.app.wasalna.domain.model.SearchResult
+import com.app.wasalna.utils.NetworkGuards
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -34,12 +35,21 @@ class VelaSearchRepository @Inject constructor() {
      * it falls back to unbiased global search. Empty list on any failure —
      * never throws (runs on Dispatchers.IO).
      */
+    /**
+     * Phase 10.4.3.2: true when the last call failed from no connectivity.
+     * The UI reads it to show the offline message (map still renders).
+     */
+    @Volatile
+    var lastWasOffline: Boolean = false
+        private set
+
     suspend fun suggest(
         query: String,
         lat: Double? = null,
         lon: Double? = null,
     ): List<SearchResult> =
         withContext(Dispatchers.IO) {
+            lastWasOffline = false
             runCatching {
                 val bias = if (lat != null && lon != null) "&lat=$lat&lon=$lon" else ""
                 val url = PHOTON_URL + "?q=${encode(query)}$bias&limit=10&lang=en"
@@ -56,6 +66,7 @@ class VelaSearchRepository @Inject constructor() {
                     parsePhoton(body)
                 }
             }.onFailure {
+                lastWasOffline = NetworkGuards.isOfflineCause(it)
                 Log.e(TAG, "photon suggest failed: ${it.message}")
             }.getOrDefault(emptyList())
         }

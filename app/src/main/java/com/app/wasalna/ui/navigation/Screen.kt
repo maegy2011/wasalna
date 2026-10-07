@@ -12,4 +12,6 @@ sealed class Screen(val route: String) {
     data object Paywall : Screen("paywall")
     // Phase 10.4.2.1: Current / Future / Past trip history.
     data object TripsHistory : Screen("trips_history")
+    // Phase 10.4.3.2: premium offline tile downloads.
+    data object OfflineMaps : Screen("offline_maps")
 }

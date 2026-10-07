@@ -1,6 +1,7 @@
 package com.app.wasalna.data.repository
 
 import android.util.Log
+import com.app.wasalna.utils.NetworkGuards
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -23,6 +24,11 @@ class OSRMRepository @Inject constructor() {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
+    /** Phase 10.4.3.2: true when the last call failed from no connectivity. */
+    @Volatile
+    var lastWasOffline: Boolean = false
+        private set
+
     /**
      * Phase 10.4.0: route + duration in one call. [profile] is an OSRM
      * profile (`driving` for car/train proxy, `foot` for walk).
@@ -36,6 +42,7 @@ class OSRMRepository @Inject constructor() {
         destLng: Double,
         profile: String = "driving",
     ): OsrmRoute? = withContext(Dispatchers.IO) {
+        lastWasOffline = false
         runCatching {
             val url = "$BASE/route/v1/$profile/" +
                 "$startLng,$startLat;$destLng,$destLat" +
@@ -75,6 +82,7 @@ class OSRMRepository @Inject constructor() {
                 OsrmRoute(geoJson = geoJson, durationSec = first.optDouble("duration", -1.0))
             }
         }.onFailure {
+            lastWasOffline = NetworkGuards.isOfflineCause(it)
             Log.e(TAG, "OSRM route failed: ${it.message}")
         }.getOrNull()
     }

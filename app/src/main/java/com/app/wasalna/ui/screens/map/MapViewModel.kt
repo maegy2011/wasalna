@@ -16,6 +16,7 @@ import com.app.wasalna.domain.model.SearchResult
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
+import com.app.wasalna.utils.NetworkGuards
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -169,7 +170,12 @@ class MapViewModel @Inject constructor(
                 vela.suggest(query, lat = fix?.latitude, lon = fix?.longitude)
             }.onSuccess {
                 _predictions.value = it
-                _searchError.value = null
+                // Phase 10.4.3.2: offline search — map renders, network doesn't.
+                _searchError.value = if (it.isEmpty() && vela.lastWasOffline) {
+                    NetworkGuards.OFFLINE_MESSAGE
+                } else {
+                    null
+                }
             }.onFailure { e ->
                 Log.e(TAG, "Photon search failed: ${e.message}")
                 _predictions.value = emptyList()
@@ -201,6 +207,10 @@ class MapViewModel @Inject constructor(
         }.onFailure {
             Log.e(TAG, "route fetch failed: ${it.message}")
         }.getOrNull()
+        // Phase 10.4.3.2: offline routing — tell the user, keep the map.
+        if (route == null && osrm.lastWasOffline) {
+            _events.emit(NetworkGuards.OFFLINE_MESSAGE)
+        }
         _routeGeoJson.value = route?.geoJson
         _etaMinutes.value = route?.durationSec
             ?.takeIf { it >= 0 }

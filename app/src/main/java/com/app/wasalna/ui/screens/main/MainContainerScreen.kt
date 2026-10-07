@@ -54,6 +54,7 @@ import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.navigation.Screen
 import com.app.wasalna.ui.screens.home.HomeViewModel
+import com.app.wasalna.ui.screens.offline.OfflineMapsScreen
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
 import com.app.wasalna.ui.screens.trips.TripsHistoryScreen
 import com.app.wasalna.ui.screens.home.HomeScreen
@@ -338,6 +339,12 @@ fun MainContainerScreen() {
                     SettingsScreen(
                         onBack = { navigateTab(Screen.Home.route) },
                         onOpenPaywall = { navigateTab(Screen.Paywall.route) },
+                        onOpenOfflineMaps = { navigateTab(Screen.OfflineMaps.route) },
+                    )
+                }
+                composable(Screen.OfflineMaps.route) {
+                    OfflineMapsScreen(
+                        onBack = { navigateTab(Screen.Settings.route) },
                     )
                 }
             }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
@@ -56,6 +57,7 @@ import com.app.wasalna.R
 fun SettingsScreen(
     onBack: () -> Unit = {},
     onOpenPaywall: () -> Unit = {},
+    onOpenOfflineMaps: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -259,6 +261,42 @@ fun SettingsScreen(
                 Icon(
                     if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
                     contentDescription = if (!isPremium) "Premium only" else "Pick ringtone",
+                )
+            }
+        }
+
+        // Phase 10.4.3.2: offline regions (premium only → paywall).
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            onClick = {
+                if (isPremium) onOpenOfflineMaps() else onOpenPaywall()
+            },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Offline Maps (Download Regions)",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = if (isPremium) {
+                            "Use the map without internet"
+                        } else {
+                            "First Class only"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Icon(
+                    if (!isPremium) Icons.Filled.Lock else Icons.Filled.Download,
+                    contentDescription = if (!isPremium) "Premium only" else "Open offline maps",
                 )
             }
         }
