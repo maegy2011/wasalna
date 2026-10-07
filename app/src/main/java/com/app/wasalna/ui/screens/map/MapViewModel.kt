@@ -13,6 +13,8 @@ import androidx.lifecycle.viewModelScope
 import com.app.wasalna.BuildConfig
 import com.app.wasalna.data.local.datastore.SettingsDataStore.MapEngines
 import com.app.wasalna.data.repository.NominatimRepository
+import com.app.wasalna.data.repository.OSRMRepository
+import com.app.wasalna.data.repository.VelaSearchRepository
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
 import com.app.wasalna.domain.repository.LocationRepository
@@ -62,6 +64,8 @@ class MapViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
     private val settingsRepository: SettingsRepository,
     private val nominatim: NominatimRepository,
+    private val vela: VelaSearchRepository,
+    private val osrm: OSRMRepository,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -75,6 +79,16 @@ class MapViewModel @Inject constructor(
     // Google Places) — the UI renders SearchResult without caring.
     private val _predictions = MutableStateFlow<List<SearchResult>>(emptyList())
     val predictions: StateFlow<List<SearchResult>> = _predictions.asStateFlow()
+
+    // Phase 10-2: Vela keyless suggestions (raw strings, OSM engine).
+    // Click → resolveSuggestion() geocodes via Nominatim → marker + route.
+    private val _suggestions = MutableStateFlow<List<String>>(emptyList())
+    val suggestions: StateFlow<List<String>> = _suggestions.asStateFlow()
+
+    // Phase 10-2: OSRM route GeoJSON (FeatureCollection string) from the
+    // user's GPS position to the confirmed destination. Null = none yet.
+    private val _routeGeoJson = MutableStateFlow<String?>(null)
+    val routeGeoJson: StateFlow<String?> = _routeGeoJson.asStateFlow()
 
     private val _selectedName = MutableStateFlow<String?>(null)
     val selectedName: StateFlow<String?> = _selectedName.asStateFlow()
@@ -160,6 +174,7 @@ class MapViewModel @Inject constructor(
         searchJob?.cancel()
         if (query.isBlank()) {
             _predictions.value = emptyList()
+            _suggestions.value = emptyList()
             _searchError.value = null
             return
         }
@@ -212,34 +227,83 @@ class MapViewModel @Inject constructor(
 
     /**
      * Phase 9-3-1-fix-1: branched search.
-     * - OSM engine → Nominatim (FREE, no API key, no billing).
+     * Phase 10-2: OSM engine now uses the Vela two-step flow — fast keyless
+     * string suggestions here, coordinates resolved on click via
+     * resolveSuggestion() (Nominatim forward geocode).
+     * - OSM engine → Vela suggestions (FREE, no API key, no billing).
      * - GOOGLE engine → Places Autocomplete (global, no country filter).
-     * Both map into unified SearchResult hits.
      */
     fun searchPlaces(query: String) {
         val engine = activeMapEngine.value
         viewModelScope.launch {
             if (engine == MapEngines.GOOGLE) {
+                _suggestions.value = emptyList()
                 searchGoogle(query)
             } else {
-                searchOsm(query)
+                searchVela(query)
             }
         }
     }
 
-    private suspend fun searchOsm(query: String) {
+    private suspend fun searchVela(query: String) {
         runCatching {
-            nominatim.searchPlaces(query).map { hit ->
-                SearchResult(name = hit.name, lat = hit.lat, lng = hit.lng)
-            }
+            vela.suggest(query)
         }.onSuccess {
-            _predictions.value = it
+            _suggestions.value = it
+            _predictions.value = emptyList()
             _searchError.value = null
         }.onFailure { e ->
-            Log.e(TAG, "Nominatim search failed: ${e.message}")
-            _predictions.value = emptyList()
+            Log.e(TAG, "Vela suggest failed: ${e.message}")
+            _suggestions.value = emptyList()
             _searchError.value = "Search failed: check your connection"
         }
+    }
+
+    /**
+     * Phase 10-2 step two: suggestion click → Nominatim forward-geocodes
+     * the string → marker moves + route is fetched.
+     */
+    fun resolveSuggestion(text: String) {
+        viewModelScope.launch {
+            runCatching {
+                nominatim.searchPlaces(text).firstOrNull()
+            }.onSuccess { hit ->
+                if (hit?.lat == null || hit.lng == null) {
+                    _searchError.value = "Couldn't locate \"$text\""
+                    return@launch
+                }
+                _selectedName.value = hit.name
+                _selectedAddress.value = hit.name
+                _selectedLatLng.value = LatLng(hit.lat, hit.lng)
+                _suggestions.value = emptyList()
+                _predictions.value = emptyList()
+                _searchError.value = null
+                _searchQuery.value = hit.name
+                maybeFetchRoute(hit.lat, hit.lng)
+            }.onFailure { e ->
+                Log.e(TAG, "resolveSuggestion failed: ${e.message}")
+                _searchError.value = "Couldn't locate \"$text\""
+            }
+        }
+    }
+
+    /**
+     * Phase 10-2: OSRM route from the user's last GPS position to the
+     * confirmed destination. Skipped silently when permission is denied
+     * or no fix is available — never blocks selection, never crashes.
+     */
+    private suspend fun maybeFetchRoute(destLat: Double, destLng: Double) {
+        if (!hasLocationPermission()) return
+        val start = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(COUNTRY_LOC_TIMEOUT_MS) {
+                runCatching { fusedClient.lastLocation.await() }.getOrNull()
+            }
+        } ?: return
+        _routeGeoJson.value = runCatching {
+            osrm.fetchRoute(start.latitude, start.longitude, destLat, destLng)
+        }.onFailure {
+            Log.e(TAG, "route fetch failed: ${it.message}")
+        }.getOrNull()
     }
 
     private suspend fun searchGoogle(query: String) {
@@ -278,7 +342,9 @@ class MapViewModel @Inject constructor(
             _selectedAddress.value = result.name
             _selectedLatLng.value = LatLng(result.lat, result.lng)
             _predictions.value = emptyList()
+            _suggestions.value = emptyList()
             _searchQuery.value = result.name
+            viewModelScope.launch { maybeFetchRoute(result.lat, result.lng) }
             return
         }
         val placeId = result.googlePlaceId ?: return
@@ -292,7 +358,9 @@ class MapViewModel @Inject constructor(
                 _selectedAddress.value = place.name
                 _selectedLatLng.value = place.latLng
                 _predictions.value = emptyList()
+                _suggestions.value = emptyList()
                 _searchQuery.value = place.name ?: _searchQuery.value
+                place.latLng?.let { maybeFetchRoute(it.latitude, it.longitude) }
             }.onFailure {
                 Log.e(TAG, "FetchPlace failed: ${it.message}")
             }
@@ -309,6 +377,8 @@ class MapViewModel @Inject constructor(
     fun onMapClicked(lat: Double, lng: Double) {
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
+        _suggestions.value = emptyList()
+        viewModelScope.launch { maybeFetchRoute(lat, lng) }
         viewModelScope.launch {
             val address = if (activeMapEngine.value == MapEngines.GOOGLE) {
                 getAddressFromLatLng(lat, lng)

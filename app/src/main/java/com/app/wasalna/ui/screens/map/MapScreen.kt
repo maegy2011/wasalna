@@ -67,6 +67,10 @@ import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.plugins.annotation.SymbolManager
 import org.maplibre.android.plugins.annotation.SymbolOptions
 
@@ -76,6 +80,10 @@ private val DefaultCairoLibre = MapLibreLatLng(30.0444, 31.2357)
 /** Phase 10-1: free vector style — Google-like tiles, no API key. */
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 private const val MARKER_IMAGE_ID = "wasalna-marker"
+/** Phase 10-2: OSRM route source + layer ids (MapLibre free engine). */
+private const val ROUTE_SOURCE_ID = "route-source"
+private const val ROUTE_LAYER_ID = "route-layer"
+private const val EMPTY_FEATURE_COLLECTION = "{\"type\":\"FeatureCollection\",\"features\":[]}"
 
 /**
  * Phase 4: destination picker — search at top, predictions dropdown,
@@ -94,6 +102,8 @@ fun MapScreen(
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
+    val suggestions by viewModel.suggestions.collectAsState()
+    val routeGeoJson by viewModel.routeGeoJson.collectAsState()
     val selectedName by viewModel.selectedName.collectAsState()
     val selectedAddress by viewModel.selectedAddress.collectAsState()
     val selectedLatLng by viewModel.selectedLatLng.collectAsState()
@@ -193,6 +203,7 @@ fun MapScreen(
                 } else {
                     MapLibreMapView(
                         selectedLatLng = selectedLatLng,
+                        routeGeoJson = routeGeoJson,
                         modifier = Modifier.fillMaxSize(),
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
@@ -299,6 +310,33 @@ fun MapScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
                 )
             }
+            // Phase 10-2: OSM engine shows Vela keyless string suggestions
+            // (two-step: click → Nominatim geocode → marker + route).
+            if (activeEngine != MapEngines.GOOGLE && suggestions.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 350.dp),
+                    ) {
+                        items(suggestions, key = { it }) { suggestion ->
+                            ListItem(
+                                headlineContent = { Text(suggestion) },
+                                modifier = Modifier.clickable {
+                                    viewModel.resolveSuggestion(suggestion)
+                                    keyboardController?.hide()
+                                },
+                            )
+                        }
+                    }
+                }
+            }
             // Phase 9-3-1-fix: results dropdown floats ABOVE the map — solid
             // surface background + 8.dp elevation + scrollable heightIn(350.dp)
             // so 5+ results show comfortably without covering the screen.
@@ -387,6 +425,7 @@ private fun GoogleMapBranch(
     if (googleFailed) {
         MapLibreMapView(
             selectedLatLng = selectedLatLng,
+            routeGeoJson = null,
             modifier = Modifier.fillMaxSize(),
             onMapClick = onMapClick,
         )
@@ -424,6 +463,7 @@ private fun GoogleMapBranch(
 @Composable
 private fun MapLibreMapView(
     selectedLatLng: LatLng?,
+    routeGeoJson: String?,
     modifier: Modifier = Modifier,
     onMapClick: (LatLng) -> Unit = {},
 ) {
@@ -431,8 +471,10 @@ private fun MapLibreMapView(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
+    var styleRef by remember { mutableStateOf<Style?>(null) }
     var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
     var lastCameraTarget by remember { mutableStateOf<MapLibreLatLng?>(null) }
+    var lastRouteApplied by remember { mutableStateOf<String?>(null) }
 
     val mapView = remember(context) {
         MapView(context).apply { onCreate(null) }
@@ -479,7 +521,28 @@ private fun MapLibreMapView(
         mapView.getMapAsync { map ->
             mapRef = map
             map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE)) { style ->
+                styleRef = style
+                lastRouteApplied = null
                 runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
+                // Phase 10-2: route source + styled line layer (created once
+                // per style; source data updates dynamically below).
+                runCatching {
+                    if (style.getSource(ROUTE_SOURCE_ID) == null) {
+                        style.addSource(GeoJsonSource(ROUTE_SOURCE_ID, EMPTY_FEATURE_COLLECTION))
+                    }
+                    if (style.getLayer(ROUTE_LAYER_ID) == null) {
+                        style.addLayer(
+                            LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
+                                PropertyFactory.lineColor("#1976D2"),
+                                PropertyFactory.lineWidth(5f),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                        )
+                    }
+                }
+                routeGeoJson?.let { applyRoute(style, it) }
+                lastRouteApplied = routeGeoJson
                 symbolManager = SymbolManager(mapView, map, style).apply {
                     iconAllowOverlap = true
                 }
@@ -509,6 +572,12 @@ private fun MapLibreMapView(
         modifier = modifier,
         update = {
             val map = mapRef ?: return@AndroidView
+            // Phase 10-2: push a newly fetched route into the live source.
+            val style = styleRef
+            if (style != null && routeGeoJson != lastRouteApplied) {
+                applyRoute(style, routeGeoJson)
+                lastRouteApplied = routeGeoJson
+            }
             refreshMarker(selectedLatLng)
             val target = selectedLatLng?.let {
                 MapLibreLatLng(it.latitude, it.longitude)
@@ -516,6 +585,17 @@ private fun MapLibreMapView(
             moveCameraIfChanged(map, target, if (selectedLatLng != null) 15.0 else 12.0)
         },
     )
+}
+
+/**
+ * Phase 10-2: writes route GeoJSON into the live "route-source".
+ * Null/blank clears the line. Never throws — logs and skips on failure.
+ */
+private fun applyRoute(style: Style, geoJson: String?) {
+    runCatching {
+        val source = style.getSource(ROUTE_SOURCE_ID) as? GeoJsonSource ?: return
+        source.setGeoJson(geoJson?.ifBlank { EMPTY_FEATURE_COLLECTION } ?: EMPTY_FEATURE_COLLECTION)
+    }
 }
 
 /** Programmatic pin bitmap (red dot, white core) — no drawable resource needed. */
