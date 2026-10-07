@@ -18,6 +18,8 @@ interface SettingsRepository {
 
     val preferredMapEngine: Flow<String>
 
+    val transportMode: Flow<String>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -31,6 +33,8 @@ interface SettingsRepository {
     suspend fun enforceTrialExpiry()
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
+
+    suspend fun setTransportMode(mode: String)
 
     suspend fun setPreferredMapEngine(engine: String)
 }

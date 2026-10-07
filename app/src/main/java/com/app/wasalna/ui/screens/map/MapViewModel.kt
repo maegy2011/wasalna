@@ -13,7 +13,9 @@ import com.app.wasalna.data.repository.OsrmRoute
 import com.app.wasalna.data.repository.VelaSearchRepository
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
+import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.repository.LocationRepository
+import com.app.wasalna.domain.repository.SettingsRepository
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -43,6 +46,7 @@ import javax.inject.Inject
 class MapViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val locationRepository: LocationRepository,
+    private val settingsRepository: SettingsRepository,
     private val nominatim: NominatimRepository,
     private val vela: VelaSearchRepository,
     private val osrm: OSRMRepository,
@@ -68,6 +72,15 @@ class MapViewModel @Inject constructor(
     // live minutes estimate. Null = not computed yet.
     private val _transportMode = MutableStateFlow(TransportMode.CAR)
     val transportMode: StateFlow<TransportMode> = _transportMode.asStateFlow()
+
+    init {
+        // Phase 10.4.2: restore the persisted mode (chosen on any screen).
+        viewModelScope.launch {
+            val saved = runCatching { settingsRepository.transportMode.first() }
+                .getOrDefault("CAR")
+            _transportMode.value = TransportMode.fromName(saved)
+        }
+    }
 
     private val _etaMinutes = MutableStateFlow<Int?>(null)
     val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
@@ -175,6 +188,10 @@ class MapViewModel @Inject constructor(
      */
     fun setTransportMode(mode: TransportMode) {
         _transportMode.value = mode
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTransportMode(mode.name) }
+                .onFailure { Log.e(TAG, "persist mode failed: ${it.message}") }
+        }
     }
 
     /** Result click — Photon hits always carry lat/lng: select immediately. */
@@ -281,13 +298,5 @@ class MapViewModel @Inject constructor(
     }
 }
 
-/**
- * Phase 10.4.0: user-selected transport mode for the Vela-style ETA.
- * Car and Train both route on the OSRM `driving` profile (train as a
- * proxy); Walk uses the `foot` profile.
- */
-enum class TransportMode(val osrmProfile: String) {
-    WALK("foot"),
-    CAR("driving"),
-    TRAIN("driving"),
-}
+// Phase 10.4.2: TransportMode lives in domain.model (shared with the
+// tracking service); imported above.

@@ -4,11 +4,13 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.domain.model.Location
+import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +31,16 @@ class HomeViewModel @Inject constructor(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = false,
+            )
+
+    // Phase 10.4.2: persisted transport mode for notification icon +
+    // alarm setup continuity (chosen on Map, used when tracking starts).
+    val transportMode: StateFlow<TransportMode> =
+        settingsRepository.transportMode.map { TransportMode.fromName(it) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = TransportMode.CAR,
             )
 
     // Phase 10.4.1: trial countdown for the drawer plan header.

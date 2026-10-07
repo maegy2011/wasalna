@@ -57,6 +57,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.domain.model.Location
+import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.AdBanner
 import com.app.wasalna.ui.screens.home.HomeViewModel
 import kotlinx.coroutines.launch
@@ -76,6 +77,8 @@ fun MyPlacesScreen(
     val context = LocalContext.current
     val locations by viewModel.locations.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
+    // Phase 10.4.2: persisted mode rides along into the tracking service.
+    val transportMode by viewModel.transportMode.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var trackingName by remember { mutableStateOf<String?>(null) }
@@ -176,7 +179,7 @@ fun MyPlacesScreen(
                             isTracking = trackingName != null,
                             onActivate = {
                                 if (hasLocationPermission(context)) {
-                                    startTracking(context, location)
+                                    startTracking(context, location, transportMode)
                                     trackingName = location.name
                                     Toast.makeText(
                                         context,
@@ -294,11 +297,17 @@ private fun hasLocationPermission(context: Context): Boolean {
     return fine || coarse
 }
 
-private fun startTracking(context: Context, location: Location) {
+private fun startTracking(
+    context: Context,
+    location: Location,
+    mode: TransportMode,
+) {
     val intent = Intent(context, TrackingService::class.java).apply {
         action = TrackingService.ACTION_START
         putExtra(TrackingService.EXTRA_LAT, location.latitude)
         putExtra(TrackingService.EXTRA_LNG, location.longitude)
+        putExtra(TrackingService.EXTRA_NAME, location.name)
+        putExtra(TrackingService.EXTRA_MODE, mode.name)
     }
     ContextCompat.startForegroundService(context, intent)
 }

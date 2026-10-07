@@ -32,6 +32,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val preferredMapEngine: Flow<String>
         get() = settingsDataStore.preferredMapEngine
 
+    override val transportMode: Flow<String>
+        get() = settingsDataStore.transportMode
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -62,5 +65,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setPreferredMapEngine(engine: String) {
         settingsDataStore.setPreferredMapEngine(engine)
+    }
+
+    override suspend fun setTransportMode(mode: String) {
+        settingsDataStore.setTransportMode(mode)
     }
 }

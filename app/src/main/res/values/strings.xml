@@ -38,4 +38,9 @@
     <string name="tracking_title">Wasalna alarm active</string>
     <string name="tracking_text">Alarm is active... Sleep tight!</string>
     <string name="tracking_stop">Stop</string>
+    <!-- Phase 10.4.2: rich notification actions -->
+    <string name="tracking_pause">Pause</string>
+    <string name="tracking_resume">Resume</string>
+    <string name="tracking_silent">Silent</string>
+    <string name="tracking_ring">Ring</string>
 </resources>

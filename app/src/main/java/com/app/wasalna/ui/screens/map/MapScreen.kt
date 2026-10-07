@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,6 +48,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.app.wasalna.domain.model.TransportMode
 import com.google.android.gms.maps.model.LatLng
 import org.maplibre.android.camera.CameraPosition as MapLibreCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory as MapLibreCameraUpdateFactory
@@ -108,6 +110,10 @@ fun MapScreen(
     // Phase 10-Fix: SearchBar active state — while typing, results take
     // over the screen (map hidden); picking a result reveals map + marker.
     var searchActive by remember { mutableStateOf(false) }
+
+    // Phase 10.4.2: hardware/software back always pops gracefully —
+    // never freezes, never traps the user on the map.
+    BackHandler(onBack = onBack)
 
     // Phase 10.4.1: reactive route/ETA — refires on EVERY selection or
     // transport-mode change, so the ETA always matches the chosen mode.

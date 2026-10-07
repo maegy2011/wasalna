@@ -53,6 +53,10 @@ class SettingsDataStore @Inject constructor(
     val preferredMapEngine: Flow<String> =
         dataStore.data.map { it[Keys.PREFERRED_MAP_ENGINE] ?: MapEngines.OSM }
 
+    // Phase 10.4.2: persisted transport mode (WALK/CAR/TRAIN name).
+    val transportMode: Flow<String> =
+        dataStore.data.map { it[Keys.TRANSPORT_MODE] ?: "CAR" }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -100,6 +104,10 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.PREFERRED_MAP_ENGINE] = normalized }
     }
 
+    suspend fun setTransportMode(mode: String) {
+        dataStore.edit { it[Keys.TRANSPORT_MODE] = mode }
+    }
+
     /** Phase 9-1: canonical map-engine values. */
     object MapEngines {
         const val OSM = "OSM"
@@ -114,5 +122,6 @@ class SettingsDataStore @Inject constructor(
         val TRIAL_END_TIME = longPreferencesKey("trial_end_time")
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
+        val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
     }
 }
