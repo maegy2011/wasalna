@@ -221,6 +221,18 @@ class TrackingService : Service() {
 
     private fun onFix(fix: Location) {
         if (isPaused) return
+        // Phase 10.4.3.7 (Part 2): breadcrumb per valid fix — junk fixes
+        // (>100 m accuracy) never touch the DB.
+        val tripId = activeTripId
+        if (tripId != null && !(fix.hasAccuracy() && fix.accuracy > 100f)) {
+            serviceScope.launch {
+                runCatching {
+                    tripRepo.recordRoutePoint(tripId, fix.latitude, fix.longitude)
+                }.onFailure {
+                    Log.w(TAG, "breadcrumb failed: ${it.message}")
+                }
+            }
+        }
         val target = Location("wasalna-target").apply {
             latitude = targetLat
             longitude = targetLng

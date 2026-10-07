@@ -1,5 +1,6 @@
 package com.app.wasalna.domain.repository
 
+import com.app.wasalna.domain.model.RoutePoint
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.model.TripHistory
 import kotlinx.coroutines.flow.Flow
@@ -30,4 +31,10 @@ interface TripRepository {
     suspend fun finishTrip(id: Long)
 
     suspend fun closeOpenTrips()
+
+    /** Phase 10.4.3.7 (Part 2): persist one GPS breadcrumb. */
+    suspend fun recordRoutePoint(tripId: Long, lat: Double, lng: Double)
+
+    /** Phase 10.4.3.7 (Part 2): travelled path, oldest first. */
+    fun routePoints(tripId: Long): Flow<List<RoutePoint>>
 }
