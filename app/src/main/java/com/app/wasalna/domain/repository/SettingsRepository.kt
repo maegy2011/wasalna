@@ -20,6 +20,8 @@ interface SettingsRepository {
 
     val transportMode: Flow<String>
 
+    val isAdaptiveAlarmEnabled: Flow<Boolean>
+
     val customRingtoneUri: Flow<String>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
@@ -37,6 +39,8 @@ interface SettingsRepository {
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
 
     suspend fun setTransportMode(mode: String)
+
+    suspend fun setAdaptiveAlarmEnabled(enabled: Boolean)
 
     suspend fun setCustomRingtoneUri(uri: String)
 

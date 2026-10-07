@@ -61,6 +61,10 @@ class SettingsDataStore @Inject constructor(
     val customRingtoneUri: Flow<String> =
         dataStore.data.map { it[Keys.CUSTOM_RINGTONE_URI] ?: "" }
 
+    // Phase 10.4.3.3: adaptive trigger distance per transport mode.
+    val isAdaptiveAlarmEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.ADAPTIVE_ALARM_ENABLED] ?: true }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -116,6 +120,10 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.CUSTOM_RINGTONE_URI] = uri }
     }
 
+    suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.ADAPTIVE_ALARM_ENABLED] = enabled }
+    }
+
     /** Phase 9-1: canonical map-engine values. */
     object MapEngines {
         const val OSM = "OSM"
@@ -132,5 +140,6 @@ class SettingsDataStore @Inject constructor(
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
         val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
         val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
+        val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
     }
 }

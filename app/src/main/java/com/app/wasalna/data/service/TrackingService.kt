@@ -84,6 +84,8 @@ class TrackingService : Service() {
     private var targetName: String = "Destination"
     private var mode: TransportMode = TransportMode.CAR
     private var isPaused: Boolean = false
+    // Phase 10.4.3.3: adaptive trigger (loaded once per trip via .first()).
+    private var adaptiveEnabled: Boolean = true
     private var currentIntervalMs: Long = -1L
     private var isTracking = false
 
@@ -154,6 +156,12 @@ class TrackingService : Service() {
         mode = TransportMode.fromName(intent.getStringExtra(EXTRA_MODE))
         isPaused = false
         acquireWakeLock()
+        // Phase 10.4.3.3: one-shot read (never collect{} in a service).
+        serviceScope.launch {
+            adaptiveEnabled = runCatching {
+                SettingsDataStore(applicationContext).isAdaptiveAlarmEnabled.first()
+            }.getOrDefault(true)
+        }
         // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
         serviceScope.launch {
             activeTripId = runCatching {
@@ -207,9 +215,11 @@ class TrackingService : Service() {
         }
         val distanceM = fix.distanceTo(target)
         lastSpeedKmh = if (fix.hasSpeed() && fix.speed >= 0f) fix.speed * 3.6 else 0.0
-        Log.i(TAG, "onFix: distance=${distanceM.toInt()}m speed=${"%.1f".format(lastSpeedKmh)}km/h")
+        val triggerM = triggerRadiusMeters(fix)
+        Log.i(TAG, "onFix: distance=${distanceM.toInt()}m trigger=${triggerM.toInt()}m " +
+            "speed=${"%.1f".format(lastSpeedKmh)}km/h mode=$mode")
 
-        if (distanceM <= TRIGGER_RADIUS_METERS) {
+        if (distanceM <= triggerM) {
             Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng")
             val prefs = SettingsDataStore(applicationContext)
             serviceScope.launch {
@@ -316,6 +326,24 @@ class TrackingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        // Phase 10.4.3.3: actions double as Wear OS wrist actions below.
+        val pauseAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_media_pause,
+            getString(if (isPaused) R.string.tracking_resume else R.string.tracking_pause),
+            servicePending(ACTION_PAUSE_RESUME, REQ_PAUSE),
+        ).build()
+        val silentAction = NotificationCompat.Action.Builder(
+            if (isSilent) android.R.drawable.ic_lock_silent_mode_off
+            else android.R.drawable.ic_lock_silent_mode,
+            getString(if (isSilent) R.string.tracking_ring else R.string.tracking_silent),
+            servicePending(ACTION_TOGGLE_SILENT, REQ_SILENT),
+        ).build()
+        val stopAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            getString(R.string.tracking_stop),
+            servicePending(ACTION_STOP, REQ_STOP),
+        ).build()
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
@@ -327,21 +355,14 @@ class TrackingService : Service() {
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(contentIntent)
-            .addAction(
-                android.R.drawable.ic_media_pause,
-                getString(if (isPaused) R.string.tracking_resume else R.string.tracking_pause),
-                servicePending(ACTION_PAUSE_RESUME, REQ_PAUSE),
-            )
-            .addAction(
-                if (isSilent) android.R.drawable.ic_lock_silent_mode_off
-                else android.R.drawable.ic_lock_silent_mode,
-                getString(if (isSilent) R.string.tracking_ring else R.string.tracking_silent),
-                servicePending(ACTION_TOGGLE_SILENT, REQ_SILENT),
-            )
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.tracking_stop),
-                servicePending(ACTION_STOP, REQ_STOP),
+            .addAction(pauseAction)
+            .addAction(silentAction)
+            .addAction(stopAction)
+            // Phase 10.4.3.3: Wear OS mirrors Pause + Stop on the wrist.
+            .extend(
+                NotificationCompat.WearableExtender()
+                    .addAction(pauseAction)
+                    .addAction(stopAction),
             )
     }
 
@@ -464,6 +485,25 @@ class TrackingService : Service() {
             Log.w(TAG, "WakeLock release failed: ${it.message}")
         }
         wakeLock = null
+    }
+
+    /**
+     * Phase 10.4.3.3: adaptive trigger distance — mode base (WALK 500m /
+     * CAR 2km / TRAIN 4km), stretched when actually moving fast so the
+     * user always gets ~2 minutes of warning (capped at 8 km).
+     * Adaptive off → legacy fixed 2 km.
+     */
+    private fun triggerRadiusMeters(fix: Location): Float {
+        if (!adaptiveEnabled) return TRIGGER_RADIUS_METERS
+        val base = when (mode) {
+            TransportMode.WALK -> 500f
+            TransportMode.CAR -> 2000f
+            TransportMode.TRAIN -> 4000f
+        }
+        // Bonus only when unusually fast: guarantees ~2 min of warning
+        // (speed × 120 s) but never shrinks the mode base.
+        val speedStretch = if (fix.hasSpeed() && fix.speed > 0f) fix.speed * 120f else 0f
+        return maxOf(base, speedStretch).coerceAtMost(8000f)
     }
 
     /** Phase 10.4.2.1: keep the open trip row's ETA fresh for the widget. */

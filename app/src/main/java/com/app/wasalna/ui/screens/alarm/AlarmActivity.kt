@@ -76,6 +76,15 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Phase 10.4.3.3: cold-start with a wrist action is meaningless
+        // (no sound owns this instance) — dismiss quietly. Live-instance
+        // actions arrive via onNewIntent below.
+        if (intent.action == ACTION_DISMISS_ALARM ||
+            intent.action == ACTION_SILENCE_ALARM
+        ) {
+            stopAlarm()
+            return
+        }
         val wantSilent = intent.getBooleanExtra(EXTRA_SILENT, false)
         val isPremium = intent.getBooleanExtra(EXTRA_PREMIUM, false)
         premiumMode = isPremium
@@ -115,11 +124,27 @@ class AlarmActivity : ComponentActivity() {
             startAlarmSound()
         }
 
+        // Phase 10.4.3.3: wrist-reachable alarm (Wear OS mirrors actions).
+        postAlarmNotification()
+
         setContent {
             AlarmScreen(
                 silentMode = silentMode,
                 onLongPressStop = { stopAlarm() },
             )
+        }
+    }
+
+    /**
+     * Phase 10.4.3.3: wrist taps land here (SINGLE_TOP) on the instance
+     * that actually owns the player + vibrator.
+     */
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        when (intent.action) {
+            ACTION_DISMISS_ALARM -> stopAlarm()
+            ACTION_SILENCE_ALARM -> silenceAlarm()
         }
     }
 
@@ -217,11 +242,11 @@ class AlarmActivity : ComponentActivity() {
             releasePlayer()
             startVibrateOnly()
         }
-        startVibration(longArrayOf(0, 500, 500), 0)
+        startVibration(AGGRESSIVE_PATTERN, 0)
     }
 
     private fun startVibrateOnly() {
-        startVibration(longArrayOf(0, 1000, 500), 0)
+        startVibration(AGGRESSIVE_PATTERN, 0)
     }
 
     private fun startVibration(pattern: LongArray, repeat: Int) {
@@ -288,10 +313,125 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Phase 10.4.3.3: high-priority alarm notification so a paired watch
+     * buzzes hard. Stop/Silence ride the WearableExtender (wrist control);
+     * tapping the body reopens this screen. Aggressive repeating vibration
+     * is driven by startVibration (waveform, repeat from 0).
+     */
+    private fun postAlarmNotification() {
+        runCatching {
+            val manager = getSystemService(
+                android.app.NotificationManager::class.java,
+            ) ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (manager.getNotificationChannel(ALARM_CHANNEL_ID) == null) {
+                    manager.createNotificationChannel(
+                        android.app.NotificationChannel(
+                            ALARM_CHANNEL_ID,
+                            "Alarm firing",
+                            android.app.NotificationManager.IMPORTANCE_HIGH,
+                        ).apply {
+                            enableVibration(true)
+                            vibrationPattern = AGGRESSIVE_PATTERN
+                        },
+                    )
+                }
+            }
+            val stopPending = android.app.PendingIntent.getActivity(
+                this,
+                REQ_WEAR_STOP,
+                android.content.Intent(this, AlarmActivity::class.java).apply {
+                    action = ACTION_DISMISS_ALARM
+                    addFlags(
+                        android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP,
+                    )
+                },
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                    android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            val silencePending = android.app.PendingIntent.getActivity(
+                this,
+                REQ_WEAR_SILENCE,
+                android.content.Intent(this, AlarmActivity::class.java).apply {
+                    action = ACTION_SILENCE_ALARM
+                    addFlags(
+                        android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP,
+                    )
+                },
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                    android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            val stopAction = androidx.core.app.NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Stop",
+                stopPending,
+            ).build()
+            val silenceAction = androidx.core.app.NotificationCompat.Action.Builder(
+                android.R.drawable.ic_lock_silent_mode,
+                "Silent",
+                silencePending,
+            ).build()
+            val contentPending = android.app.PendingIntent.getActivity(
+                this,
+                REQ_WEAR_CONTENT,
+                android.content.Intent(this, AlarmActivity::class.java).apply {
+                    addFlags(
+                        android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP,
+                    )
+                },
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                    android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            val notification = androidx.core.app.NotificationCompat.Builder(this, ALARM_CHANNEL_ID)
+                .setContentTitle("⏰ Wasalna — destination reached!")
+                .setContentText("Tap to open, or stop from your watch")
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
+                .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(false)
+                .setOngoing(true)
+                .setContentIntent(contentPending)
+                .addAction(stopAction)
+                .addAction(silenceAction)
+                .extend(
+                    androidx.core.app.NotificationCompat.WearableExtender()
+                        .addAction(stopAction)
+                        .addAction(silenceAction),
+                )
+                .build()
+            manager.notify(ALARM_NOTIF_ID, notification)
+        }.onFailure {
+            Log.w(TAG, "postAlarmNotification failed: ${it.message}")
+        }
+    }
+
+    private fun cancelAlarmNotification() {
+        runCatching {
+            getSystemService(android.app.NotificationManager::class.java)
+                ?.cancel(ALARM_NOTIF_ID)
+        }
+    }
+
+    /**
+     * Phase 10.4.3.3: wrist "Silent" — kills the sound but keeps the
+     * violent vibration + screen so a sleeping user still wakes up.
+     */
+    private fun silenceAlarm() {
+        if (stopped) return
+        Log.i(TAG, "silenceAlarm: sound off, vibration continues")
+        releasePlayer()
+        cancelAlarmNotification()
+    }
+
     private fun stopAlarm() {
         if (stopped) return
         stopped = true
         Log.i(TAG, "stopAlarm: dismissed silent=$silentMode")
+        cancelAlarmNotification()
         releasePlayer()
         try {
             vibrator?.cancel()
@@ -350,6 +490,21 @@ class AlarmActivity : ComponentActivity() {
         private const val TAG = "AlarmActivity"
         const val EXTRA_SILENT = "extra_silent"
         const val EXTRA_PREMIUM = "extra_premium"
+
+        // Phase 10.4.3.3: wrist actions (WearableExtender targets).
+        const val ACTION_DISMISS_ALARM = "com.app.wasalna.action.DISMISS_ALARM"
+        const val ACTION_SILENCE_ALARM = "com.app.wasalna.action.SILENCE_ALARM"
+        const val ALARM_CHANNEL_ID = "wasalna_alarm"
+        const val ALARM_NOTIF_ID = 2001
+        private const val REQ_WEAR_STOP = 21
+        private const val REQ_WEAR_SILENCE = 22
+        private const val REQ_WEAR_CONTENT = 23
+
+        /**
+         * Phase 10.4.3.3: violent repeating waveform — 1.2 s buzz /
+         * 0.4 s gap, looping from index 0 until explicitly cancelled.
+         */
+        val AGGRESSIVE_PATTERN = longArrayOf(0, 1200, 400, 1200, 400)
     }
 }
 

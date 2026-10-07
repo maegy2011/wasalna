@@ -66,6 +66,7 @@ fun SettingsScreen(
     val isPremium by viewModel.isPremium.collectAsState()
     val silentAlarm by viewModel.silentAlarm.collectAsState()
     val customRingtoneUri by viewModel.customRingtoneUri.collectAsState()
+    val adaptiveAlarm by viewModel.adaptiveAlarm.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -261,6 +262,36 @@ fun SettingsScreen(
                 Icon(
                     if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
                     contentDescription = if (!isPremium) "Premium only" else "Pick ringtone",
+                )
+            }
+        }
+
+        // Phase 10.4.3.3: adaptive trigger distance (Walk 500m / Car 2km /
+        // Train 4km + speed stretch); off = legacy fixed 2 km.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Adaptive Alarm Distance",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "Trigger adapts to Walk / Car / Train + speed",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = adaptiveAlarm,
+                    onCheckedChange = viewModel::setAdaptiveAlarm,
                 )
             }
         }

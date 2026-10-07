@@ -78,4 +78,18 @@ class SettingsViewModel @Inject constructor(
             runCatching { settingsRepository.setSilentAlarmEnabled(enabled) }
         }
     }
+
+    // Phase 10.4.3.3: adaptive trigger distance per transport mode.
+    val adaptiveAlarm: StateFlow<Boolean> =
+        settingsRepository.isAdaptiveAlarmEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = true,
+        )
+
+    fun setAdaptiveAlarm(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAdaptiveAlarmEnabled(enabled) }
+        }
+    }
 }
