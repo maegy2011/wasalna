@@ -11,5 +11,7 @@ interface LocationRepository {
 
     suspend fun addLocation(location: Location): Long
 
+    suspend fun updateLocation(location: Location)
+
     suspend fun removeLocation(location: Location)
 }

@@ -1,20 +1,24 @@
 package com.app.wasalna.data.repository
 
 import android.util.Log
+import com.app.wasalna.domain.model.SearchResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Phase 10-2: Vela-style keyless autocomplete.
- * Uses Google's public browser suggest endpoint — NO API key, NO billing.
- * Fast string suggestions; coordinates are resolved on click via
- * NominatimRepository (two-step flow in MapViewModel).
+ * Phase 10-Fix: Vela search now runs on the Photon API (keyless, free).
+ * Photon returns REAL places as GeoJSON — name + coordinates arrive
+ * together, so NO second geocoding step is needed (unlike the old
+ * suggest-queries string flow, which returned general web text).
+ *
+ * Response shape: { features: [ { properties: {name, city, country, ...},
+ * geometry: { coordinates: [lon, lat] } } ] }
  */
 @Singleton
 class VelaSearchRepository @Inject constructor() {
@@ -25,38 +29,60 @@ class VelaSearchRepository @Inject constructor() {
         .build()
 
     /**
-     * Returns raw suggestion strings. Response is a JSON array whose
-     * index 1 holds the suggestion list. Empty list on any failure —
+     * Keyless place autocomplete. Empty list on any failure —
      * never throws (runs on Dispatchers.IO).
      */
-    suspend fun suggest(query: String): List<String> =
+    suspend fun suggest(query: String): List<SearchResult> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val url = SUGGEST_URL + "?client=chrome&q=${encode(query)}"
+                val url = PHOTON_URL + "?q=${encode(query)}&limit=5&lang=en"
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", NominatimRepository.USER_AGENT)
                     .build()
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
-                        Log.w(TAG, "suggest HTTP ${response.code}")
-                        return@runCatching emptyList<String>()
+                        Log.w(TAG, "photon HTTP ${response.code}")
+                        return@runCatching emptyList<SearchResult>()
                     }
-                    val body = response.body?.string() ?: return@runCatching emptyList<String>()
-                    val root = JSONArray(body)
-                    if (root.length() < 2) return@runCatching emptyList<String>()
-                    val arr = root.getJSONArray(1)
-                    List(arr.length()) { i -> arr.optString(i) }.filter { it.isNotBlank() }
+                    val body = response.body?.string() ?: return@runCatching emptyList<SearchResult>()
+                    parsePhoton(body)
                 }
             }.onFailure {
-                Log.e(TAG, "suggest failed: ${it.message}")
+                Log.e(TAG, "photon suggest failed: ${it.message}")
             }.getOrDefault(emptyList())
         }
+
+    private fun parsePhoton(body: String): List<SearchResult> {
+        val features = JSONObject(body).optJSONArray("features") ?: return emptyList()
+        return List(features.length()) { i ->
+            val feature = features.optJSONObject(i) ?: return@List null
+            val props = feature.optJSONObject("properties")
+            val coords = feature.optJSONObject("geometry")?.optJSONArray("coordinates")
+            val lng = coords?.optDouble(0)
+            val lat = coords?.optDouble(1)
+            if (props == null || lat == null || lng == null) return@List null
+            SearchResult(
+                name = displayName(props),
+                lat = lat,
+                lng = lng,
+            )
+        }.filterNotNull()
+    }
+
+    private fun displayName(props: JSONObject): String {
+        val name = props.optString("name").ifBlank { null }
+        val city = listOf("city", "town", "village", "county", "state")
+            .firstNotNullOfOrNull { props.optString(it).ifBlank { null } }
+        val country = props.optString("country").ifBlank { null }
+        return listOfNotNull(name, city, country).distinct().joinToString(", ")
+            .ifBlank { "Unnamed place" }
+    }
 
     private fun encode(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
 
     companion object {
         private const val TAG = "VelaSearch"
-        const val SUGGEST_URL = "https://suggestqueries.google.com/complete/search"
+        const val PHOTON_URL = "https://photon.komoot.io/api/"
     }
 }

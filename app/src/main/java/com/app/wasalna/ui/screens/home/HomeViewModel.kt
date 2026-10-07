@@ -46,6 +46,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Phase 10-Fix: rename a saved place (My Places Edit dialog). */
+    fun renameLocation(location: Location, newName: String) {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty() || trimmed == location.name) return
+        viewModelScope.launch {
+            runCatching {
+                locationRepository.updateLocation(location.copy(name = trimmed))
+            }.onFailure { Log.e(TAG, "renameLocation failed: ${it.message}") }
+        }
+    }
+
     companion object {
         private const val TAG = "HomeViewModel"
     }

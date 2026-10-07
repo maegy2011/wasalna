@@ -77,9 +77,9 @@ fun MainContainerScreen() {
     fun openDrawer() = scope.launch { drawerState.open() }
     fun closeDrawer() = scope.launch { drawerState.close() }
 
-    // Bottom bar is hidden on the full-screen Map destination.
-    val showBottomBar = !isSelected(Screen.Map.route)
-
+    // Phase 10-Fix: bottom bar stays visible on every destination (tabs +
+    // full-screen Map) so navigation never disappears. NavHost lives INSIDE
+    // the Scaffold padding below.
     fun navigateTab(route: String) {
         innerNav.navigate(route) {
             popUpTo(innerNav.graph.findStartDestination().id) {
@@ -181,7 +181,6 @@ fun MainContainerScreen() {
     ) {
         Scaffold(
             bottomBar = {
-                if (showBottomBar) {
                     NavigationBar {
                         NavigationBarItem(
                             selected = isSelected(Screen.Home.route),
@@ -202,7 +201,6 @@ fun MainContainerScreen() {
                             label = { Text("First Class") },
                         )
                     }
-                }
             },
         ) { padding ->
             NavHost(

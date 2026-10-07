@@ -3,6 +3,7 @@ package com.app.wasalna.data.local.dao
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.Update
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.app.wasalna.data.local.entity.LocationEntity
@@ -13,6 +14,10 @@ interface LocationDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLocation(location: LocationEntity): Long
+
+    // Phase 10-Fix: rename support for My Places (Update CRUD).
+    @Update
+    suspend fun updateLocation(location: LocationEntity)
 
     @Delete
     suspend fun deleteLocation(location: LocationEntity)

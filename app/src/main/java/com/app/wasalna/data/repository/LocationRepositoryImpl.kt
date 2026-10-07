@@ -28,6 +28,10 @@ class LocationRepositoryImpl @Inject constructor(
     override suspend fun addLocation(location: Location): Long =
         locationDao.insertLocation(location.toEntity())
 
+    override suspend fun updateLocation(location: Location) {
+        locationDao.updateLocation(location.toEntity())
+    }
+
     override suspend fun removeLocation(location: Location) {
         locationDao.deleteLocation(location.toEntity())
     }

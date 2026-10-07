@@ -22,7 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,10 +34,12 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -74,6 +79,13 @@ fun MyPlacesScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var trackingName by remember { mutableStateOf<String?>(null) }
+    // Phase 10-Fix: local filter + rename dialog state (CRUD).
+    var filter by remember { mutableStateOf("") }
+    var renameTarget by remember { mutableStateOf<Location?>(null) }
+    val visiblePlaces = remember(locations, filter) {
+        if (filter.isBlank()) locations
+        else locations.filter { it.name.contains(filter.trim(), ignoreCase = true) }
+    }
 
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
@@ -133,14 +145,31 @@ fun MyPlacesScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
+            // Phase 10-Fix: local search over saved places.
+            OutlinedTextField(
+                value = filter,
+                onValueChange = { filter = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search saved places") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Search, contentDescription = null)
+                },
+                singleLine = true,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             if (locations.isEmpty()) {
                 Text(
                     text = "No places saved yet. Tap + to add one!",
                     style = MaterialTheme.typography.bodyLarge,
                 )
+            } else if (visiblePlaces.isEmpty()) {
+                Text(
+                    text = "No saved places match \"$filter\".",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(locations, key = { it.id }) { location ->
+                    items(visiblePlaces, key = { it.id }) { location ->
                         SavedPlaceCard(
                             location = location,
                             isTracking = trackingName != null,
@@ -161,12 +190,42 @@ fun MyPlacesScreen(
                                     ).show()
                                 }
                             },
+                            onEdit = { renameTarget = location },
                             onDelete = { viewModel.deleteLocation(location) },
                         )
                     }
                 }
             }
         }
+    }
+    // Phase 10-Fix: rename dialog (Update CRUD).
+    renameTarget?.let { target ->
+        var draft by remember(target.id) { mutableStateOf(target.name) }
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Rename place") },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    label = { Text("Place name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.renameLocation(target, draft)
+                    renameTarget = null
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -175,6 +234,7 @@ private fun SavedPlaceCard(
     location: Location,
     isTracking: Boolean,
     onActivate: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Card(
@@ -192,6 +252,9 @@ private fun SavedPlaceCard(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Rename destination")
+                }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete destination")
                 }
