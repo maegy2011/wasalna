@@ -19,7 +19,10 @@ import androidx.core.content.ContextCompat
 import com.app.wasalna.R
 import com.app.wasalna.data.local.datastore.SettingsDataStore
 import com.app.wasalna.data.repository.OSRMRepository
+import com.app.wasalna.di.TripRepositoryEntryPoint
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.domain.repository.TripRepository
+import dagger.hilt.android.EntryPointAccessors
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -60,6 +63,16 @@ class TrackingService : Service() {
     private lateinit var fusedClient: FusedLocationProviderClient
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val osrm = OSRMRepository()
+
+    // Phase 10.4.2.1: trip-history logging via Hilt entry point
+    // (plain Service cannot use @Inject).
+    private val tripRepo: TripRepository by lazy {
+        EntryPointAccessors.fromApplication(
+            applicationContext,
+            TripRepositoryEntryPoint::class.java,
+        ).tripRepository()
+    }
+    private var activeTripId: Long? = null
 
     // Phase 10.4.2.1: Partial WakeLock keeps the CPU awake while tracking
     // so fixes keep flowing with the screen off. Acquired once per trip
@@ -141,6 +154,14 @@ class TrackingService : Service() {
         mode = TransportMode.fromName(intent.getStringExtra(EXTRA_MODE))
         isPaused = false
         acquireWakeLock()
+        // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
+        serviceScope.launch {
+            activeTripId = runCatching {
+                tripRepo.startTrip(targetName, targetLat, targetLng, mode)
+            }.onFailure {
+                Log.w(TAG, "startTrip log failed: ${it.message}")
+            }.getOrNull()
+        }
 
         // Read the current silent flag once so the action label is correct.
         serviceScope.launch {
@@ -236,6 +257,7 @@ class TrackingService : Service() {
         if (lastSpeedKmh > MIN_MOVING_KMH) {
             val mins = (distanceM / 1000.0) / lastSpeedKmh * 60.0
             lastEtaMin = mins.toInt().coerceAtLeast(1)
+            persistEta()
         } else {
             val now = System.currentTimeMillis()
             if (now - lastOsrmFetchMs >= OSRM_MIN_INTERVAL_MS) {
@@ -250,6 +272,7 @@ class TrackingService : Service() {
                     }.getOrNull()
                     route?.durationSec?.takeIf { it >= 0 }?.let {
                         lastEtaMin = (it / 60.0).toInt().coerceAtLeast(1)
+                        persistEta()
                     }
                     pushNotification(fix)
                 }
@@ -443,11 +466,28 @@ class TrackingService : Service() {
         wakeLock = null
     }
 
+    /** Phase 10.4.2.1: keep the open trip row's ETA fresh for the widget. */
+    private fun persistEta() {
+        val id = activeTripId ?: return
+        val eta = lastEtaMin ?: return
+        serviceScope.launch {
+            runCatching { tripRepo.updateEta(id, eta) }
+        }
+    }
+
     override fun onDestroy() {
         try {
             fusedClient.removeLocationUpdates(locationCallback)
         } catch (e: Exception) {
             Log.w(TAG, "onDestroy removeLocationUpdates: ${e.message}")
+        }
+        // Phase 10.4.2.1: every stop path ends here — finish the trip row.
+        val id = activeTripId
+        activeTripId = null
+        if (id != null) {
+            serviceScope.launch {
+                runCatching { tripRepo.finishTrip(id) }
+            }
         }
         // Phase 10.4.2.1: every stop path ends here — battery never leaks.
         releaseWakeLock()

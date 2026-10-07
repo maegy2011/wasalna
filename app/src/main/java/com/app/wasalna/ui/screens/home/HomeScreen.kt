@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +58,8 @@ fun HomeScreen(
     val context = LocalContext.current
     val locations by viewModel.locations.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
+    // Phase 10.4.2.1: live active trip for the top widget.
+    val activeTrip by viewModel.activeTrip.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -111,6 +115,32 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            // Phase 10.4.2.1: prominent active-trip widget. Tap opens the
+            // map to view/edit mode or destination.
+            activeTrip?.let { trip ->
+                Card(
+                    onClick = onOpenMap,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "${trip.transportMode.icon} Current Trip: ${trip.locationName}",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = trip.etaMinutes?.let { "ETA: $it mins" }
+                                ?: "Tracking live…",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             Icon(
                 Icons.Filled.LocationOn,
                 contentDescription = "No destinations yet",

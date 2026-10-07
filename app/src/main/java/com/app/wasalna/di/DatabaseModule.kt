@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.app.wasalna.data.local.AppDatabase
 import com.app.wasalna.data.local.dao.LocationDao
+import com.app.wasalna.data.local.dao.TripDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,9 +24,16 @@ object DatabaseModule {
         context,
         AppDatabase::class.java,
         "wasalna_db",
-    ).build()
+    )
+        // Phase 10.4.2.1: v1→v2 adds trips; destructive is safe pre-release.
+        .fallbackToDestructiveMigration()
+        .build()
 
     @Provides
     fun provideLocationDao(database: AppDatabase): LocationDao =
         database.locationDao()
+
+    @Provides
+    fun provideTripDao(database: AppDatabase): TripDao =
+        database.tripDao()
 }

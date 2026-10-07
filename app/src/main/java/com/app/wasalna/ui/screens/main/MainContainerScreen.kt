@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -49,6 +52,7 @@ import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.ui.navigation.Screen
 import com.app.wasalna.ui.screens.home.HomeViewModel
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
+import com.app.wasalna.ui.screens.trips.TripsHistoryScreen
 import com.app.wasalna.ui.screens.home.HomeScreen
 import com.app.wasalna.ui.screens.map.MapScreen
 import com.app.wasalna.ui.screens.myplaces.MyPlacesScreen
@@ -80,6 +84,9 @@ fun MainContainerScreen() {
     val planVm: HomeViewModel = hiltViewModel()
     val planPremium by planVm.isPremium.collectAsState()
     val planTrialEnd by planVm.trialEndTimeMillis.collectAsState()
+    // Phase 10.4.2.1: drawer impact stats.
+    val successfulTrips by planVm.successfulTrips.collectAsState()
+    val timeSavedHours by planVm.timeSavedHours.collectAsState()
     var planNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -167,6 +174,47 @@ fun MainContainerScreen() {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
+                    label = { Text("Trip History") },
+                    selected = isSelected(Screen.TripsHistory.route),
+                    onClick = {
+                        closeDrawer()
+                        navigateTab(Screen.TripsHistory.route)
+                    },
+                    icon = { Icon(Icons.Filled.History, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+                // Phase 10.4.2.1: Your Impact — live stats from TripDao.
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Your Impact",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
+                )
+                NavigationDrawerItem(
+                    label = { Text("Peace of mind: $successfulTrips trips") },
+                    selected = false,
+                    onClick = {
+                        closeDrawer()
+                        navigateTab(Screen.TripsHistory.route)
+                    },
+                    icon = { Icon(Icons.Filled.Favorite, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+                NavigationDrawerItem(
+                    label = {
+                        Text("Time saved: ${"%.1f".format(timeSavedHours)} hrs")
+                    },
+                    selected = false,
+                    onClick = {
+                        closeDrawer()
+                        navigateTab(Screen.TripsHistory.route)
+                    },
+                    icon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+                NavigationDrawerItem(
                     label = { Text("Share") },
                     selected = false,
                     onClick = {
@@ -250,6 +298,11 @@ fun MainContainerScreen() {
                         viewModel = hiltViewModel(),
                         onSaved = { navigateTab(Screen.MyPlaces.route) },
                         onBack = { navigateTab(Screen.MyPlaces.route) },
+                    )
+                }
+                composable(Screen.TripsHistory.route) {
+                    TripsHistoryScreen(
+                        onBack = { navigateTab(Screen.Home.route) },
                     )
                 }
                 composable(Screen.Paywall.route) { PaywallScreen(onMenuClick = { openDrawer() }) }

@@ -10,4 +10,6 @@ sealed class Screen(val route: String) {
     data object Map : Screen("map")
     data object Settings : Screen("settings")
     data object Paywall : Screen("paywall")
+    // Phase 10.4.2.1: Current / Future / Past trip history.
+    data object TripsHistory : Screen("trips_history")
 }

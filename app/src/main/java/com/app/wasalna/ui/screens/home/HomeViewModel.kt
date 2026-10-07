@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
+import com.app.wasalna.domain.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
     private val settingsRepository: SettingsRepository,
+    private val tripRepository: TripRepository,
 ) : ViewModel() {
 
     // Phase 8: premium gates ads + freemium location limit.
@@ -58,7 +61,38 @@ class HomeViewModel @Inject constructor(
             runCatching { settingsRepository.enforceTrialExpiry() }
                 .onFailure { Log.e(TAG, "enforceTrialExpiry failed: ${it.message}") }
         }
+        // Phase 10.4.2.1: heal stale ACTIVE trips (killed service, reboot).
+        viewModelScope.launch {
+            runCatching { tripRepository.closeOpenTrips() }
+                .onFailure { Log.e(TAG, "closeOpenTrips failed: ${it.message}") }
+        }
     }
+
+    // Phase 10.4.2.1: live active trip (Home widget) + impact stats.
+    val activeTrip: StateFlow<TripHistory?> =
+        tripRepository.activeTrip()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = null,
+            )
+
+    val successfulTrips: StateFlow<Int> =
+        tripRepository.pastCount()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = 0,
+            )
+
+    val timeSavedHours: StateFlow<Float> =
+        tripRepository.totalEtaMinutes()
+            .map { it / 60f }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = 0f,
+            )
 
     val locations: StateFlow<List<Location>> =
         locationRepository.getAllLocations()
