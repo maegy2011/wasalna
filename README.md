@@ -5,7 +5,7 @@
 > can sleep tight on the bus, train, or with a driver.
 
 **Package:** `com.app.wasalna` · **Language:** Kotlin · **UI:** Jetpack Compose (Material 3)
-**Current:** `versionName = "10.4.3.4"` · `versionCode = 16` (see `app/build.gradle.kts`)
+**Current:** `versionName = "10.4.3.7"` · `versionCode = 19` (see `app/build.gradle.kts`)
 
 This README is written **for `opencode` agents** working in this repo. Read it before
 touching code. It complements the root `AGENTS.md` (opencode model rules).
@@ -210,6 +210,8 @@ New key = add `*PreferencesKey` + Flow + setter → expose in `SettingsRepositor
 
 ## 9. Version history (recent)
 
+- **10.4.3.7** — bulletproof offline tracking (GPS fallback distance/ETA,
+  60s OSRM probe throttle, `[Offline 🛰️]` notification tag)
 - **10.4.3.6** — strict-OEM AutoStart guidance (entry flow + settings revisit)
 - **10.4.3.4** — proactive silent heads-up (~3 min before alarm, auto-dismissed
   on arrival)

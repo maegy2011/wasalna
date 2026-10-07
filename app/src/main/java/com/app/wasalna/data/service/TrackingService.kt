@@ -96,6 +96,10 @@ class TrackingService : Service() {
     private var lastSpeedKmh: Double = 0.0
     private var lastEtaMin: Int? = null
     private var lastOsrmFetchMs: Long = 0L
+    // Phase 10.4.3.7: bulletproof offline — probe_net at most once a minute
+    // while down; every tick in between runs on pure GPS distance.
+    private var isOfflineMode: Boolean = false
+    private var lastOsrmFailureAt: Long = 0L
     private var isSilent: Boolean = false
 
     private val locationCallback = object : LocationCallback() {
@@ -281,7 +285,11 @@ class TrackingService : Service() {
             persistEta()
         } else {
             val now = System.currentTimeMillis()
-            if (now - lastOsrmFetchMs >= OSRM_MIN_INTERVAL_MS) {
+            // Phase 10.4.3.7: while offline, silence the radio — one probe
+            // per minute max, pure GPS distance on every tick meanwhile.
+            val mayProbe = !isOfflineMode ||
+                now - lastOsrmFailureAt >= OSRM_RETRY_MS
+            if (mayProbe && now - lastOsrmFetchMs >= OSRM_MIN_INTERVAL_MS) {
                 lastOsrmFetchMs = now
                 serviceScope.launch {
                     val route = runCatching {
@@ -291,12 +299,24 @@ class TrackingService : Service() {
                             mode.osrmProfile,
                         )
                     }.getOrNull()
-                    route?.durationSec?.takeIf { it >= 0 }?.let {
-                        lastEtaMin = (it / 60.0).toInt().coerceAtLeast(1)
+                    val secs = route?.durationSec?.takeIf { it >= 0 }
+                    if (secs != null) {
+                        // Network alive — leave offline mode behind.
+                        isOfflineMode = false
+                        lastEtaMin = (secs / 60.0).toInt().coerceAtLeast(1)
                         persistEta()
+                    } else {
+                        // OSRM dead — GPS fallback + local ETA, no spam.
+                        isOfflineMode = true
+                        lastOsrmFailureAt = System.currentTimeMillis()
+                        Log.w(TAG, "OSRM unreachable — offline GPS mode")
+                        offlineEtaFallback(fix, distanceM)
                     }
                     pushNotification(fix)
                 }
+            } else if (isOfflineMode) {
+                // Between probes: keep the ETA breathing on GPS alone.
+                offlineEtaFallback(fix, distanceM)
             }
         }
         // Phase 10.4.3.4: fire once when ETA drops to ~3 min while still
@@ -318,6 +338,19 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Phase 10.4.3.7: local ETA when the network is dead — distance /
+     * speed, guarded against zero speed (then the last ETA stands).
+     */
+    private fun offlineEtaFallback(fix: Location, distanceM: Float) {
+        val speedMps = if (fix.hasSpeed() && fix.speed > 0f) fix.speed else 0f
+        if (speedMps > MIN_OFFLINE_SPEED_MPS) {
+            lastEtaMin = (distanceM / speedMps / 60.0).toInt().coerceAtLeast(1)
+            persistEta()
+        }
+        // speed ~ 0 → retain lastEtaMin; UI shows "--" when null.
+    }
+
     /** Builds the rich notification; null fix = static (start/pause/silent). */
     private fun buildNotification(fix: Location?): NotificationCompat.Builder {
         val title = if (isPaused) "Paused — $targetName" else "Heading to: $targetName"
@@ -330,9 +363,12 @@ class TrackingService : Service() {
                     longitude = targetLng
                 },
             ) / 1000.0
-            val eta = lastEtaMin?.let { "~$it mins ${mode.icon}" } ?: "calculating…"
+            val eta = lastEtaMin?.let { "~$it mins ${mode.icon}" }
+                ?: if (isOfflineMode) "--" else "calculating…"
+            // Phase 10.4.3.7: reassure — GPS guard stays on without internet.
+            val offlineTag = if (isOfflineMode) " [Offline 🛰️]" else ""
             "Dist: ${"%.1f".format(distKm)} km | " +
-                "Speed: ${"%.0f".format(lastSpeedKmh)} km/h | ETA: $eta"
+                "Speed: ${"%.0f".format(lastSpeedKmh)} km/h | ETA: $eta$offlineTag"
         } else {
             "Alarm is active... Sleep tight!"
         }
@@ -673,6 +709,12 @@ class TrackingService : Service() {
 
         /** OSRM ETA refresh floor while stationary (avoids API spam). */
         private const val OSRM_MIN_INTERVAL_MS = 120_000L
+
+        /** Phase 10.4.3.7: minimum silence between offline probes. */
+        private const val OSRM_RETRY_MS = 60_000L
+
+        /** Phase 10.4.3.7: below this GPS speed the fallback ETA freezes. */
+        private const val MIN_OFFLINE_SPEED_MPS = 0.5f
 
         private const val REQ_CONTENT = 10
         private const val REQ_PAUSE = 11
