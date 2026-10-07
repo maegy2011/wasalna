@@ -35,6 +35,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val transportMode: Flow<String>
         get() = settingsDataStore.transportMode
 
+    override val hasSeenAutoStartGuidance: Flow<Boolean>
+        get() = settingsDataStore.hasSeenAutoStartGuidance
+
     override val isProactiveAlertEnabled: Flow<Boolean>
         get() = settingsDataStore.isProactiveAlertEnabled
 
@@ -78,6 +81,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTransportMode(mode: String) {
         settingsDataStore.setTransportMode(mode)
+    }
+
+    override suspend fun setHasSeenAutoStartGuidance(seen: Boolean) {
+        settingsDataStore.setHasSeenAutoStartGuidance(seen)
     }
 
     override suspend fun setProactiveAlertEnabled(enabled: Boolean) {

@@ -54,6 +54,7 @@ import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.navigation.Screen
 import com.app.wasalna.ui.screens.home.HomeViewModel
+import com.app.wasalna.ui.screens.restrictions.DeviceRestrictionsScreen
 import com.app.wasalna.ui.screens.offline.OfflineMapsScreen
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
 import com.app.wasalna.ui.screens.trips.TripsHistoryScreen
@@ -340,6 +341,13 @@ fun MainContainerScreen() {
                         onBack = { navigateTab(Screen.Home.route) },
                         onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                         onOpenOfflineMaps = { navigateTab(Screen.OfflineMaps.route) },
+                        onOpenRestrictions = { navigateTab(Screen.DeviceRestrictions.route) },
+                    )
+                }
+                // Phase 10.4.3.6: revisit entry for the OEM guidance.
+                composable(Screen.DeviceRestrictions.route) {
+                    DeviceRestrictionsScreen(
+                        onDone = { navigateTab(Screen.Settings.route) },
                     )
                 }
                 composable(Screen.OfflineMaps.route) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.app.wasalna.utils.AutoStartUtils
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
@@ -58,6 +60,7 @@ fun SettingsScreen(
     onBack: () -> Unit = {},
     onOpenPaywall: () -> Unit = {},
     onOpenOfflineMaps: () -> Unit = {},
+    onOpenRestrictions: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -323,6 +326,38 @@ fun SettingsScreen(
                     checked = proactiveAlert,
                     onCheckedChange = viewModel::setProactiveAlert,
                 )
+            }
+        }
+
+        // Phase 10.4.3.6: strict-OEM revisit entry (hidden on lenient devices).
+        if (AutoStartUtils.isStrictDevice()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                onClick = onOpenRestrictions,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Fix Background Tracking",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "AutoStart + background restrictions",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Icon(
+                        Icons.Filled.BatteryAlert,
+                        contentDescription = "Fix background tracking",
+                    )
+                }
             }
         }
 

@@ -7,10 +7,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.ui.screens.main.MainContainerScreen
 import com.app.wasalna.ui.screens.permissions.PermissionsScreen
+import com.app.wasalna.ui.screens.restrictions.DeviceRestrictionsScreen
 import com.app.wasalna.ui.screens.splash.SplashScreen
 
 /**
  * Phase 7: root graph — Splash → Permissions → Main (tabs container).
+ * Phase 10.4.3.6: DeviceRestrictions sits between Permissions and Main;
+ * it auto-skips on lenient devices or after confirmation.
  * Main route clears the onboarding back-stack inclusively.
  */
 @Composable
@@ -38,8 +41,17 @@ fun NavGraph() {
             PermissionsScreen(
                 viewModel = hiltViewModel(),
                 onDone = {
-                    navController.navigate(Screen.Main.route) {
+                    navController.navigate(Screen.DeviceRestrictions.route) {
                         popUpTo(Screen.Permissions.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Screen.DeviceRestrictions.route) {
+            DeviceRestrictionsScreen(
+                onDone = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.DeviceRestrictions.route) { inclusive = true }
                     }
                 },
             )

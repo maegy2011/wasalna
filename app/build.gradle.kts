@@ -31,8 +31,8 @@ android {
         // Versioning pattern (Wasalna): versionName = "<phase>" (e.g. 9.3.1
         // for Phase 9-3-1-fix), versionCode +1 on EVERY published APK build.
         // Phase 10.4.2.1 (trips history): same phase name, next build number.
-        versionCode = 16
-        versionName = "10.4.3.4"
+        versionCode = 17
+        versionName = "10.4.3.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
