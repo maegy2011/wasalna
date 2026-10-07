@@ -86,6 +86,9 @@ class TrackingService : Service() {
     private var isPaused: Boolean = false
     // Phase 10.4.3.3: adaptive trigger (loaded once per trip via .first()).
     private var adaptiveEnabled: Boolean = true
+    // Phase 10.4.3.4: one-shot heads-up per trip (reset on every START).
+    private var hasFiredProactiveAlert: Boolean = false
+    private var proactiveEnabled: Boolean = true
     private var currentIntervalMs: Long = -1L
     private var isTracking = false
 
@@ -156,10 +159,15 @@ class TrackingService : Service() {
         mode = TransportMode.fromName(intent.getStringExtra(EXTRA_MODE))
         isPaused = false
         acquireWakeLock()
-        // Phase 10.4.3.3: one-shot read (never collect{} in a service).
+        // Phase 10.4.3.3/10.4.3.4: one-shot reads (never collect{} in a service).
+        hasFiredProactiveAlert = false
         serviceScope.launch {
+            val prefs = SettingsDataStore(applicationContext)
             adaptiveEnabled = runCatching {
-                SettingsDataStore(applicationContext).isAdaptiveAlarmEnabled.first()
+                prefs.isAdaptiveAlarmEnabled.first()
+            }.getOrDefault(true)
+            proactiveEnabled = runCatching {
+                prefs.isProactiveAlertEnabled.first()
             }.getOrDefault(true)
         }
         // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
@@ -221,6 +229,9 @@ class TrackingService : Service() {
 
         if (distanceM <= triggerM) {
             Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng")
+            // Phase 10.4.3.4: the heads-up has served its purpose — dismiss.
+            dismissProactiveAlert()
+            hasFiredProactiveAlert = false
             val prefs = SettingsDataStore(applicationContext)
             serviceScope.launch {
                 val silent = try {
@@ -287,6 +298,16 @@ class TrackingService : Service() {
                     pushNotification(fix)
                 }
             }
+        }
+        // Phase 10.4.3.4: fire once when ETA drops to ~3 min while still
+        // outside the main trigger radius (never after it — see guard).
+        val etaNow = lastEtaMin
+        if (!hasFiredProactiveAlert && proactiveEnabled &&
+            etaNow != null && etaNow <= PROACTIVE_ETA_MIN &&
+            distanceM > triggerM
+        ) {
+            hasFiredProactiveAlert = true
+            fireProactiveAlert()
         }
         pushNotification(fix)
 
@@ -374,6 +395,55 @@ class TrackingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+    /**
+     * Phase 10.4.3.4: the gentle heads-up — separate DEFAULT channel,
+     * no sound, one soft buzz, auto-dismiss + explicit cancel on arrival.
+     */
+    private fun fireProactiveAlert() {
+        runCatching {
+            val manager = getSystemService(NotificationManager::class.java) ?: return
+            val contentIntent = PendingIntent.getActivity(
+                this,
+                REQ_PROACTIVE,
+                Intent(this, com.app.wasalna.MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val notification = NotificationCompat.Builder(this, PROACTIVE_CHANNEL_ID)
+                .setContentTitle("Approaching destination / اقتربنا من الوصول")
+                .setContentText(
+                    "We are close. Start gathering your belongings and preparing " +
+                        "your trip fare. / اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.",
+                )
+                .setStyle(
+                    NotificationCompat.BigTextStyle().bigText(
+                        "We are close. Start gathering your belongings and preparing " +
+                            "your trip fare.\nاقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.",
+                    ),
+                )
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setSound(null)
+                .setVibrate(longArrayOf(0, 300))
+                .setAutoCancel(true)
+                .setTimeoutAfter(PROACTIVE_TIMEOUT_MS)
+                .setContentIntent(contentIntent)
+                .build()
+            manager.notify(PROACTIVE_NOTIF_ID, notification)
+            Log.i(TAG, "proactive alert fired (ETA<=${PROACTIVE_ETA_MIN}min)")
+        }.onFailure {
+            Log.w(TAG, "fireProactiveAlert failed: ${it.message}")
+        }
+    }
+
+    private fun dismissProactiveAlert() {
+        runCatching {
+            getSystemService(NotificationManager::class.java)?.cancel(PROACTIVE_NOTIF_ID)
+        }
+    }
+
     /** Silent in-place update — LOW channel + onlyAlertOnce: no buzz. */
     private fun pushNotification(fix: Location?) {
         runCatching {
@@ -449,6 +519,21 @@ class TrackingService : Service() {
                     // Phase 10.4.2: tracking updates must never buzz.
                     setSound(null, null)
                     enableVibration(false)
+                },
+            )
+        }
+        // Phase 10.4.3.4: heads-up channel — DEFAULT (no loud sound),
+        // one gentle buzz only.
+        if (manager.getNotificationChannel(PROACTIVE_CHANNEL_ID) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    PROACTIVE_CHANNEL_ID,
+                    "Approaching alert",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 300)
                 },
             )
         }
@@ -529,6 +614,8 @@ class TrackingService : Service() {
                 runCatching { tripRepo.finishTrip(id) }
             }
         }
+        // Phase 10.4.3.4: safety reset — a fresh trip always starts clean.
+        hasFiredProactiveAlert = false
         // Phase 10.4.2.1: every stop path ends here — battery never leaks.
         releaseWakeLock()
         serviceScope.cancel()
@@ -560,6 +647,18 @@ class TrackingService : Service() {
 
         const val CHANNEL_ID = "wasalna_tracking"
         const val NOTIF_ID = 1001
+
+        /** Phase 10.4.3.4: gentle heads-up channel + notification id. */
+        const val PROACTIVE_CHANNEL_ID = "wasalna_proactive"
+        const val PROACTIVE_NOTIF_ID = 1002
+
+        /** Fire the heads-up when ETA drops to this many minutes. */
+        private const val PROACTIVE_ETA_MIN = 3
+
+        /** Backstop: heads-up auto-dismisses after 10 minutes regardless. */
+        private const val PROACTIVE_TIMEOUT_MS = 10L * 60L * 1000L
+
+        private const val REQ_PROACTIVE = 14
 
         /** Alarm trigger radius: 2 km before the destination. */
         const val TRIGGER_RADIUS_METERS = 2000f

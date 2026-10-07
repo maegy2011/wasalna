@@ -53,6 +53,10 @@ class SettingsDataStore @Inject constructor(
     val preferredMapEngine: Flow<String> =
         dataStore.data.map { it[Keys.PREFERRED_MAP_ENGINE] ?: MapEngines.OSM }
 
+    // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
+    val isProactiveAlertEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.PROACTIVE_ALERT_ENABLED] ?: true }
+
     // Phase 10.4.2: persisted transport mode (WALK/CAR/TRAIN name).
     val transportMode: Flow<String> =
         dataStore.data.map { it[Keys.TRANSPORT_MODE] ?: "CAR" }
@@ -112,6 +116,10 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.PREFERRED_MAP_ENGINE] = normalized }
     }
 
+    suspend fun setProactiveAlertEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.PROACTIVE_ALERT_ENABLED] = enabled }
+    }
+
     suspend fun setTransportMode(mode: String) {
         dataStore.edit { it[Keys.TRANSPORT_MODE] = mode }
     }
@@ -139,6 +147,7 @@ class SettingsDataStore @Inject constructor(
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
         val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
+        val PROACTIVE_ALERT_ENABLED = booleanPreferencesKey("proactive_alert_enabled")
         val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
         val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
     }

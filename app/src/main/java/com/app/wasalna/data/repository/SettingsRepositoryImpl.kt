@@ -35,6 +35,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val transportMode: Flow<String>
         get() = settingsDataStore.transportMode
 
+    override val isProactiveAlertEnabled: Flow<Boolean>
+        get() = settingsDataStore.isProactiveAlertEnabled
+
     override val isAdaptiveAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isAdaptiveAlarmEnabled
 
@@ -75,6 +78,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTransportMode(mode: String) {
         settingsDataStore.setTransportMode(mode)
+    }
+
+    override suspend fun setProactiveAlertEnabled(enabled: Boolean) {
+        settingsDataStore.setProactiveAlertEnabled(enabled)
     }
 
     override suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {

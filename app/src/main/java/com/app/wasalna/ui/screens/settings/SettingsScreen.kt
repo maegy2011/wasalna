@@ -67,6 +67,7 @@ fun SettingsScreen(
     val silentAlarm by viewModel.silentAlarm.collectAsState()
     val customRingtoneUri by viewModel.customRingtoneUri.collectAsState()
     val adaptiveAlarm by viewModel.adaptiveAlarm.collectAsState()
+    val proactiveAlert by viewModel.proactiveAlert.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -292,6 +293,35 @@ fun SettingsScreen(
                 Switch(
                     checked = adaptiveAlarm,
                     onCheckedChange = viewModel::setAdaptiveAlarm,
+                )
+            }
+        }
+
+        // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Proactive Alert (3 mins before)",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "Gentle heads-up to gather belongings",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = proactiveAlert,
+                    onCheckedChange = viewModel::setProactiveAlert,
                 )
             }
         }

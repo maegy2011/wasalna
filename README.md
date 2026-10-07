@@ -5,7 +5,7 @@
 > can sleep tight on the bus, train, or with a driver.
 
 **Package:** `com.app.wasalna` · **Language:** Kotlin · **UI:** Jetpack Compose (Material 3)
-**Current:** `versionName = "10.4.3.3"` · `versionCode = 15` (see `app/build.gradle.kts`)
+**Current:** `versionName = "10.4.3.4"` · `versionCode = 16` (see `app/build.gradle.kts`)
 
 This README is written **for `opencode` agents** working in this repo. Read it before
 touching code. It complements the root `AGENTS.md` (opencode model rules).
@@ -158,7 +158,8 @@ Photon/OSRM failures set `lastWasOffline` → UI shows `NetworkGuards.OFFLINE_ME
 
 `onboardingCompleted · elderlyMode · alarmLeadTimeMinutes · isPremium ·
 trialEndTime · silentAlarmEnabled · preferredMapEngine (OSM/GOOGLE) ·
-transportMode (WALK/CAR/TRAIN) · customRingtoneUri · isAdaptiveAlarmEnabled`
+transportMode (WALK/CAR/TRAIN) · customRingtoneUri · isAdaptiveAlarmEnabled ·
+isProactiveAlertEnabled`
 
 New key = add `*PreferencesKey` + Flow + setter → expose in `SettingsRepository`
 (interface + impl) → consume in a `ViewModel` as `StateFlow`.
@@ -201,6 +202,8 @@ New key = add `*PreferencesKey` + Flow + setter → expose in `SettingsRepositor
 
 ## 9. Version history (recent)
 
+- **10.4.3.4** — proactive silent heads-up (~3 min before alarm, auto-dismissed
+  on arrival)
 - **10.4.3.3** — adaptive trigger distance (Walk 500m / Car 2km / Train 4km +
   speed stretch) + Wear OS alarm actions + aggressive vibration
 - **10.4.3.2** — offline tile downloads + offline search/routing fallback

@@ -92,4 +92,18 @@ class SettingsViewModel @Inject constructor(
             runCatching { settingsRepository.setAdaptiveAlarmEnabled(enabled) }
         }
     }
+
+    // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
+    val proactiveAlert: StateFlow<Boolean> =
+        settingsRepository.isProactiveAlertEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = true,
+        )
+
+    fun setProactiveAlert(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setProactiveAlertEnabled(enabled) }
+        }
+    }
 }
