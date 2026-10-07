@@ -99,6 +99,10 @@ Keystore / `google-services.json` / `.env` files are tracked locally on purpose 
   every published Wasalna APK is signed with the standard Android **debug** key
   (`~/.android/debug.keystore`, `pass:android`) — keep it for update continuity.
   A future dedicated keystore would break updates for existing installs.
+- **R8/minify (7 Oct 2026 — hotfix):** release with `isMinifyEnabled=true` +
+  `isShrinkResources=true` produced a 47MB APK that **crashed on launch**
+  (R8 stripped runtime classes). Minify is OFF until proven rules exist —
+  release APKs are ~60MB and match the working debug builds.
 
 ## 4. Navigation
 

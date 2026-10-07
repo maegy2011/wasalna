@@ -50,8 +50,10 @@ android {
         }
         release {
             isDebuggable = false
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Phase 10.4.3.6-hotfix: R8 stripped 20MB incl. runtime classes
+            // (app crashed on launch) — minify OFF until rules are proven.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
