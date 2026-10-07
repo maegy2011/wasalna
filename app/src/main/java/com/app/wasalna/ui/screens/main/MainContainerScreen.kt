@@ -29,8 +29,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -42,11 +47,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.ui.navigation.Screen
+import com.app.wasalna.ui.screens.home.HomeViewModel
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
 import com.app.wasalna.ui.screens.home.HomeScreen
 import com.app.wasalna.ui.screens.map.MapScreen
 import com.app.wasalna.ui.screens.myplaces.MyPlacesScreen
 import com.app.wasalna.ui.screens.settings.SettingsScreen
+import com.app.wasalna.utils.planLabel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -67,6 +75,18 @@ fun MainContainerScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // Phase 10.4.1: live plan header (trial countdown ticks every minute).
+    val planVm: HomeViewModel = hiltViewModel()
+    val planPremium by planVm.isPremium.collectAsState()
+    val planTrialEnd by planVm.trialEndTimeMillis.collectAsState()
+    var planNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            planNow = System.currentTimeMillis()
+        }
+    }
 
     val backStack by innerNav.currentBackStackEntryAsState()
     val currentHierarchy = backStack?.destination?.hierarchy
@@ -129,7 +149,7 @@ fun MainContainerScreen() {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Plan: The Ride (Free)",
+                        text = planLabel(planPremium, planTrialEnd, planNow),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -220,7 +240,7 @@ fun MainContainerScreen() {
                 }
                 composable(Screen.MyPlaces.route) {
                     MyPlacesScreen(
-                        onMenuClick = { openDrawer() },
+                        onBack = { navigateTab(Screen.Home.route) },
                         onAddDestination = { openMapFullScreen() },
                         viewModel = hiltViewModel(),
                     )

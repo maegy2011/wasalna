@@ -12,6 +12,8 @@ interface SettingsRepository {
 
     val isPremium: Flow<Boolean>
 
+    val trialEndTimeMillis: Flow<Long>
+
     val isSilentAlarmEnabled: Flow<Boolean>
 
     val preferredMapEngine: Flow<String>
@@ -23,6 +25,10 @@ interface SettingsRepository {
     suspend fun setAlarmLeadTimeMinutes(minutes: Int)
 
     suspend fun setPremium(premium: Boolean)
+
+    suspend fun startTrial(daysFromNow: Int)
+
+    suspend fun enforceTrialExpiry()
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
 

@@ -19,7 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     // Phase 8: premium gates ads + freemium location limit.
@@ -30,6 +30,23 @@ class HomeViewModel @Inject constructor(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = false,
             )
+
+    // Phase 10.4.1: trial countdown for the drawer plan header.
+    val trialEndTimeMillis: StateFlow<Long> =
+        settingsRepository.trialEndTimeMillis
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = 0L,
+            )
+
+    init {
+        // Revert premium if a trial expired while the app was closed.
+        viewModelScope.launch {
+            runCatching { settingsRepository.enforceTrialExpiry() }
+                .onFailure { Log.e(TAG, "enforceTrialExpiry failed: ${it.message}") }
+        }
+    }
 
     val locations: StateFlow<List<Location>> =
         locationRepository.getAllLocations()

@@ -11,6 +11,9 @@ interface LocationRepository {
 
     suspend fun addLocation(location: Location): Long
 
+    /** Phase 10.4.1: true when a same-named or nearby place already exists. */
+    suspend fun isDuplicate(name: String, lat: Double, lng: Double): Boolean
+
     suspend fun updateLocation(location: Location)
 
     suspend fun removeLocation(location: Location)

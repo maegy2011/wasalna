@@ -168,12 +168,13 @@ class MapViewModel @Inject constructor(
             ?.let { kotlin.math.round(it / 60.0).toInt().coerceAtLeast(1) }
     }
 
-    /** Phase 10.4.0: user picks Walk/Car/Train → ETA + route recompute. */
+    /**
+     * Phase 10.4.1: mode switch only flips state — the route/ETA refetch
+     * is driven reactively by LaunchedEffect(selectedLatLng, transportMode)
+     * in MapScreen, so EVERY mode change guarantees a fresh OSRM call.
+     */
     fun setTransportMode(mode: TransportMode) {
-        if (_transportMode.value == mode) return
         _transportMode.value = mode
-        val dest = _selectedLatLng.value ?: return
-        viewModelScope.launch { refreshRouteAndEta(dest.latitude, dest.longitude) }
     }
 
     /** Result click — Photon hits always carry lat/lng: select immediately. */
@@ -186,7 +187,18 @@ class MapViewModel @Inject constructor(
         _predictions.value = emptyList()
         _searchError.value = null
         _searchQuery.value = result.name
-        viewModelScope.launch { refreshRouteAndEta(lat, lng) }
+        // Phase 10.4.1: route follows reactively via
+        // LaunchedEffect(selectedLatLng, transportMode) in MapScreen.
+    }
+
+    /**
+     * Phase 10.4.1: reactive route entry point — reads the current
+     * selection + transport mode. Safe to call from LaunchedEffect on
+     * every selection or mode change (idempotent, IO-bound).
+     */
+    fun refreshRouteAndEta() {
+        val dest = _selectedLatLng.value ?: return
+        viewModelScope.launch { refreshRouteAndEta(dest.latitude, dest.longitude) }
     }
 
     /**
@@ -197,7 +209,6 @@ class MapViewModel @Inject constructor(
     fun onMapClicked(lat: Double, lng: Double) {
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
-        viewModelScope.launch { refreshRouteAndEta(lat, lng) }
         viewModelScope.launch {
             val address = nominatim.reverseGeocode(lat, lng) ?: fallbackName(lat, lng)
             _selectedAddress.value = address
@@ -227,13 +238,26 @@ class MapViewModel @Inject constructor(
         _etaMinutes.value = null
     }
 
-    /** Persists the selected destination, then invokes [onSaved]. */
+    /**
+     * Persists the selected destination, then invokes [onSaved].
+     * Phase 10.4.1: aborts with "already saved" on duplicates; on success
+     * the selection is cleared BEFORE navigating so MapLibre never
+     * recomposes wildly mid-save (no tile loss / camera jump).
+     */
     fun saveDestination(onSaved: () -> Unit = {}) {
         val name = _selectedName.value ?: return
         val latLng = _selectedLatLng.value ?: return
         if (_isSaving.value) return
         viewModelScope.launch {
             _isSaving.value = true
+            val duplicate = runCatching {
+                locationRepository.isDuplicate(name, latLng.latitude, latLng.longitude)
+            }.getOrDefault(false)
+            if (duplicate) {
+                _isSaving.value = false
+                _events.emit(MSG_ALREADY_SAVED)
+                return@launch
+            }
             runCatching {
                 locationRepository.addLocation(
                     Location(
@@ -243,8 +267,7 @@ class MapViewModel @Inject constructor(
                     ),
                 )
             }.onSuccess {
-                _routeGeoJson.value = null
-                _etaMinutes.value = null
+                clearSelection()
                 onSaved()
             }.onFailure { Log.e(TAG, "saveDestination failed: ${it.message}") }
             _isSaving.value = false
@@ -254,6 +277,7 @@ class MapViewModel @Inject constructor(
     companion object {
         private const val TAG = "MapViewModel"
         private const val LOC_TIMEOUT_MS = 8_000L
+        const val MSG_ALREADY_SAVED = "This place is already saved!"
     }
 }
 

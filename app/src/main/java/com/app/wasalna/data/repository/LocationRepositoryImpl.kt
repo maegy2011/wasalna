@@ -28,6 +28,16 @@ class LocationRepositoryImpl @Inject constructor(
     override suspend fun addLocation(location: Location): Long =
         locationDao.insertLocation(location.toEntity())
 
+    override suspend fun isDuplicate(name: String, lat: Double, lng: Double): Boolean {
+        if (locationDao.findByName(name.trim()) != null) return true
+        // ~55m tolerance at the equator (0.0005°).
+        return locationDao.findNear(lat, lng, COORD_TOLERANCE) != null
+    }
+
+    companion object {
+        private const val COORD_TOLERANCE = 0.0005
+    }
+
     override suspend fun updateLocation(location: Location) {
         locationDao.updateLocation(location.toEntity())
     }

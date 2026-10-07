@@ -34,6 +34,21 @@ class PaywallViewModel @Inject constructor(
             initialValue = false,
         )
 
+    // Phase 10.4.1: trial expiry for the paywall countdown header.
+    val trialEnd: StateFlow<Long> =
+        settingsRepository.trialEndTimeMillis.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 0L,
+        )
+
+    fun enforceExpiry() {
+        viewModelScope.launch {
+            runCatching { settingsRepository.enforceTrialExpiry() }
+                .onFailure { Log.e(TAG, "enforceTrialExpiry failed: ${it.message}") }
+        }
+    }
+
     private val _billingReady = MutableStateFlow(false)
     val billingReady: StateFlow<Boolean> = _billingReady
 
@@ -88,12 +103,15 @@ class PaywallViewModel @Inject constructor(
         }
     }
 
-    /** Mock purchase — flips premium on. Replace with real launchBillingFlow. */
+    /**
+     * Mock purchase — Phase 10.4.1: starts a 3-day First Class trial
+     * (premium ON + expiry timestamp). Replace with real launchBillingFlow.
+     */
     fun simulatePurchase(plan: String) {
         viewModelScope.launch {
-            runCatching { settingsRepository.setPremium(true) }
-                .onSuccess { Log.i(TAG, "premium enabled via $plan (mock)") }
-                .onFailure { Log.e(TAG, "setPremium failed: ${it.message}") }
+            runCatching { settingsRepository.startTrial(TRIAL_DAYS) }
+                .onSuccess { Log.i(TAG, "trial started via $plan (mock, $TRIAL_DAYS days)") }
+                .onFailure { Log.e(TAG, "startTrial failed: ${it.message}") }
         }
     }
 
@@ -105,5 +123,6 @@ class PaywallViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "PaywallViewModel"
+        const val TRIAL_DAYS = 3
     }
 }

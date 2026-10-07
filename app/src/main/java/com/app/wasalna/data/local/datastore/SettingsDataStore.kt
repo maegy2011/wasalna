@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.first
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +40,10 @@ class SettingsDataStore @Inject constructor(
     val isPremium: Flow<Boolean> =
         dataStore.data.map { it[Keys.PREMIUM] ?: false }
 
+    // Phase 10.4.1: trial expiry timestamp (epoch millis). 0 = no trial.
+    val trialEndTimeMillis: Flow<Long> =
+        dataStore.data.map { it[Keys.TRIAL_END_TIME] ?: 0L }
+
     val isSilentAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.SILENT_ALARM_ENABLED] ?: false }
 
@@ -63,6 +69,28 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.PREMIUM] = premium }
     }
 
+    /** Starts a trial: premium ON with an expiry [daysFromNow] days ahead. */
+    suspend fun startTrial(daysFromNow: Int) {
+        val end = System.currentTimeMillis() + daysFromNow * 24L * 60L * 60L * 1000L
+        dataStore.edit {
+            it[Keys.PREMIUM] = true
+            it[Keys.TRIAL_END_TIME] = end
+        }
+    }
+
+    /** Reverts premium when a trial has expired. Call on app/drawer start. */
+    suspend fun enforceTrialExpiry(now: Long = System.currentTimeMillis()) {
+        val prefs = dataStore.data.first()
+        val premium = prefs[Keys.PREMIUM] ?: false
+        val end = prefs[Keys.TRIAL_END_TIME] ?: 0L
+        if (premium && end > 0L && now >= end) {
+            dataStore.edit {
+                it[Keys.PREMIUM] = false
+                it[Keys.TRIAL_END_TIME] = 0L
+            }
+        }
+    }
+
     suspend fun setSilentAlarmEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.SILENT_ALARM_ENABLED] = enabled }
     }
@@ -83,6 +111,7 @@ class SettingsDataStore @Inject constructor(
         val ELDERLY_MODE = booleanPreferencesKey("is_elderly_mode")
         val ALARM_LEAD_TIME_MINUTES = intPreferencesKey("alarm_lead_time_minutes")
         val PREMIUM = booleanPreferencesKey("is_premium")
+        val TRIAL_END_TIME = longPreferencesKey("trial_end_time")
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
     }

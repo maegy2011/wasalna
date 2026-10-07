@@ -29,9 +29,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.app.wasalna.utils.trialRemainingText
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,7 +53,17 @@ fun PaywallScreen(
 ) {
     val context = LocalContext.current
     val isPremium by viewModel.isPremium.collectAsState()
+    val trialEnd by viewModel.trialEnd.collectAsState()
     var selectedPlan by remember { mutableStateOf("yearly") }
+    var trialNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(isPremium) {
+        // Phase 10.4.1: keep the trial countdown fresh + enforce expiry.
+        viewModel.enforceExpiry()
+        while (isPremium) {
+            delay(60_000)
+            trialNow = System.currentTimeMillis()
+        }
+    }
 
     LaunchedEffect(context) {
         (context as? Activity)?.let { viewModel.initBilling(it) }
@@ -93,6 +106,17 @@ fun PaywallScreen(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Phase 10.4.1: live trial countdown under the plan header.
+        if (isPremium) {
+            trialRemainingText(trialEnd, trialNow)?.let { remaining ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Trial - $remaining",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         BenefitRow("Zero Ads — clean ride, no banners")

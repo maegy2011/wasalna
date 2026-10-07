@@ -79,5 +79,12 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(32.dp))
             CircularProgressIndicator()
         }
+        // Phase 10.4.1: copyright footer pinned to the bottom.
+        Text(
+            text = "© 2026 Wasalna. All rights reserved.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }

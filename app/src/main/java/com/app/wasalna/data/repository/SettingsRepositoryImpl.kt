@@ -23,6 +23,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isPremium: Flow<Boolean>
         get() = settingsDataStore.isPremium
 
+    override val trialEndTimeMillis: Flow<Long>
+        get() = settingsDataStore.trialEndTimeMillis
+
     override val isSilentAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isSilentAlarmEnabled
 
@@ -43,6 +46,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setPremium(premium: Boolean) {
         settingsDataStore.setPremium(premium)
+    }
+
+    override suspend fun startTrial(daysFromNow: Int) {
+        settingsDataStore.startTrial(daysFromNow)
+    }
+
+    override suspend fun enforceTrialExpiry() {
+        settingsDataStore.enforceTrialExpiry()
     }
 
     override suspend fun setSilentAlarmEnabled(enabled: Boolean) {

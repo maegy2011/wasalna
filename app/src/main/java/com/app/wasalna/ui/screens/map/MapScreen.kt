@@ -109,6 +109,14 @@ fun MapScreen(
     // over the screen (map hidden); picking a result reveals map + marker.
     var searchActive by remember { mutableStateOf(false) }
 
+    // Phase 10.4.1: reactive route/ETA — refires on EVERY selection or
+    // transport-mode change, so the ETA always matches the chosen mode.
+    LaunchedEffect(selectedLatLng, transportMode) {
+        if (selectedLatLng != null) {
+            viewModel.refreshRouteAndEta()
+        }
+    }
+
     // Save uses this address as the Location name for map taps.
     val addressLine: String? = selectedAddress ?: selectedName
 
