@@ -1,5 +1,10 @@
 # Wasalna — وصلنا 🚏
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/Platform-Android-green.svg)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple.svg)
+![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-orange.svg)
+
 > **Wake up before your stop.** A native Android app that tracks your trip in the
 > background and fires a full-screen alarm before your destination — so you can
 > sleep tight on the bus, train, or with a driver.
@@ -16,6 +21,23 @@
 - 🔋 Foreground tracking service with battery-optimization guidance
 - 🌙 Elderly mode (larger text & touch targets)
 - 🧳 Trip history (current / future / past) + impact stats
+
+## Screenshots
+
+> Coming soon — screenshots of Home, Map, Trip history, and the full-screen alarm.
+
+## وصلنا بالعربية 🇪🇬
+
+**نام براحتك في المواصلات — وصلنا هيصحّيك قبل محطتك.**
+
+تطبيق أندرويد بيحدد مكانك في الخلفية وبيشغّل منبّه بملء الشاشة قبل ما توصل
+وجهتك، عشان تنام في الأتوبيس أو القطر أو مع السواق من غير قلق.
+
+- 📍 احفظ أماكنك المفضلة وابدأ التتبع بضغطة واحدة
+- ⏰ منبّه بملء الشاشة (صوت عالي أو صامت للسماعات)
+- 🗺️ خرايط مجانية بتشتغل أوفلاين — من غير أي API key
+- 🧭 توجيه أوفلاين على الجهاز + بديل أونلاين
+- 🌙 وضع كبار السن (خط وأزرار أكبر)
 
 ## Tech stack
 
@@ -41,7 +63,7 @@ Google Maps engine is an **optional fallback** and needs a `MAPS_API_KEY` (see b
 Requirements: JDK 17+, Android SDK (see `app/build.gradle.kts` for `compileSdk`/`minSdk`).
 
 ```bash
-git clone <your-repo-url> wasalna
+git clone https://github.com/maegy2011/wasalna.git
 cd wasalna
 cp local.properties.example local.properties
 # Optional: put your Google Maps key in local.properties (fallback engine only).
