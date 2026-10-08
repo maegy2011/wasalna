@@ -33,6 +33,8 @@ data class OfflineRegionInfo(
 @HiltViewModel
 class OfflineMapsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
+    private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
+    private val routeEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
 ) : ViewModel() {
 
     private val offlineManager: OfflineManager by lazy {
@@ -59,10 +61,56 @@ class OfflineMapsViewModel @Inject constructor(
 
     init {
         refreshRegions()
+        refreshGraphState()
     }
 
     fun clearError() {
         _error.value = null
+    }
+
+    // ---- Phase 10.4.3.9: offline routing data (on-demand, never bundled).
+    val graphProgress = graphManager.downloadProgress
+    val graphDownloadingId = graphManager.downloadingId
+
+    private val _graphInstalled = MutableStateFlow(false)
+    val graphInstalled: StateFlow<Boolean> = _graphInstalled.asStateFlow()
+
+    private val _graphBusy = MutableStateFlow(false)
+    val graphBusy: StateFlow<Boolean> = _graphBusy.asStateFlow()
+
+    fun refreshGraphState() {
+        _graphInstalled.value = graphManager.isInstalled(
+            com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id,
+        )
+    }
+
+    fun downloadGraph() {
+        if (_graphBusy.value) return
+        _graphBusy.value = true
+        viewModelScope.launch {
+            val ok = graphManager.download(
+                com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION,
+            )
+            if (ok) {
+                val dir = graphManager.graphDir(
+                    com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id,
+                )
+                routeEngine.ensureLoaded(dir)
+            } else {
+                _error.value = "Routing data download failed — check connection."
+            }
+            _graphBusy.value = false
+            refreshGraphState()
+        }
+    }
+
+    fun deleteGraph() {
+        viewModelScope.launch {
+            val id = com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id
+            routeEngine.reset()
+            graphManager.delete(id)
+            refreshGraphState()
+        }
     }
 
     fun refreshRegions() {

@@ -31,8 +31,8 @@ android {
         // Versioning pattern (Wasalna): versionName = "<phase>" (e.g. 9.3.1
         // for Phase 9-3-1-fix), versionCode +1 on EVERY published APK build.
         // Phase 10.4.2.1 (trips history): same phase name, next build number.
-        versionCode = 20
-        versionName = "10.4.3.8"
+        versionCode = 21
+        versionName = "10.4.3.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -112,6 +112,8 @@ dependencies {
     implementation(libs.maplibre.annotation)
     // Phase 9-3-1-fix-1: Nominatim HTTP client (free search, decoupled from Google).
     implementation(libs.okhttp)
+    // Phase 10.4.3.9: pure-JVM offline routing (Vela approach, Apache 2.0).
+    implementation("com.graphhopper:graphhopper-core:11.1")
 
     debugImplementation(libs.compose.ui.tooling)
 }

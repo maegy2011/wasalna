@@ -5,7 +5,7 @@
 > can sleep tight on the bus, train, or with a driver.
 
 **Package:** `com.app.wasalna` · **Language:** Kotlin · **UI:** Jetpack Compose (Material 3)
-**Current:** `versionName = "10.4.3.8"` · `versionCode = 20` (see `app/build.gradle.kts`)
+**Current:** `versionName = "10.4.3.9"` · `versionCode = 21` (see `app/build.gradle.kts`)
 
 This README is written **for `opencode` agents** working in this repo. Read it before
 touching code. It complements the root `AGENTS.md` (opencode model rules).
@@ -210,6 +210,8 @@ New key = add `*PreferencesKey` + Flow + setter → expose in `SettingsRepositor
 
 ## 9. Version history (recent)
 
+- **10.4.3.9** — on-device GraphHopper routing (Janino-free SpeedWeighting,
+  CH-only car profile, on-demand `.ghz` download — never bundled)
 - **10.4.3.8** — live trip route map (breadcrumbs polyline + destination pin,
   widget + history entry points)
 - **10.4.3.7** — bulletproof offline tracking (GPS fallback distance/ETA,

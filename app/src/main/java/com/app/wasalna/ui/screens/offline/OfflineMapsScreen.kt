@@ -67,7 +67,16 @@ fun OfflineMapsScreen(
     val progress by viewModel.downloadProgress.collectAsState()
     val downloadingName by viewModel.downloadingName.collectAsState()
     val error by viewModel.error.collectAsState()
+    // Phase 10.4.3.9: offline routing graph state (on-demand download).
+    val graphInstalled by viewModel.graphInstalled.collectAsState()
+    val graphBusy by viewModel.graphBusy.collectAsState()
+    val graphPct by viewModel.graphProgress.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        viewModel.refreshGraphState()
+        onDispose {}
+    }
 
     Scaffold(
         topBar = {
@@ -139,6 +148,53 @@ fun OfflineMapsScreen(
                         )
                         OutlinedButton(onClick = { viewModel.clearError() }) {
                             Text("OK")
+                        }
+                    }
+                }
+            }
+            // Phase 10.4.3.9: offline routing data card with progress.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🧭 Offline Routing Data",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (graphInstalled)
+                            "Monaco test graph installed — on-device routing ready."
+                        else
+                            "Optional test graph (Monaco, ~2 MB). Downloaded only if you tap.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    graphPct?.let { pct ->
+                        LinearProgressIndicator(
+                            progress = { pct / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Downloading routing graph… $pct%",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (graphInstalled) {
+                            OutlinedButton(
+                                onClick = { viewModel.deleteGraph() },
+                                enabled = !graphBusy,
+                            ) {
+                                Text("Delete")
+                            }
+                        } else {
+                            Button(
+                                onClick = { viewModel.downloadGraph() },
+                                enabled = !graphBusy,
+                            ) {
+                                Text(if (graphBusy) "Working…" else "Download")
+                            }
                         }
                     }
                 }

@@ -63,6 +63,14 @@ class TrackingService : Service() {
     private lateinit var fusedClient: FusedLocationProviderClient
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val osrm = OSRMRepository()
+    // Phase 10.4.3.9: on-device routing fallback (plain Service — manual
+    // construction like osrm above; Hilt singletons serve the UI layer).
+    private val graphManager by lazy {
+        com.app.wasalna.data.routing.RoutingGraphManager(applicationContext)
+    }
+    private val ghEngine by lazy {
+        com.app.wasalna.data.routing.GraphHopperRouteEngine(applicationContext)
+    }
 
     // Phase 10.4.2.1: trip-history logging via Hilt entry point
     // (plain Service cannot use @Inject).
@@ -323,6 +331,27 @@ class TrackingService : Service() {
                         lastOsrmFailureAt = System.currentTimeMillis()
                         Log.w(TAG, "OSRM unreachable — offline GPS mode")
                         offlineEtaFallback(fix, distanceM)
+                        // Phase 10.4.3.9: prefer an on-device CH route when a
+                        // graph is installed (road ETA beats straight-line).
+                        val local = runCatching {
+                            val dir = graphManager.installedRegion()
+                                ?: return@runCatching null
+                            if (!ghEngine.ensureLoaded(dir)) return@runCatching null
+                            ghEngine.calculateRoute(
+                                fix.latitude, fix.longitude,
+                                targetLat, targetLng,
+                            )
+                        }.getOrNull()
+                        local?.let {
+                            lastEtaMin = it.etaMinutes
+                            persistEta()
+                            Log.i(
+                                TAG,
+                                "offline GH route: " +
+                                    "${it.points.size} pts, " +
+                                    "~${it.etaMinutes} min",
+                            )
+                        }
                     }
                     pushNotification(fix)
                 }
