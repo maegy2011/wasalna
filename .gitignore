@@ -3,14 +3,22 @@
 build/
 app/build/
 
-# Local config
+# Local config — secrets, never commit
 local.properties
+*.env
+google-services.json
 
-# IDE
+# Keystore — never commit
+*.jks
+*.keystore
+
+# Android / IDE
 .idea/
 *.iml
 .DS_Store
-
-# Keystore
-*.jks
-*.keystore
+.externalNativeBuild/
+captures/
+*.apk
+*.aab
+*.ap_
+local.defaults.properties

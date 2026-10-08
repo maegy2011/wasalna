@@ -145,7 +145,7 @@ fun MainContainerScreen() {
     fun shareApp() {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Try Wasalna — never miss your stop! https://mohamedadel.cfd")
+            putExtra(Intent.EXTRA_TEXT, "Try Wasalna — never miss your stop! ${com.app.wasalna.utils.AppLinks.SHARE_URL}")
         }
         context.startActivity(Intent.createChooser(send, "Share Wasalna"))
     }

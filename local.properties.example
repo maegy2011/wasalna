@@ -1,0 +1,5 @@
+# Copy to local.properties and fill in your own values. Never commit.
+# Google Maps is an OPTIONAL fallback engine — the default OSM/MapLibre
+# engine works without any key.
+MAPS_API_KEY=YOUR_API_KEY_HERE
+sdk.dir=/opt/android-sdk

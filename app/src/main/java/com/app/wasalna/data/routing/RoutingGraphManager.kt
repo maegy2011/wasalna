@@ -177,7 +177,8 @@ class RoutingGraphManager @Inject constructor(
         val TEST_REGION = RoutingRegion(
             id = "cairo-giza",
             name = "Cairo + Giza (Egypt)",
-            url = "https://mohamedadel.cfd/downloads/graphs/cairo-giza.ghz",
+            // Fork owners: host your own .ghz — see utils.AppLinks.
+            url = "${com.app.wasalna.utils.AppLinks.GRAPH_BASE_URL}/cairo-giza.ghz",
             sizeMb = 42,
         )
     }
