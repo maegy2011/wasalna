@@ -54,6 +54,8 @@ fun HomeScreen(
     onMenuClick: () -> Unit = {},
     // Phase 10.4.3.1: null = blank picker; a trip opens its live view.
     onOpenMap: (TripHistory?) -> Unit,
+    // Phase 10.4.3.8: null = keep previous map behavior.
+    onOpenTripRoute: ((Long) -> Unit)? = null,
     onOpenPaywall: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -121,7 +123,8 @@ fun HomeScreen(
             // map to view/edit mode or destination.
             activeTrip?.let { trip ->
                 Card(
-                    onClick = { onOpenMap(trip) },
+                    // Phase 10.4.3.8: widget opens the live route map.
+                    onClick = { onOpenTripRoute?.invoke(trip.id) ?: onOpenMap(trip) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,

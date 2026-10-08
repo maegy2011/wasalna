@@ -15,8 +15,9 @@ interface TripRouteDao {
     @Insert
     suspend fun insertPoint(point: TripRouteEntity)
 
+    /** Phase 10.4.3.8: reactive breadcrumb stream for the live route map. */
     @Query("SELECT * FROM trip_route WHERE tripId = :tripId ORDER BY timestamp ASC")
-    fun pointsForTrip(tripId: Long): Flow<List<TripRouteEntity>>
+    fun getRoutePointsFlow(tripId: Long): Flow<List<TripRouteEntity>>
 
     @Query("DELETE FROM trip_route WHERE tripId = :tripId")
     suspend fun clearTrip(tripId: Long)

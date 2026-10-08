@@ -37,4 +37,7 @@ interface TripRepository {
 
     /** Phase 10.4.3.7 (Part 2): travelled path, oldest first. */
     fun routePoints(tripId: Long): Flow<List<RoutePoint>>
+
+    /** Phase 10.4.3.8: one-shot trip lookup for the route map. */
+    suspend fun tripById(id: Long): TripHistory?
 }

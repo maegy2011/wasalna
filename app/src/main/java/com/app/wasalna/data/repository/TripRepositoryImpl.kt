@@ -60,6 +60,9 @@ class TripRepositoryImpl @Inject constructor(
         tripDao.finishTrip(id, System.currentTimeMillis())
     }
 
+    override suspend fun tripById(id: Long): TripHistory? =
+        tripDao.tripById(id)?.toDomain()
+
     override suspend fun recordRoutePoint(tripId: Long, lat: Double, lng: Double) {
         tripRouteDao.insertPoint(
             TripRouteEntity(
@@ -72,7 +75,7 @@ class TripRepositoryImpl @Inject constructor(
     }
 
     override fun routePoints(tripId: Long): Flow<List<RoutePoint>> =
-        tripRouteDao.pointsForTrip(tripId).map { list ->
+        tripRouteDao.getRoutePointsFlow(tripId).map { list ->
             list.map {
                 RoutePoint(
                     tripId = it.tripId,

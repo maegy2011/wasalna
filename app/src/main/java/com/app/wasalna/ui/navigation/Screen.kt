@@ -16,4 +16,10 @@ sealed class Screen(val route: String) {
     data object OfflineMaps : Screen("offline_maps")
     // Phase 10.4.3.6: strict-OEM autostart guidance (entry flow + settings).
     data object DeviceRestrictions : Screen("device_restrictions")
+    // Phase 10.4.3.8: live/recorded route map for one trip.
+    data object TripRoute : Screen("trip_route") {
+        const val ARG = "tripId"
+        const val PATTERN = "trip_route/{tripId}"
+        fun routeFor(tripId: Long) = "trip_route/$tripId"
+    }
 }

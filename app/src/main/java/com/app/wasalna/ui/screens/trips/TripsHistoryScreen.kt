@@ -43,6 +43,8 @@ import java.util.Locale
 @Composable
 fun TripsHistoryScreen(
     onBack: () -> Unit = {},
+    // Phase 10.4.3.8: null = cards stay static.
+    onOpenTripRoute: ((Long) -> Unit)? = null,
     viewModel: TripsViewModel = hiltViewModel(),
 ) {
     val activeTrip by viewModel.activeTrip.collectAsState()
@@ -151,7 +153,12 @@ fun TripsHistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             items(pastTrips, key = { it.id }) { trip ->
-                                Card(modifier = Modifier.fillMaxWidth()) {
+                                Card(
+                                    // Phase 10.4.3.8: tap reviews the recorded path.
+                                    onClick = { onOpenTripRoute?.invoke(trip.id) },
+                                    enabled = onOpenTripRoute != null,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Text(
                                             text = "${trip.transportMode.icon} ${trip.locationName}",

@@ -50,6 +50,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.navigation.NavType
 import androidx.navigation.compose.rememberNavController
 import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.navigation.Screen
@@ -57,6 +58,7 @@ import com.app.wasalna.ui.screens.home.HomeViewModel
 import com.app.wasalna.ui.screens.restrictions.DeviceRestrictionsScreen
 import com.app.wasalna.ui.screens.offline.OfflineMapsScreen
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
+import com.app.wasalna.ui.screens.trips.TripRouteScreen
 import com.app.wasalna.ui.screens.trips.TripsHistoryScreen
 import com.app.wasalna.ui.screens.home.HomeScreen
 import com.app.wasalna.ui.screens.map.MapScreen
@@ -299,6 +301,10 @@ fun MainContainerScreen() {
                     HomeScreen(
                         onMenuClick = { openDrawer() },
                         onOpenMap = { trip -> openMapFullScreen(trip) },
+                        // Phase 10.4.3.8: widget tap opens the live route map.
+                        onOpenTripRoute = { tripId ->
+                            innerNav.navigate(Screen.TripRoute.routeFor(tripId))
+                        },
                         onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                         viewModel = hiltViewModel(),
                     )
@@ -333,6 +339,21 @@ fun MainContainerScreen() {
                 composable(Screen.TripsHistory.route) {
                     TripsHistoryScreen(
                         onBack = { navigateTab(Screen.Home.route) },
+                        // Phase 10.4.3.8: past trip tap opens its route map.
+                        onOpenTripRoute = { tripId ->
+                            innerNav.navigate(Screen.TripRoute.routeFor(tripId))
+                        },
+                    )
+                }
+                // Phase 10.4.3.8: live/recorded route for one trip.
+                composable(
+                    route = Screen.TripRoute.PATTERN,
+                    arguments = listOf(
+                        navArgument(Screen.TripRoute.ARG) { type = NavType.LongType },
+                    ),
+                ) {
+                    TripRouteScreen(
+                        onBack = { innerNav.popBackStack() },
                     )
                 }
                 composable(Screen.Paywall.route) { PaywallScreen(onMenuClick = { openDrawer() }) }

@@ -20,6 +20,10 @@ interface TripDao {
     @Query("SELECT * FROM trips WHERE status = '${TripStatus.ACTIVE}' ORDER BY startTime DESC LIMIT 1")
     fun activeTrip(): Flow<TripHistoryEntity?>
 
+    // Phase 10.4.3.8: single-trip lookup for the route map screen.
+    @Query("SELECT * FROM trips WHERE id = :id LIMIT 1")
+    suspend fun tripById(id: Long): TripHistoryEntity?
+
     @Query("SELECT * FROM trips WHERE status = '${TripStatus.PAST}' ORDER BY endTime DESC")
     fun pastTrips(): Flow<List<TripHistoryEntity>>
 
