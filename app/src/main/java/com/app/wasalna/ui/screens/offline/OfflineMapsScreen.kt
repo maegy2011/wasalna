@@ -162,9 +162,9 @@ fun OfflineMapsScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (graphInstalled)
-                            "Monaco test graph installed — on-device routing ready."
+                            "Cairo + Giza graph installed — on-device routing ready."
                         else
-                            "Optional test graph (Monaco, ~2 MB). Downloaded only if you tap.",
+                            "Optional routing graph (Cairo + Giza, ~42 MB). Downloaded only if you tap.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(modifier = Modifier.height(8.dp))

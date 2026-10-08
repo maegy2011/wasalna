@@ -170,15 +170,15 @@ class RoutingGraphManager @Inject constructor(
         private const val TAG = "GHGraphs"
 
         /**
-         * Phase test region: Monaco (sub-MB graph, proves download → unzip →
-         * init). Baked server-side with the same SpeedWeighting/CH profile
-         * the engine queries with.
+         * Cairo + Giza metro graph (clipped bbox 30.85,29.6–31.8,30.3).
+         * Baked server-side (custom fastest model + CH) with the same
+         * declaration the engine queries with — fingerprint-compatible.
          */
         val TEST_REGION = RoutingRegion(
-            id = "monaco",
-            name = "Monaco (test region)",
-            url = "https://mohamedadel.cfd/downloads/graphs/monaco.ghz",
-            sizeMb = 2,
+            id = "cairo-giza",
+            name = "Cairo + Giza (Egypt)",
+            url = "https://mohamedadel.cfd/downloads/graphs/cairo-giza.ghz",
+            sizeMb = 42,
         )
     }
 }

@@ -210,7 +210,7 @@ New key = add `*PreferencesKey` + Flow + setter → expose in `SettingsRepositor
 
 ## 9. Version history (recent)
 
-- **10.4.3.9** — on-device GraphHopper routing (Janino-free SpeedWeighting,
+- **10.4.3.9** — on-device GraphHopper routing (Janino-free KmhTimeWeighting,
   CH-only car profile, on-demand `.ghz` download — never bundled)
 - **10.4.3.8** — live trip route map (breadcrumbs polyline + destination pin,
   widget + history entry points)
