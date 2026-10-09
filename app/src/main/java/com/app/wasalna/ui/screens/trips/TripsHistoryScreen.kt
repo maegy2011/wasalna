@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import java.text.SimpleDateFormat
@@ -47,6 +48,7 @@ fun TripsHistoryScreen(
     onOpenTripRoute: ((Long) -> Unit)? = null,
     viewModel: TripsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val activeTrip by viewModel.activeTrip.collectAsState()
     val pastTrips by viewModel.pastTrips.collectAsState()
     val savedPlaces by viewModel.savedPlaces.collectAsState()
@@ -112,6 +114,20 @@ fun TripsHistoryScreen(
                                             text = "Started ${formatTime(trip.startTime)}",
                                             style = MaterialTheme.typography.bodySmall,
                                         )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        // Phase 10.8.0c: live trip share (no server).
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = {
+                                                runCatching {
+                                                    com.app.wasalna.utils.TripShare.share(context, trip)
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp),
+                                        ) {
+                                            Text("Share live trip")
+                                        }
                                     }
                                 }
                             }
