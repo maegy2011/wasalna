@@ -8,8 +8,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -182,6 +187,11 @@ fun MapScreen(
 
     // Map UX fixes: quick-place edit dialog state (search-mode only).
     var editTarget by remember { mutableStateOf<String?>(null) }
+    // Map Home/Work from-map-point: long-press (or tap on the
+    // live-location/address pin card) opens a bottom sheet with two BIG
+    // elderly-friendly buttons. Null = sheet hidden. No new permissions.
+    var homeWorkSheetPoint by remember { mutableStateOf<LatLng?>(null) }
+    val homeWorkSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
         if (lat == null || lng == null) {
             editTarget = if (address == homeAddress) "home" else "work"
@@ -223,6 +233,9 @@ fun MapScreen(
                     addressLine?.let { line ->
                         Card(
                             modifier = Modifier.padding(bottom = 8.dp),
+                            onClick = {
+                                selectedLatLng?.let { homeWorkSheetPoint = it }
+                            },
                         ) {
                             Text(
                                 text = line,
@@ -423,6 +436,12 @@ fun MapScreen(
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
                         },
+                        // Long-press: select the point (reverse-geocode for the
+                        // address line) + open the Home/Work bottom sheet.
+                        onMapLongClick = { latLng ->
+                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                            homeWorkSheetPoint = latLng
+                        },
                     )
                     if (selectedLatLng == null && predictions.isEmpty()) {
                         Text(
@@ -482,6 +501,59 @@ fun MapScreen(
                 }
             }
         }
+        // Map Home/Work from-map-point: bottom sheet with two BIG (64dp)
+        // elderly-friendly buttons. Saves via the SAME
+        // SettingsRepository.setHome/setWork storage as the search path —
+        // additional path, not a replacement. Snackbar confirms + the
+        // HomeWorkQuickRow StateFlows update immediately.
+        homeWorkSheetPoint?.let { point ->
+            ModalBottomSheet(
+                onDismissRequest = { homeWorkSheetPoint = null },
+                sheetState = homeWorkSheetState,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = addressLine ?: selectedName ?: "Selected point",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.saveMapPointAsHome(point.latitude, point.longitude)
+                            homeWorkSheetPoint = null
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                    ) {
+                        Text(
+                            text = "تعيين كـ Home 🏠",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.saveMapPointAsWork(point.latitude, point.longitude)
+                            homeWorkSheetPoint = null
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                    ) {
+                        Text(
+                            text = "تعيين كـ Work 🏢",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
         // Map UX fixes: quick-place set dialog (search-mode entry point).
         // Prefills the current selection so a searched/tapped point can
         // become Home/Work in one step.
@@ -517,6 +589,7 @@ private fun MapLibreMapView(
     cameraZoom: Float = 15f,
     modifier: Modifier = Modifier,
     onMapClick: (LatLng) -> Unit = {},
+    onMapLongClick: (LatLng) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -614,6 +687,10 @@ private fun MapLibreMapView(
             }
             map.addOnMapClickListener { point ->
                 onMapClick(LatLng(point.latitude, point.longitude))
+                true
+            }
+            map.addOnMapLongClickListener { point ->
+                onMapLongClick(LatLng(point.latitude, point.longitude))
                 true
             }
         }

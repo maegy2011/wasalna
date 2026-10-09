@@ -140,6 +140,42 @@ class MapViewModel @Inject constructor(
     }
 
     /**
+     * Map Home/Work from-map-point (elderly-friendly path): reverse-geocodes
+     * the tapped/long-pressed point via Nominatim (Dispatchers.IO inside the
+     * repository) and persists via SettingsRepository.setHome/setWork — the
+     * SAME storage as the search-based path, no duplication. Emits an Arabic
+     * confirmation; HomeWorkQuickRow reflects immediately because it collects
+     * homeAddress/workAddress StateFlows. No `!!`, no new permissions.
+     */
+    fun saveMapPointAsHome(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            val address = nominatim.reverseGeocode(lat, lng)
+                ?: _selectedAddress.value?.takeIf { it.isNotBlank() }
+                ?: fallbackName(lat, lng)
+            runCatching { settingsRepository.setHome(lat, lng, address) }
+                .onSuccess { _events.emit(MSG_HOME_SAVED) }
+                .onFailure {
+                    Log.e(TAG, "save home from map failed: ${it.message}")
+                    _events.emit(MSG_SAVE_FAILED)
+                }
+        }
+    }
+
+    fun saveMapPointAsWork(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            val address = nominatim.reverseGeocode(lat, lng)
+                ?: _selectedAddress.value?.takeIf { it.isNotBlank() }
+                ?: fallbackName(lat, lng)
+            runCatching { settingsRepository.setWork(lat, lng, address) }
+                .onSuccess { _events.emit(MSG_WORK_SAVED) }
+                .onFailure {
+                    Log.e(TAG, "save work from map failed: ${it.message}")
+                    _events.emit(MSG_SAVE_FAILED)
+                }
+        }
+    }
+
+    /**
      * Map UX fixes: auto live-location pin — on entering the Map screen
      * (blank picker, no trip args) center the camera on the GPS fix,
      * drop a marker pin automatically, and surface the Save/Add button
@@ -492,6 +528,9 @@ class MapViewModel @Inject constructor(
         const val MIN_ZOOM = 3f
         const val MAX_ZOOM = 19f
         const val MSG_ALREADY_SAVED = "This place is already saved!"
+        const val MSG_HOME_SAVED = "تم حفظ Home ✅"
+        const val MSG_WORK_SAVED = "تم حفظ Work ✅"
+        const val MSG_SAVE_FAILED = "تعذر الحفظ — تحقق من الاتصال وحاول مجددًا"
         const val FALLBACK_MSG = "Offline Routing failed, using GPS straight-line"
     }
 }
