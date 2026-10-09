@@ -468,6 +468,24 @@ fun SettingsScreen(
             }
         }
 
+        // Phase 10.8.0g (traffic): data-source disclosure for the map
+        // Traffic toggle (default OFF). Tile viewport may leave the device.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Traffic data source",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "يعتمد على بيانات خارجية وقد يرسل موقع المنطقة المعروضة",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

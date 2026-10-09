@@ -83,6 +83,7 @@ import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import com.app.wasalna.data.traffic.TrafficOverlayState
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
@@ -134,6 +135,7 @@ fun MapScreen(
     // Map UX fixes: zoom + traffic + quick places.
     val cameraZoom by viewModel.cameraZoom.collectAsState()
     val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
+    val trafficOverlayState by viewModel.trafficState.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     val homeLat by viewModel.homeLat.collectAsState()
     val homeLng by viewModel.homeLng.collectAsState()
@@ -394,33 +396,45 @@ fun MapScreen(
                         )
                     }
                 }
-                // Phase 10.8.0e (traffic): DEFERRED — Vela evaluated 9 Oct 2026:
-                // MapLibre-keyless yes, but traffic is Google-derived via
-                // unofficial endpoints (not OSM congestion) — privacy/fragile.
-                // Toggle kept as persisted preference; MapLibre free tiles
-                // show a graceful note. Never invent fake data.
-                Row(
+                // Phase 10.8.0g (traffic): Vela live-traffic raster (Google
+                // keyless `/maps/vt` tiles as a MapLibre RasterSource — see
+                // TrafficOverlay.kt). Default OFF; Arabic disclosure below.
+                // Never invent fake data: overlay only, no parsed segments.
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilterChip(
-                        selected = isTrafficEnabled,
-                        onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
-                        label = { Text("Traffic") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Traffic, contentDescription = null)
-                        },
-                    )
-                    if (isTrafficEnabled) {
-                        Text(
-                            text = "Live traffic isn't available on free map tiles yet.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChip(
+                            selected = isTrafficEnabled,
+                            onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
+                            label = { Text("Traffic") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Traffic, contentDescription = null)
+                            },
                         )
+                        if (isTrafficEnabled) {
+                            Text(
+                                text = when (trafficOverlayState) {
+                                    is TrafficOverlayState.Live -> "Live"
+                                    is TrafficOverlayState.Stale -> "Stale — retrying"
+                                    is TrafficOverlayState.Checking -> "Checking…"
+                                    else -> "Unavailable"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
+                    Text(
+                        text = "يعتمد على بيانات خارجية وقد يرسل موقع المنطقة المعروضة",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Box(
                     modifier = Modifier
@@ -432,7 +446,11 @@ fun MapScreen(
                         routeGeoJson = routeGeoJson,
                         recenterTarget = recenterTarget,
                         cameraZoom = cameraZoom,
+                        trafficEnabled = isTrafficEnabled,
                         modifier = Modifier.fillMaxSize(),
+                        onTrafficCameraSettled = { lat, lng, zoom ->
+                            viewModel.onTrafficCameraSettled(lat, lng, zoom)
+                        },
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
                         },
@@ -587,9 +605,11 @@ private fun MapLibreMapView(
     routeGeoJson: String?,
     recenterTarget: LatLng? = null,
     cameraZoom: Float = 15f,
+    trafficEnabled: Boolean = false,
     modifier: Modifier = Modifier,
     onMapClick: (LatLng) -> Unit = {},
     onMapLongClick: (LatLng) -> Unit = {},
+    onTrafficCameraSettled: (Double?, Double?, Float?) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -602,6 +622,8 @@ private fun MapLibreMapView(
     var lastRecenterApplied by remember { mutableStateOf<LatLng?>(null) }
     // Map UX fixes: last zoom pushed to the camera (selector 3..19).
     var lastZoomApplied by remember { mutableStateOf<Float?>(null) }
+    // Phase 10.8.0g (traffic): last applied overlay state (style can reload).
+    var lastTrafficApplied by remember { mutableStateOf<Boolean?>(null) }
 
     val mapView = remember(context) {
         MapView(context).apply { onCreate(null) }
@@ -650,6 +672,7 @@ private fun MapLibreMapView(
             map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE)) { style ->
                 styleRef = style
                 lastRouteApplied = null
+                lastTrafficApplied = null
                 // Phase 10.4.3.1: live blue dot (guarded by runtime permission).
                 enableLocationComponent(context, map, style)
                 runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
@@ -672,6 +695,9 @@ private fun MapLibreMapView(
                 }
                 routeGeoJson?.let { applyRoute(style, it) }
                 lastRouteApplied = routeGeoJson
+                // Phase 10.8.0g (traffic): apply overlay on fresh style.
+                ensureTraffic(style, trafficEnabled)
+                lastTrafficApplied = trafficEnabled
                 symbolManager = SymbolManager(mapView, map, style).apply {
                     iconAllowOverlap = true
                 }
@@ -693,6 +719,24 @@ private fun MapLibreMapView(
                 onMapLongClick(LatLng(point.latitude, point.longitude))
                 true
             }
+            // Phase 10.8.0g (traffic): camera-idle forwards the settled
+            // viewport for debounced health probes (ViewModel, ~1.5s).
+            // Tiles themselves refresh via the engine on camera move.
+            map.addOnCameraIdleListener {
+                runCatching {
+                    val pos = map.cameraPosition
+                    val target = pos?.target
+                    if (pos != null && target != null) {
+                        onTrafficCameraSettled(
+                            target.latitude,
+                            target.longitude,
+                            pos.zoom.toFloat(),
+                        )
+                    } else {
+                        onTrafficCameraSettled(null, null, null)
+                    }
+                }
+            }
         }
         onDispose {
             lifecycle.removeObserver(observer)
@@ -710,6 +754,11 @@ private fun MapLibreMapView(
             if (style != null && routeGeoJson != lastRouteApplied) {
                 applyRoute(style, routeGeoJson)
                 lastRouteApplied = routeGeoJson
+            }
+            // Phase 10.8.0g (traffic): Vela raster overlay on toggle/style.
+            if (style != null && trafficEnabled != lastTrafficApplied) {
+                ensureTraffic(style, trafficEnabled)
+                lastTrafficApplied = trafficEnabled
             }
             // Phase 10.4.3.1: My Location jump — camera only, no selection.
             if (recenterTarget != null && recenterTarget != lastRecenterApplied) {

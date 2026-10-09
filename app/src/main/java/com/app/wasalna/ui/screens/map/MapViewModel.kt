@@ -11,6 +11,8 @@ import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.data.repository.OSRMRepository
 import com.app.wasalna.data.repository.OsrmRoute
 import com.app.wasalna.data.repository.VelaSearchRepository
+import com.app.wasalna.data.traffic.TrafficOverlayState
+import com.app.wasalna.data.traffic.TrafficRepository
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
 import com.app.wasalna.domain.model.TransportMode
@@ -55,6 +57,7 @@ class MapViewModel @Inject constructor(
     private val osrm: OSRMRepository,
     private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
     private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
+    private val traffic: TrafficRepository,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -89,21 +92,77 @@ class MapViewModel @Inject constructor(
     fun zoomIn() = setZoom(_cameraZoom.value + 1f)
     fun zoomOut() = setZoom(_cameraZoom.value - 1f)
 
-    // Phase 10.8.0e (traffic): DEFERRED — persisted preference only.
-    // Evaluated 9 Oct 2026 per Mohamed's order: Vela (PimpinPumpkin/Vela)
-    // draws on MapLibre and is keyless, BUT its live traffic is
-    // Google-derived via unofficial web endpoints (not OSM-based
-    // congestion): sends trip endpoints/position to Google, fragile,
-    // privacy + ToS concerns — does not fit cleanly, so deferred.
-    // OSRM = routing only. Never invent fake data.
+    // Phase 10.8.0g (traffic): Vela live-traffic raster ported 9 Oct 2026 per
+    // Mohamed's order — Google's keyless `/maps/vt` traffic raster as a MapLibre
+    // RasterSource (see TrafficOverlay + TrafficRepository for the Vela findings
+    // summary). Viewport tiles reveal the viewed region to Google, so the toggle
+    // defaults OFF with an Arabic disclosure. Rendering is raster (no parsed
+    // segments — parsing a PNG would be invented data). Health probes run on
+    // Dispatchers.IO; failure keeps old tiles + silent retry, never a crash.
     private val _isTrafficEnabled = MutableStateFlow(false)
     val isTrafficEnabled: StateFlow<Boolean> = _isTrafficEnabled.asStateFlow()
 
+    val trafficState: StateFlow<TrafficOverlayState> = traffic.overlayState
+
     fun setTrafficEnabled(enabled: Boolean) {
         _isTrafficEnabled.value = enabled
+        traffic.setEnabled(enabled)
+        if (enabled) {
+            probeTrafficNow()
+            restartTrafficRefreshLoop()
+        } else {
+            trafficRefreshJob?.cancel()
+            trafficRefreshJob = null
+        }
         viewModelScope.launch {
             runCatching { settingsRepository.setTrafficEnabled(enabled) }
                 .onFailure { Log.e(TAG, "persist traffic failed: ${it.message}") }
+        }
+    }
+
+    // Last known viewport center for traffic health probes (set from MapScreen
+    // on camera idle; null = Cairo fallback inside the repository).
+    private var lastTrafficLat: Double? = null
+    private var lastTrafficLng: Double? = null
+    private var lastTrafficZoom: Float? = null
+    private var trafficSettleJob: Job? = null
+    private var trafficRefreshJob: Job? = null
+
+    /** Camera settled (debounced ~1.5s in the caller contract) -> probe once. */
+    fun onTrafficCameraSettled(lat: Double?, lng: Double?, zoom: Float?) {
+        if (_isTrafficEnabled.value != true) return
+        lastTrafficLat = lat
+        lastTrafficLng = lng
+        lastTrafficZoom = zoom
+        trafficSettleJob?.cancel()
+        trafficSettleJob = viewModelScope.launch {
+            delay(TRAFFIC_SETTLE_DEBOUNCE_MS)
+            probeTrafficNow()
+        }
+    }
+
+    /** One health probe on Dispatchers.IO (inside the repository). Silent. */
+    fun probeTrafficNow() {
+        if (_isTrafficEnabled.value != true) return
+        viewModelScope.launch {
+            runCatching {
+                traffic.probeViewport(lastTrafficLat, lastTrafficLng, lastTrafficZoom)
+            }.onFailure { Log.w(TAG, "traffic probe failed: ${it.message}") }
+        }
+    }
+
+    /** Periodic refresh while visible: re-probe every 60s (tiles refresh
+     *  themselves on camera move via the engine; this only updates health). */
+    private fun restartTrafficRefreshLoop() {
+        trafficRefreshJob?.cancel()
+        trafficRefreshJob = viewModelScope.launch {
+            while (_isTrafficEnabled.value == true) {
+                delay(TRAFFIC_REFRESH_MS)
+                if (_isTrafficEnabled.value != true) break
+                runCatching {
+                    traffic.probeViewport(lastTrafficLat, lastTrafficLng, lastTrafficZoom)
+                }.onFailure { Log.w(TAG, "traffic refresh failed: ${it.message}") }
+            }
         }
     }
 
@@ -263,11 +322,17 @@ class MapViewModel @Inject constructor(
                 .getOrDefault("CAR")
             _transportMode.value = TransportMode.fromName(saved)
         }
-        // Map UX fixes: restore persisted traffic toggle.
+        // Map UX fixes: restore persisted traffic toggle (default OFF).
         viewModelScope.launch {
-            _isTrafficEnabled.value = runCatching {
+            val restored = runCatching {
                 settingsRepository.isTrafficEnabled.first()
             }.getOrDefault(false)
+            _isTrafficEnabled.value = restored
+            traffic.setEnabled(restored)
+            if (restored) {
+                probeTrafficNow()
+                restartTrafficRefreshLoop()
+            }
         }
     }
 
@@ -524,6 +589,8 @@ class MapViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "MapViewModel"
+        private const val TRAFFIC_SETTLE_DEBOUNCE_MS = 1_500L
+        private const val TRAFFIC_REFRESH_MS = 60_000L
         private const val LOC_TIMEOUT_MS = 8_000L
         const val MIN_ZOOM = 3f
         const val MAX_ZOOM = 19f
