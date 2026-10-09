@@ -62,6 +62,9 @@ import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.AdBanner
+import com.app.wasalna.ui.ads.InterstitialHelper
+import com.app.wasalna.ui.components.HomeWorkQuickRow
+import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import com.app.wasalna.ui.screens.home.HomeViewModel
 import kotlinx.coroutines.launch
 
@@ -90,6 +93,51 @@ fun MyPlacesScreen(
     // Phase 10-Fix: local filter + rename dialog state (CRUD).
     var filter by remember { mutableStateOf("") }
     var renameTarget by remember { mutableStateOf<Location?>(null) }
+    // Map UX fixes: Home & Work quick places (visible on My Places only,
+    // never on the Map view). Tap = quick trip (free plan: interstitial
+    // first); long-press = set-location dialog.
+    val homeLat by viewModel.homeLat.collectAsState()
+    val homeLng by viewModel.homeLng.collectAsState()
+    val homeAddress by viewModel.homeAddress.collectAsState()
+    val workLat by viewModel.workLat.collectAsState()
+    val workLng by viewModel.workLng.collectAsState()
+    val workAddress by viewModel.workAddress.collectAsState()
+    var quickEditTarget by remember { mutableStateOf<String?>(null) }
+    fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
+        if (lat == null || lng == null) {
+            quickEditTarget = if (address == homeAddress) "home" else "work"
+            scope.launch {
+                snackbarHostState.showSnackbar("Set this place first (long-press).")
+            }
+            return
+        }
+        if (!hasLocationPermission(context)) {
+            Toast.makeText(
+                context,
+                "Location permission required — grant it in Permissions",
+                Toast.LENGTH_LONG,
+            ).show()
+            return
+        }
+        if (!isBatteryUnrestricted(context)) {
+            showBatteryDialog = true
+            return
+        }
+        val place = Location(
+            name = address.ifBlank { "Quick trip" },
+            latitude = lat,
+            longitude = lng,
+        )
+        fun go() {
+            startTracking(context, place, transportMode)
+            trackingName = place.name
+        }
+        if (!isPremium) {
+            InterstitialHelper.showInterstitial(context) { go() }
+        } else {
+            go()
+        }
+    }
     val visiblePlaces = remember(locations, filter) {
         if (filter.isBlank()) locations
         else locations.filter { it.name.contains(filter.trim(), ignoreCase = true) }
@@ -166,6 +214,16 @@ fun MyPlacesScreen(
                 singleLine = true,
             )
             Spacer(modifier = Modifier.height(12.dp))
+            // Map UX fixes: Home & Work quick row below the search box.
+            HomeWorkQuickRow(
+                homeAddress = homeAddress,
+                workAddress = workAddress,
+                onHomeClick = { startQuickTrip(homeLat, homeLng, homeAddress) },
+                onWorkClick = { startQuickTrip(workLat, workLng, workAddress) },
+                onHomeEdit = { quickEditTarget = "home" },
+                onWorkEdit = { quickEditTarget = "work" },
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             if (locations.isEmpty()) {
                 Text(
                     text = "No places saved yet. Tap + to add one!",
@@ -236,6 +294,21 @@ fun MyPlacesScreen(
                 TextButton(onClick = { showBatteryDialog = false }) {
                     Text("Cancel")
                 }
+            },
+        )
+    }
+    // Map UX fixes: Home/Work set-location dialog.
+    quickEditTarget?.let { target ->
+        val isHome = target == "home"
+        QuickPlaceEditDialog(
+            title = if (isHome) "Home" else "Work",
+            initialAddress = if (isHome) homeAddress else workAddress,
+            initialLat = if (isHome) homeLat else workLat,
+            initialLng = if (isHome) homeLng else workLng,
+            onDismiss = { quickEditTarget = null },
+            onSave = { lat, lng, address ->
+                if (isHome) viewModel.setHome(lat, lng, address)
+                else viewModel.setWork(lat, lng, address)
             },
         )
     }

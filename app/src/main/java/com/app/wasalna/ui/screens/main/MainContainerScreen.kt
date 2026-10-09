@@ -164,7 +164,13 @@ fun MainContainerScreen() {
             }
     }
 
+    // Map UX fixes: left-edge drawer auto-open — map gestures near the
+    // left edge triggered the drawer swipe. While on the Map route the
+    // drawer opens ONLY via explicit UI (no hamburger lives on Map, back
+    // navigates away), so edge swipe is disabled there.
+    val isOnMapRoute = currentHierarchy?.any { it.route?.startsWith(Screen.Map.route) == true } == true
     ModalNavigationDrawer(
+        gesturesEnabled = !isOnMapRoute,
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {

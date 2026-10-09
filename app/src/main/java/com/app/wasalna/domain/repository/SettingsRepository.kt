@@ -28,6 +28,14 @@ interface SettingsRepository {
 
     val customRingtoneUri: Flow<String>
 
+    val homeLat: Flow<Double?>
+    val homeLng: Flow<Double?>
+    val homeAddress: Flow<String>
+    val workLat: Flow<Double?>
+    val workLng: Flow<Double?>
+    val workAddress: Flow<String>
+    val isTrafficEnabled: Flow<Boolean>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -51,6 +59,12 @@ interface SettingsRepository {
     suspend fun setAdaptiveAlarmEnabled(enabled: Boolean)
 
     suspend fun setCustomRingtoneUri(uri: String)
+
+    suspend fun setHome(lat: Double?, lng: Double?, address: String)
+
+    suspend fun setWork(lat: Double?, lng: Double?, address: String)
+
+    suspend fun setTrafficEnabled(enabled: Boolean)
 
     suspend fun setPreferredMapEngine(engine: String)
 }

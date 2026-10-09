@@ -102,6 +102,36 @@ class HomeViewModel @Inject constructor(
                 initialValue = emptyList(),
             )
 
+    // Map UX fixes: Home & Work quick places for the My Places row.
+    // Tap starts a quick trip (callers gate the free-plan interstitial);
+    // long-press opens the set-location dialog.
+    val homeLat: StateFlow<Double?> = settingsRepository.homeLat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val homeLng: StateFlow<Double?> = settingsRepository.homeLng
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val homeAddress: StateFlow<String> = settingsRepository.homeAddress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+    val workLat: StateFlow<Double?> = settingsRepository.workLat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val workLng: StateFlow<Double?> = settingsRepository.workLng
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val workAddress: StateFlow<String> = settingsRepository.workAddress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    fun setHome(lat: Double?, lng: Double?, address: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setHome(lat, lng, address) }
+                .onFailure { Log.e(TAG, "persist home failed: ${it.message}") }
+        }
+    }
+
+    fun setWork(lat: Double?, lng: Double?, address: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setWork(lat, lng, address) }
+                .onFailure { Log.e(TAG, "persist work failed: ${it.message}") }
+        }
+    }
+
     fun deleteLocation(location: Location) {
         viewModelScope.launch {
             runCatching { locationRepository.removeLocation(location) }

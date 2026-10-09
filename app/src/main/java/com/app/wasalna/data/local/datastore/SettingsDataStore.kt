@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -140,6 +141,55 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.ADAPTIVE_ALARM_ENABLED] = enabled }
     }
 
+    // Map UX fixes: Home & Work quick places (lat/lng + address, nullable = unset).
+    val homeLat: Flow<Double?> =
+        dataStore.data.map { it[Keys.HOME_LAT] }
+    val homeLng: Flow<Double?> =
+        dataStore.data.map { it[Keys.HOME_LNG] }
+    val homeAddress: Flow<String> =
+        dataStore.data.map { it[Keys.HOME_ADDRESS] ?: "" }
+    val workLat: Flow<Double?> =
+        dataStore.data.map { it[Keys.WORK_LAT] }
+    val workLng: Flow<Double?> =
+        dataStore.data.map { it[Keys.WORK_LNG] }
+    val workAddress: Flow<String> =
+        dataStore.data.map { it[Keys.WORK_ADDRESS] ?: "" }
+
+    suspend fun setHome(lat: Double?, lng: Double?, address: String) {
+        dataStore.edit {
+            if (lat == null || lng == null) {
+                it.remove(Keys.HOME_LAT)
+                it.remove(Keys.HOME_LNG)
+            } else {
+                it[Keys.HOME_LAT] = lat
+                it[Keys.HOME_LNG] = lng
+            }
+            it[Keys.HOME_ADDRESS] = address
+        }
+    }
+
+    suspend fun setWork(lat: Double?, lng: Double?, address: String) {
+        dataStore.edit {
+            if (lat == null || lng == null) {
+                it.remove(Keys.WORK_LAT)
+                it.remove(Keys.WORK_LNG)
+            } else {
+                it[Keys.WORK_LAT] = lat
+                it[Keys.WORK_LNG] = lng
+            }
+            it[Keys.WORK_ADDRESS] = address
+        }
+    }
+
+    // Map UX fixes: traffic overlay toggle (persisted; MapLibre free tiles
+    // show a graceful note — Google branch would map to isTrafficEnabled).
+    val isTrafficEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.TRAFFIC_ENABLED] ?: false }
+
+    suspend fun setTrafficEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.TRAFFIC_ENABLED] = enabled }
+    }
+
     /** Phase 9-1: canonical map-engine values. */
     object MapEngines {
         const val OSM = "OSM"
@@ -159,5 +209,12 @@ class SettingsDataStore @Inject constructor(
         val HAS_SEEN_AUTOSTART_GUIDANCE = booleanPreferencesKey("has_seen_autostart_guidance")
         val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
         val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
+        val HOME_LAT = doublePreferencesKey("home_lat")
+        val HOME_LNG = doublePreferencesKey("home_lng")
+        val HOME_ADDRESS = stringPreferencesKey("home_address")
+        val WORK_LAT = doublePreferencesKey("work_lat")
+        val WORK_LNG = doublePreferencesKey("work_lng")
+        val WORK_ADDRESS = stringPreferencesKey("work_address")
+        val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
     }
 }

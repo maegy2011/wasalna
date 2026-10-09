@@ -1,25 +1,34 @@
 package com.app.wasalna.ui.screens.map
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -56,6 +65,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.ui.ads.InterstitialHelper
+import com.app.wasalna.ui.components.HomeWorkQuickRow
+import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import com.google.android.gms.maps.model.LatLng
 import org.maplibre.android.camera.CameraPosition as MapLibreCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory as MapLibreCameraUpdateFactory
@@ -114,6 +126,17 @@ fun MapScreen(
     val transportMode by viewModel.transportMode.collectAsState()
     val etaMinutes by viewModel.etaMinutes.collectAsState()
     val recenterTarget by viewModel.recenterTarget.collectAsState()
+    // Map UX fixes: zoom + traffic + quick places.
+    val cameraZoom by viewModel.cameraZoom.collectAsState()
+    val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
+    val isPremium by viewModel.isPremium.collectAsState()
+    val homeLat by viewModel.homeLat.collectAsState()
+    val homeLng by viewModel.homeLng.collectAsState()
+    val homeAddress by viewModel.homeAddress.collectAsState()
+    val workLat by viewModel.workLat.collectAsState()
+    val workLng by viewModel.workLng.collectAsState()
+    val workAddress by viewModel.workAddress.collectAsState()
+    val context = LocalContext.current
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -145,6 +168,34 @@ fun MapScreen(
         if (!tripConsumed.value && tripLat != null && tripLng != null) {
             tripConsumed.value = true
             viewModel.showTrip(tripName ?: "Active trip", tripLat, tripLng, tripMode)
+        }
+    }
+
+    // Map UX fixes: auto live-location pin — blank picker (no trip args)
+    // centers on the GPS fix + drops a marker + reveals the Add button
+    // with no manual tap needed.
+    LaunchedEffect(Unit) {
+        if (tripLat == null && tripLng == null) {
+            viewModel.autoCenterOnMyLocation()
+        }
+    }
+
+    // Map UX fixes: quick-place edit dialog state (search-mode only).
+    var editTarget by remember { mutableStateOf<String?>(null) }
+    fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
+        if (lat == null || lng == null) {
+            editTarget = if (address == homeAddress) "home" else "work"
+            return
+        }
+        fun select() {
+            if (viewModel.selectQuickPlace(lat, lng, address)) {
+                searchActive = false
+            }
+        }
+        if (!isPremium) {
+            InterstitialHelper.showInterstitial(context) { select() }
+        } else {
+            select()
         }
     }
 
@@ -186,7 +237,7 @@ fun MapScreen(
                             if (isSaving) CircularProgressIndicator(strokeWidth = 2.dp)
                             else Icon(Icons.Default.Check, contentDescription = null)
                         },
-                        text = { Text(if (isSaving) "Saving…" else "Save Destination") },
+                        text = { Text(if (isSaving) "Saving…" else "Add Destination") },
                     )
                 }
             }
@@ -228,6 +279,18 @@ fun MapScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
+                // Map UX fixes: Home & Work quick buttons below the search
+                // box — visible ONLY in search mode (and My Places), never
+                // on the plain Map view.
+                HomeWorkQuickRow(
+                    homeAddress = homeAddress,
+                    workAddress = workAddress,
+                    onHomeClick = { startQuickTrip(homeLat, homeLng, homeAddress) },
+                    onWorkClick = { startQuickTrip(workLat, workLng, workAddress) },
+                    onHomeEdit = { editTarget = "home" },
+                    onWorkEdit = { editTarget = "work" },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
                 searchError?.let { err ->
                     Text(
                         text = err,
@@ -318,6 +381,32 @@ fun MapScreen(
                         )
                     }
                 }
+                // Map UX fixes: traffic overlay toggle. Google branch:
+                // MapProperties(isTrafficEnabled = ...). MapLibre/OSM free
+                // tiles: best-effort — graceful note, never a crash.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = isTrafficEnabled,
+                        onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
+                        label = { Text("Traffic") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Traffic, contentDescription = null)
+                        },
+                    )
+                    if (isTrafficEnabled) {
+                        Text(
+                            text = "Traffic overlay is not supported on free map tiles.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -327,6 +416,7 @@ fun MapScreen(
                         selectedLatLng = selectedLatLng,
                         routeGeoJson = routeGeoJson,
                         recenterTarget = recenterTarget,
+                        cameraZoom = cameraZoom,
                         modifier = Modifier.fillMaxSize(),
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
@@ -351,8 +441,63 @@ fun MapScreen(
                     ) {
                         Icon(Icons.Filled.MyLocation, contentDescription = "My location")
                     }
+                    // Map UX fixes: zoom-level selector (3..19) bound to the
+                    // camera zoom — +/- steppers (48dp targets) + slider.
+                    // Same flow would drive GoogleMap cameraPositionState.
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.zoomIn() },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(Icons.Filled.Add, contentDescription = "Zoom in")
+                            }
+                            Text(
+                                text = cameraZoom.toInt().toString(),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            IconButton(
+                                onClick = { viewModel.zoomOut() },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(Icons.Filled.Remove, contentDescription = "Zoom out")
+                            }
+                            Slider(
+                                value = cameraZoom,
+                                onValueChange = viewModel::setZoom,
+                                valueRange = MapViewModel.MIN_ZOOM..MapViewModel.MAX_ZOOM,
+                                modifier = Modifier.width(120.dp),
+                            )
+                        }
+                    }
                 }
             }
+        }
+        // Map UX fixes: quick-place set dialog (search-mode entry point).
+        // Prefills the current selection so a searched/tapped point can
+        // become Home/Work in one step.
+        editTarget?.let { target ->
+            QuickPlaceEditDialog(
+                title = if (target == "home") "Home" else "Work",
+                initialAddress = if (target == "home") homeAddress else workAddress,
+                initialLat = (if (target == "home") homeLat else workLat)
+                    ?: selectedLatLng?.latitude,
+                initialLng = (if (target == "home") homeLng else workLng)
+                    ?: selectedLatLng?.longitude,
+                onDismiss = { editTarget = null },
+                onSave = { lat, lng, address ->
+                    if (target == "home") viewModel.setHome(lat, lng, address)
+                    else viewModel.setWork(lat, lng, address)
+                },
+            )
         }
     }
 }
@@ -368,6 +513,7 @@ private fun MapLibreMapView(
     selectedLatLng: LatLng?,
     routeGeoJson: String?,
     recenterTarget: LatLng? = null,
+    cameraZoom: Float = 15f,
     modifier: Modifier = Modifier,
     onMapClick: (LatLng) -> Unit = {},
 ) {
@@ -380,6 +526,8 @@ private fun MapLibreMapView(
     var lastCameraTarget by remember { mutableStateOf<MapLibreLatLng?>(null) }
     var lastRouteApplied by remember { mutableStateOf<String?>(null) }
     var lastRecenterApplied by remember { mutableStateOf<LatLng?>(null) }
+    // Map UX fixes: last zoom pushed to the camera (selector 3..19).
+    var lastZoomApplied by remember { mutableStateOf<Float?>(null) }
 
     val mapView = remember(context) {
         MapView(context).apply { onCreate(null) }
@@ -502,7 +650,23 @@ private fun MapLibreMapView(
             val target = selectedLatLng?.let {
                 MapLibreLatLng(it.latitude, it.longitude)
             } ?: DefaultCairoLibre
-            moveCameraIfChanged(map, target, if (selectedLatLng != null) 15.0 else 12.0)
+            // Map UX fixes: zoom selector drives the camera. Selection
+            // moves keep their zoom; explicit selector changes animate.
+            if (cameraZoom != lastZoomApplied) {
+                lastZoomApplied = cameraZoom
+                lastCameraTarget = target
+                runCatching {
+                    map.animateCamera(
+                        MapLibreCameraUpdateFactory.newLatLngZoom(
+                            target,
+                            cameraZoom.toDouble(),
+                        ),
+                        300,
+                    )
+                }
+            } else {
+                moveCameraIfChanged(map, target, cameraZoom.toDouble())
+            }
         },
     )
 }

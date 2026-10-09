@@ -47,6 +47,21 @@ class SettingsRepositoryImpl @Inject constructor(
     override val customRingtoneUri: Flow<String>
         get() = settingsDataStore.customRingtoneUri
 
+    override val homeLat: Flow<Double?>
+        get() = settingsDataStore.homeLat
+    override val homeLng: Flow<Double?>
+        get() = settingsDataStore.homeLng
+    override val homeAddress: Flow<String>
+        get() = settingsDataStore.homeAddress
+    override val workLat: Flow<Double?>
+        get() = settingsDataStore.workLat
+    override val workLng: Flow<Double?>
+        get() = settingsDataStore.workLng
+    override val workAddress: Flow<String>
+        get() = settingsDataStore.workAddress
+    override val isTrafficEnabled: Flow<Boolean>
+        get() = settingsDataStore.isTrafficEnabled
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -97,5 +112,17 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setCustomRingtoneUri(uri: String) {
         settingsDataStore.setCustomRingtoneUri(uri)
+    }
+
+    override suspend fun setHome(lat: Double?, lng: Double?, address: String) {
+        settingsDataStore.setHome(lat, lng, address)
+    }
+
+    override suspend fun setWork(lat: Double?, lng: Double?, address: String) {
+        settingsDataStore.setWork(lat, lng, address)
+    }
+
+    override suspend fun setTrafficEnabled(enabled: Boolean) {
+        settingsDataStore.setTrafficEnabled(enabled)
     }
 }

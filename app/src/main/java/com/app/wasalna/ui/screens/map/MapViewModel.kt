@@ -27,10 +27,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -80,6 +82,97 @@ class MapViewModel @Inject constructor(
             val saved = runCatching { settingsRepository.transportMode.first() }
                 .getOrDefault("CAR")
             _transportMode.value = TransportMode.fromName(saved)
+        }
+        // Map UX fixes: restore persisted traffic toggle.
+        viewModelScope.launch {
+            _isTrafficEnabled.value = runCatching {
+                settingsRepository.isTrafficEnabled.first()
+            }.getOrDefault(false)
+        }
+    }
+
+    // Map UX fixes: camera zoom level (3..19) bound to the map camera.
+    // Applies to the MapLibre branch; a Google branch would feed
+    // GoogleMap cameraPositionState zoom with the same flow.
+    private val _cameraZoom = MutableStateFlow(15f)
+    val cameraZoom: StateFlow<Float> = _cameraZoom.asStateFlow()
+
+    fun setZoom(zoom: Float) {
+        _cameraZoom.value = zoom.coerceIn(MIN_ZOOM, MAX_ZOOM)
+    }
+
+    fun zoomIn() = setZoom(_cameraZoom.value + 1f)
+    fun zoomOut() = setZoom(_cameraZoom.value - 1f)
+
+    // Map UX fixes: traffic overlay toggle (persisted). MapLibre free
+    // tiles: best-effort note in UI. Google branch: feed
+    // MapProperties(isTrafficEnabled = ...) with the same flow.
+    private val _isTrafficEnabled = MutableStateFlow(false)
+    val isTrafficEnabled: StateFlow<Boolean> = _isTrafficEnabled.asStateFlow()
+
+    fun setTrafficEnabled(enabled: Boolean) {
+        _isTrafficEnabled.value = enabled
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTrafficEnabled(enabled) }
+                .onFailure { Log.e(TAG, "persist traffic failed: ${it.message}") }
+        }
+    }
+
+    // Map UX fixes: premium gate for quick-trip interstitial ads.
+    val isPremium: StateFlow<Boolean> = settingsRepository.isPremium
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // Map UX fixes: Home & Work quick places (persisted in DataStore).
+    val homeLat: StateFlow<Double?> = settingsRepository.homeLat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val homeLng: StateFlow<Double?> = settingsRepository.homeLng
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val homeAddress: StateFlow<String> = settingsRepository.homeAddress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+    val workLat: StateFlow<Double?> = settingsRepository.workLat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val workLng: StateFlow<Double?> = settingsRepository.workLng
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val workAddress: StateFlow<String> = settingsRepository.workAddress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    fun setHome(lat: Double?, lng: Double?, address: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setHome(lat, lng, address) }
+                .onFailure { Log.e(TAG, "persist home failed: ${it.message}") }
+        }
+    }
+
+    fun setWork(lat: Double?, lng: Double?, address: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setWork(lat, lng, address) }
+                .onFailure { Log.e(TAG, "persist work failed: ${it.message}") }
+        }
+    }
+
+    /**
+     * Map UX fixes: auto live-location pin — on entering the Map screen
+     * (blank picker, no trip args) center the camera on the GPS fix,
+     * drop a marker pin automatically, and surface the Save/Add button
+     * with no manual tap needed. [selectedAddress] display is already
+     * wired in MapScreen. Safe no-op without permission/fix or when a
+     * destination/trip is already present. Idempotent per screen entry.
+     */
+    private var autoCenterDone = false
+    fun autoCenterOnMyLocation(force: Boolean = false) {
+        if (autoCenterDone && !force) return
+        if (_selectedLatLng.value != null) return
+        viewModelScope.launch {
+            val fix = currentFix() ?: return@launch
+            autoCenterDone = true
+            val latLng = LatLng(fix.latitude, fix.longitude)
+            _selectedLatLng.value = latLng
+            _recenterTarget.value = latLng
+            val address = nominatim.reverseGeocode(fix.latitude, fix.longitude)
+                ?: fallbackName(fix.latitude, fix.longitude)
+            _selectedAddress.value = address
+            _selectedName.value = address
+            _searchQuery.value = address
         }
     }
 
@@ -230,6 +323,22 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Map UX fixes: quick-trip entry (Home/Work tap) — selects the saved
+     * point as the destination; route/ETA follow reactively. No-op when
+     * the place has no coordinates yet (caller prompts to set it first).
+     */
+    fun selectQuickPlace(lat: Double?, lng: Double?, address: String): Boolean {
+        if (lat == null || lng == null) return false
+        _selectedName.value = address.ifBlank { fallbackName(lat, lng) }
+        _selectedAddress.value = address.ifBlank { fallbackName(lat, lng) }
+        _selectedLatLng.value = LatLng(lat, lng)
+        _predictions.value = emptyList()
+        _searchError.value = null
+        _searchQuery.value = address
+        return true
+    }
+
     /** Result click — Photon hits always carry lat/lng: select immediately. */
     fun fetchPlaceDetails(result: SearchResult) {
         val lat = result.lat ?: return
@@ -330,6 +439,8 @@ class MapViewModel @Inject constructor(
     companion object {
         private const val TAG = "MapViewModel"
         private const val LOC_TIMEOUT_MS = 8_000L
+        const val MIN_ZOOM = 3f
+        const val MAX_ZOOM = 19f
         const val MSG_ALREADY_SAVED = "This place is already saved!"
     }
 }
