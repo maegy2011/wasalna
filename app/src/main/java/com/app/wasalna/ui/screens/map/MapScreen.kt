@@ -381,8 +381,10 @@ fun MapScreen(
                         )
                     }
                 }
-                // Map UX fixes: traffic overlay toggle. MapLibre/OSM free
-                // tiles: best-effort — graceful note, never a crash.
+                // Phase 10.8.0e (traffic): DEFERRED — no free keyless
+                // congestion source fits (OSRM = routing only, no traffic).
+                // Toggle kept as persisted preference; MapLibre free tiles
+                // show a graceful note. Never invent fake data.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -400,7 +402,7 @@ fun MapScreen(
                     )
                     if (isTrafficEnabled) {
                         Text(
-                            text = "Traffic overlay is not supported on free map tiles.",
+                            text = "Live traffic isn't available on free map tiles yet.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

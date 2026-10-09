@@ -89,8 +89,8 @@ class MapViewModel @Inject constructor(
     fun zoomIn() = setZoom(_cameraZoom.value + 1f)
     fun zoomOut() = setZoom(_cameraZoom.value - 1f)
 
-    // Map UX fixes: traffic overlay toggle (persisted). MapLibre free
-    // tiles: best-effort note in UI (see Phase 2e traffic note).
+    // Phase 10.8.0e (traffic): DEFERRED — persisted preference only.
+    // No free keyless congestion feed exists (OSRM = routing only).
     private val _isTrafficEnabled = MutableStateFlow(false)
     val isTrafficEnabled: StateFlow<Boolean> = _isTrafficEnabled.asStateFlow()
 
