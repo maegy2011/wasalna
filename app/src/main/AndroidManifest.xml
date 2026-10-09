@@ -50,6 +50,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Phase 10.8.0d: glanceable widget (RemoteViews, home_screen). -->
+        <receiver
+            android:name=".widget.WasalnaWidgetProvider"
+            android:exported="false"
+            android:label="Wasalna Quick Trip">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/wasalna_widget_info" />
+        </receiver>
         <!-- Phase 10.8.0: FileProvider for crash-log + places-backup sharing (internal files only). -->
         <provider
             android:name="androidx.core.content.FileProvider"
