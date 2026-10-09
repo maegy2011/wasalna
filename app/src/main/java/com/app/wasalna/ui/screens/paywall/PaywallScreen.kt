@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Diamond
@@ -85,14 +86,14 @@ fun PaywallScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
-            .padding(20.dp),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             Icons.Filled.Diamond,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -139,7 +140,7 @@ fun PaywallScreen(
             onSelect = { selectedPlan = "yearly" },
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = {
@@ -179,7 +180,7 @@ private fun BenefitRow(text: String) {
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
         )
-        Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(text = text, style = MaterialTheme.typography.bodyLarge)
     }
 }

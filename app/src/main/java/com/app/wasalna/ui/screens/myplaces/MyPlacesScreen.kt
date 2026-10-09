@@ -200,7 +200,7 @@ fun MyPlacesScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
             // Phase 10-Fix: local search over saved places.
             OutlinedTextField(
@@ -213,7 +213,7 @@ fun MyPlacesScreen(
                 },
                 singleLine = true,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             // Map UX fixes: Home & Work quick row below the search box.
             HomeWorkQuickRow(
                 homeAddress = homeAddress,
@@ -235,7 +235,7 @@ fun MyPlacesScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(visiblePlaces, key = { it.id }) { location ->
                         SavedPlaceCard(
                             location = location,
@@ -378,7 +378,7 @@ private fun SavedPlaceCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = onActivate,
                 enabled = !isTracking,

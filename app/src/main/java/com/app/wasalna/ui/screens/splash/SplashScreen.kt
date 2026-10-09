@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.app.wasalna.BuildConfig
 import kotlinx.coroutines.delay
 
 /**
@@ -79,9 +80,9 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(32.dp))
             CircularProgressIndicator()
         }
-        // Phase 10.4.1: copyright footer pinned to the bottom.
+        // Phase 10.5.0: copyright + version footer pinned to the bottom.
         Text(
-            text = "© 2026 Wasalna. All rights reserved.",
+            text = "© 2026 Wasalna • v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.BottomCenter),
