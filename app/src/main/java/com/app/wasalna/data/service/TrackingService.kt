@@ -109,6 +109,9 @@ class TrackingService : Service() {
     private var isOfflineMode: Boolean = false
     private var lastOsrmFailureAt: Long = 0L
     private var isSilent: Boolean = false
+    // Phase 10.5.x Step 4/5: developer force-offline + fallback notice.
+    private var forceOffline: Boolean = false
+    private var offlineFallbackNotice: String? = null
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -181,6 +184,13 @@ class TrackingService : Service() {
             proactiveEnabled = runCatching {
                 prefs.isProactiveAlertEnabled.first()
             }.getOrDefault(true)
+            forceOffline = runCatching {
+                prefs.isForceOffline.first()
+            }.getOrDefault(false)
+            if (forceOffline) {
+                isOfflineMode = true
+                Log.i(TAG, "Force Offline Routing ON — OSRM bypassed")
+            }
         }
         // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
         serviceScope.launch {
@@ -307,9 +317,15 @@ class TrackingService : Service() {
             val now = System.currentTimeMillis()
             // Phase 10.4.3.7: while offline, silence the radio — one probe
             // per minute max, pure GPS distance on every tick meanwhile.
-            val mayProbe = !isOfflineMode ||
-                now - lastOsrmFailureAt >= OSRM_RETRY_MS
-            if (mayProbe && now - lastOsrmFetchMs >= OSRM_MIN_INTERVAL_MS) {
+            val mayProbe = !forceOffline && (!isOfflineMode ||
+                now - lastOsrmFailureAt >= OSRM_RETRY_MS)
+            if (forceOffline) {
+                // Step 4/5: OSRM bypassed — straight to the local engine.
+                serviceScope.launch {
+                    runLocalRoute(fix, distanceM)
+                    pushNotification(fix)
+                }
+            } else if (mayProbe && now - lastOsrmFetchMs >= OSRM_MIN_INTERVAL_MS) {
                 lastOsrmFetchMs = now
                 serviceScope.launch {
                     val route = runCatching {
@@ -331,27 +347,7 @@ class TrackingService : Service() {
                         lastOsrmFailureAt = System.currentTimeMillis()
                         Log.w(TAG, "OSRM unreachable — offline GPS mode")
                         offlineEtaFallback(fix, distanceM)
-                        // Phase 10.4.3.9: prefer an on-device CH route when a
-                        // graph is installed (road ETA beats straight-line).
-                        val local = runCatching {
-                            val dir = graphManager.installedRegion()
-                                ?: return@runCatching null
-                            if (!ghEngine.ensureLoaded(dir)) return@runCatching null
-                            ghEngine.calculateRoute(
-                                fix.latitude, fix.longitude,
-                                targetLat, targetLng,
-                            )
-                        }.getOrNull()
-                        local?.let {
-                            lastEtaMin = it.etaMinutes
-                            persistEta()
-                            Log.i(
-                                TAG,
-                                "offline GH route: " +
-                                    "${it.points.size} pts, " +
-                                    "~${it.etaMinutes} min",
-                            )
-                        }
+                        runLocalRoute(fix, distanceM)
                     }
                     pushNotification(fix)
                 }
@@ -376,6 +372,54 @@ class TrackingService : Service() {
         val wanted = intervalFor(distanceM)
         if (wanted != currentIntervalMs) {
             requestUpdates(wanted)
+        }
+    }
+
+    /**
+     * Phase 10.5.x Step 5: on-device route attempt (Dispatchers.IO inside
+     * the engine). On success the road ETA wins; on ANY failure the
+     * Phase 10.4.3.7 GPS straight-line distanceTo() fallback already
+     * applied by the caller stands — the alarm never breaks — and the
+     * notification carries "Offline Routing failed, using GPS
+     * straight-line" so the user knows.
+     */
+    private suspend fun runLocalRoute(fix: Location, distanceM: Float) {
+        val local = runCatching {
+            val dir = graphManager.installedRegion()
+                ?: return@runCatching null
+            if (!ghEngine.ensureLoaded(dir)) return@runCatching null
+            ghEngine.calculateRoute(
+                fix.latitude, fix.longitude,
+                targetLat, targetLng,
+            )
+        }.getOrNull()
+        if (local != null) {
+            offlineFallbackNotice = null
+            lastEtaMin = local.etaMinutes
+            persistEta()
+            Log.i(
+                TAG,
+                "offline GH route: ${local.points.size} pts, ~${local.etaMinutes} min",
+            )
+        } else {
+            offlineFallbackNotice = FALLBACK_NOTICE
+            Log.w(TAG, "$FALLBACK_NOTICE (dist=${distanceM.toInt()}m GPS line)")
+            showFallbackToast()
+        }
+    }
+
+    /** Toast on the main thread — best-effort, never throws. */
+    private fun showFallbackToast() {
+        runCatching {
+            android.os.Handler(Looper.getMainLooper()).post {
+                runCatching {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        FALLBACK_NOTICE,
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
         }
     }
 
@@ -407,9 +451,11 @@ class TrackingService : Service() {
             val eta = lastEtaMin?.let { "~$it mins ${mode.icon}" }
                 ?: if (isOfflineMode) "--" else "calculating…"
             // Phase 10.4.3.7: reassure — GPS guard stays on without internet.
+            // Step 5: exact fallback notice when GH failed.
             val offlineTag = if (isOfflineMode) " [Offline 🛰️]" else ""
+            val fallbackTag = offlineFallbackNotice?.let { " — $it" } ?: ""
             "Dist: ${"%.1f".format(distKm)} km | " +
-                "Speed: ${"%.0f".format(lastSpeedKmh)} km/h | ETA: $eta$offlineTag"
+                "Speed: ${"%.0f".format(lastSpeedKmh)} km/h | ETA: $eta$offlineTag$fallbackTag"
         } else {
             "Alarm is active... Sleep tight!"
         }
@@ -756,6 +802,9 @@ class TrackingService : Service() {
 
         /** Phase 10.4.3.7: below this GPS speed the fallback ETA freezes. */
         private const val MIN_OFFLINE_SPEED_MPS = 0.5f
+
+        /** Phase 10.5.x Step 5: exact user-facing offline fallback notice. */
+        const val FALLBACK_NOTICE = "Offline Routing failed, using GPS straight-line"
 
         private const val REQ_CONTENT = 10
         private const val REQ_PAUSE = 11

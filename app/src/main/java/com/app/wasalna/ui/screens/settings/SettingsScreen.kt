@@ -71,6 +71,7 @@ fun SettingsScreen(
     val customRingtoneUri by viewModel.customRingtoneUri.collectAsState()
     val adaptiveAlarm by viewModel.adaptiveAlarm.collectAsState()
     val proactiveAlert by viewModel.proactiveAlert.collectAsState()
+    val forceOffline by viewModel.forceOffline.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -325,6 +326,35 @@ fun SettingsScreen(
                 Switch(
                     checked = proactiveAlert,
                     onCheckedChange = viewModel::setProactiveAlert,
+                )
+            }
+        }
+
+        // Phase 10.5.x Step 4: developer test-mode — force offline routing.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Force Offline Routing (Test Mode)",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "Bypass OSRM — always route on-device",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = forceOffline,
+                    onCheckedChange = viewModel::setForceOffline,
                 )
             }
         }

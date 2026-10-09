@@ -190,6 +190,16 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.TRAFFIC_ENABLED] = enabled }
     }
 
+    // Phase 10.5.x Step 4: developer test-mode — force offline routing.
+    // When true, TrackingService + MapViewModel bypass OSRM and force
+    // GraphHopperRouteEngine (with GPS straight-line fallback).
+    val isForceOffline: Flow<Boolean> =
+        dataStore.data.map { it[Keys.FORCE_OFFLINE] ?: false }
+
+    suspend fun setForceOffline(enabled: Boolean) {
+        dataStore.edit { it[Keys.FORCE_OFFLINE] = enabled }
+    }
+
     /** Phase 9-1: canonical map-engine values. */
     object MapEngines {
         const val OSM = "OSM"
@@ -216,5 +226,6 @@ class SettingsDataStore @Inject constructor(
         val WORK_LNG = doublePreferencesKey("work_lng")
         val WORK_ADDRESS = stringPreferencesKey("work_address")
         val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
+        val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")
     }
 }

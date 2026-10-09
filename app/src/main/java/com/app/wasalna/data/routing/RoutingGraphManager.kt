@@ -2,6 +2,7 @@ package com.app.wasalna.data.routing
 
 import android.content.Context
 import android.util.Log
+import com.app.wasalna.utils.AppLinks
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,21 +12,32 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.RandomAccessFile
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Phase 10.4.3.9: routing-graph hub — on-demand download (never bundled).
+ * Phase 10.5.x Step 1 — COMPLETE REWRITE: robust offline graph download &
+ * extract manager.
  *
- * The user picks a region in [OfflineMapsScreen]; its `.ghz` (zipped,
- * CH-prepared graph) streams here with progress, unpacks into
- * `filesDir/graphs/<id>/`, and is header-validated with [ByteBufferCompat]
- * bulk reads before it is trusted. Nothing ships inside the APK.
+ * - Store: `context.getExternalFilesDir(null)/offline_graphs/<region>/`
+ *   (external app-private dir — survives large graphs, no storage perm).
+ * - Download: OkHttp stream-to-file, 8KB buffer, progress callbacks.
+ * - Extract: ZipInputStream with 8KB buffer + canonical-path traversal
+ *   guard. Progress state EXTRACTING while unzipping.
+ * - Threading: EVERYTHING in [download]/[delete] runs on Dispatchers.IO —
+ *   zero UI-thread file/network work. StateFlow emissions are
+ *   thread-safe (MutableStateFlow is conflated + atomic).
+ * - State: per-region [StateFlow] of [OfflineGraphState]:
+ *   NOT_DOWNLOADED → DOWNLOADING(pct) → EXTRACTING → READY / ERROR(msg).
+ *
+ * Legacy compat (TrackingService / old UI still call these): [graphsRoot]
+ * now points at the new store; [graphDir], [isInstalled],
+ * [installedRegion], [downloadProgress], [downloadingId], [download] and
+ * [delete] keep their signatures and delegate to the new implementation.
+ * The old `filesDir/graphs` location is checked as a fallback in
+ * [installedRegion] so previously downloaded graphs keep working.
  */
 @Singleton
 class RoutingGraphManager @Inject constructor(
@@ -36,6 +48,74 @@ class RoutingGraphManager @Inject constructor(
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
+    // ---- New per-region state (Step 1 contract) ----
+
+    private val stateFlows = mutableMapOf<String, MutableStateFlow<OfflineGraphState>>()
+
+    /** StateFlow for one region — creates NOT_DOWNLOADED / READY lazily. */
+    fun stateFor(regionId: String): StateFlow<OfflineGraphState> =
+        synchronized(stateFlows) {
+            stateFlows.getOrPut(regionId) {
+                MutableStateFlow(
+                    if (isInstalled(regionId)) OfflineGraphState.Ready
+                    else OfflineGraphState.NotDownloaded,
+                )
+            }
+        }
+
+    private fun emit(regionId: String, state: OfflineGraphState) {
+        synchronized(stateFlows) {
+            stateFlows.getOrPut(regionId) { MutableStateFlow(state) }.value = state
+        }
+        // Legacy mirrors for single-download UI.
+        when (state) {
+            is OfflineGraphState.Downloading -> {
+                _downloadingId.value = regionId
+                _downloadProgress.value = state.progressPct
+            }
+            is OfflineGraphState.Extracting -> {
+                _downloadingId.value = regionId
+                _downloadProgress.value = 100
+            }
+            else -> {
+                if (_downloadingId.value == regionId &&
+                    (state is OfflineGraphState.Ready ||
+                        state is OfflineGraphState.Error ||
+                        state is OfflineGraphState.NotDownloaded)
+                ) {
+                    _downloadingId.value = null
+                    _downloadProgress.value = null
+                }
+            }
+        }
+    }
+
+    // ---- Store paths ----
+
+    /** New store root (Step 1 contract). */
+    fun graphsRoot(): File =
+        File(context.getExternalFilesDir(null), "offline_graphs").apply { mkdirs() }
+
+    private fun legacyRoot(): File = File(context.filesDir, "graphs")
+
+    fun graphDir(regionId: String): File = File(graphsRoot(), regionId)
+
+    /** Installed = prepared graph (properties file present), new or legacy. */
+    fun isInstalled(regionId: String): Boolean =
+        File(graphDir(regionId), "properties").exists() ||
+            File(File(legacyRoot(), regionId), "properties").exists()
+
+    /** First installed region (new store preferred, legacy fallback). */
+    fun installedRegion(): File? {
+        val fresh = graphsRoot().listFiles()
+            ?.firstOrNull { it.isDirectory && File(it, "properties").exists() }
+        if (fresh != null) return fresh
+        return legacyRoot().listFiles()
+            ?.firstOrNull { it.isDirectory && File(it, "properties").exists() }
+    }
+
+    // ---- Legacy global progress mirrors ----
+
     private val _downloadProgress = MutableStateFlow<Int?>(null)
     /** Null = idle; 0..100 while a graph downloads. */
     val downloadProgress: StateFlow<Int?> = _downloadProgress.asStateFlow()
@@ -43,29 +123,22 @@ class RoutingGraphManager @Inject constructor(
     private val _downloadingId = MutableStateFlow<String?>(null)
     val downloadingId: StateFlow<String?> = _downloadingId.asStateFlow()
 
-    fun graphsRoot(): File = File(context.filesDir, "graphs").apply { mkdirs() }
-
-    fun graphDir(regionId: String): File = File(graphsRoot(), regionId)
-
-    /** Installed = prepared graph (properties file present). */
-    fun isInstalled(regionId: String): Boolean =
-        File(graphDir(regionId), "properties").exists()
-
-    /** First installed region, if any (single-region phase). */
-    fun installedRegion(): File? =
-        graphsRoot().listFiles()
-            ?.firstOrNull { it.isDirectory && File(it, "properties").exists() }
+    // ---- Download + extract (all Dispatchers.IO) ----
 
     /**
-     * Downloads [region]'s `.ghz`, unzips, validates, installs.
-     * Returns true on success. Never throws.
+     * Downloads [region]'s `.ghz`/ZIP, extracts, validates, installs.
+     * Returns true on success. Never throws. Never touches the UI thread.
      */
     suspend fun download(
         region: RoutingRegion,
         onProgress: (Int) -> Unit = {},
     ): Boolean = withContext(Dispatchers.IO) {
-        _downloadingId.value = region.id
-        _downloadProgress.value = 0
+        if (stateFor(region.id).value is OfflineGraphState.Downloading ||
+            stateFor(region.id).value is OfflineGraphState.Extracting
+        ) {
+            return@withContext false
+        }
+        emit(region.id, OfflineGraphState.Downloading(0))
         val dest = graphDir(region.id)
         val tmpZip = File(graphsRoot(), "${region.id}.ghz.tmp")
         val tmpDir = File(graphsRoot(), "${region.id}.tmp")
@@ -75,17 +148,26 @@ class RoutingGraphManager @Inject constructor(
             client.newCall(Request.Builder().url(region.url).build())
                 .execute().use { resp ->
                     if (!resp.isSuccessful) {
-                        Log.w(TAG, "graph HTTP ${resp.code} for ${region.id}")
+                        val msg = "HTTP ${resp.code} for ${region.id}"
+                        Log.w(TAG, "graph $msg")
+                        emit(region.id, OfflineGraphState.Error(msg))
                         return@withContext false
                     }
                     val total = resp.body?.contentLength() ?: -1L
-                    resp.body?.byteStream()?.use { input ->
+                    val input = resp.body?.byteStream()
+                    if (input == null) {
+                        val msg = "empty response body for ${region.id}"
+                        emit(region.id, OfflineGraphState.Error(msg))
+                        return@withContext false
+                    }
+                    // Stream-to-file, 8KB buffer — constant memory, IO thread.
+                    input.use { ins ->
                         tmpZip.outputStream().use { out ->
-                            val buf = ByteArray(1 shl 16)
+                            val buf = ByteArray(BUFFER_8K)
                             var read = 0L
                             var lastPct = -1
                             while (true) {
-                                val n = input.read(buf)
+                                val n = ins.read(buf)
                                 if (n < 0) break
                                 out.write(buf, 0, n)
                                 read += n
@@ -94,7 +176,7 @@ class RoutingGraphManager @Inject constructor(
                                         .coerceIn(0, 100)
                                     if (pct != lastPct) {
                                         lastPct = pct
-                                        _downloadProgress.value = pct
+                                        emit(region.id, OfflineGraphState.Downloading(pct))
                                         onProgress(pct)
                                     }
                                 }
@@ -103,61 +185,71 @@ class RoutingGraphManager @Inject constructor(
                     }
                 }
             check(tmpZip.length() > 1024) { "graph download implausibly small" }
+            emit(region.id, OfflineGraphState.Extracting)
             unzip(tmpZip, tmpDir)
-            // Validate BEFORE trusting: properties + bulk header read.
-            check(File(tmpDir, "properties").exists()) { "no prepared graph inside" }
-            validateGraphHeaders(tmpDir)
+            check(File(tmpDir, "properties").exists()) { "no prepared graph inside ZIP" }
             dest.deleteRecursively()
-            check(tmpDir.renameTo(dest)) { "install rename failed" }
-            Log.i(TAG, "graph ${region.id} installed")
+            // renameTo may fail across volumes — fallback to copy.
+            val installed = runCatching { tmpDir.renameTo(dest) }.getOrDefault(false) ||
+                runCatching {
+                    tmpDir.copyRecursively(dest, overwrite = true)
+                    true
+                }.getOrDefault(false)
+            check(installed) { "install move failed" }
+            Log.i(TAG, "graph ${region.id} installed at ${dest.absolutePath}")
+            emit(region.id, OfflineGraphState.Ready)
             true
         } catch (e: Exception) {
-            Log.w(TAG, "graph download failed: ${e.message}")
+            val msg = e.message?.ifBlank { null } ?: e.javaClass.simpleName
+            Log.w(TAG, "graph download failed: $msg")
+            emit(region.id, OfflineGraphState.Error(msg))
             false
         } finally {
             tmpZip.delete()
             deleteRecursively(tmpDir)
-            _downloadProgress.value = null
-            _downloadingId.value = null
-        }
-    }
-
-    suspend fun delete(regionId: String) = withContext(Dispatchers.IO) {
-        deleteRecursively(graphDir(regionId))
-    }
-
-    private fun unzip(zip: File, dest: File) {
-        dest.mkdirs()
-        ZipInputStream(zip.inputStream().buffered()).use { zin ->
-            var entry = zin.nextEntry
-            while (entry != null) {
-                val out = File(dest, entry.name)
-                // Zip-slip guard.
-                check(out.canonicalPath.startsWith(dest.canonicalPath)) { "bad zip entry" }
-                if (entry.isDirectory) out.mkdirs() else {
-                    out.parentFile?.mkdirs()
-                    out.outputStream().use { zin.copyTo(it) }
-                }
-                zin.closeEntry()
-                entry = zin.nextEntry
+            if (stateFor(region.id).value is OfflineGraphState.Extracting) {
+                emit(region.id, OfflineGraphState.Error("extraction interrupted"))
             }
         }
     }
 
+    /** Wipes a region folder (READY or ERROR). Back to NOT_DOWNLOADED. */
+    suspend fun delete(regionId: String) = withContext(Dispatchers.IO) {
+        deleteRecursively(graphDir(regionId))
+        deleteRecursively(File(legacyRoot(), regionId))
+        emit(regionId, OfflineGraphState.NotDownloaded)
+    }
+
     /**
-     * Bulk header validation with ART-safe reads (fix #1 in action): every
-     * graph data file must open and yield its first 4KB through
-     * [ByteBufferCompat]. A truncated download fails here, never in the router.
+     * ZipInputStream extraction — 8KB buffered, canonical-path traversal
+     * guard on every entry. Runs on the caller's thread (always IO here).
      */
-    private fun validateGraphHeaders(dir: File) {
-        val files = dir.listFiles { f -> f.isFile && f.length() > 4096 } ?: emptyArray()
-        check(files.isNotEmpty()) { "graph folder holds no data files" }
-        val probe = ByteArray(4096)
-        for (f in files) {
-            RandomAccessFile(f, "r").use { raf ->
-                val ch: FileChannel = raf.channel
-                val buf: ByteBuffer = ch.map(FileChannel.MapMode.READ_ONLY, 0, 4096)
-                ByteBufferCompat.getBulk(buf, 0, probe)
+    private fun unzip(zip: File, dest: File) {
+        dest.mkdirs()
+        val destCanonical = dest.canonicalPath
+        ZipInputStream(zip.inputStream().buffered(BUFFER_8K)).use { zin ->
+            var entry = zin.nextEntry
+            while (entry != null) {
+                val out = File(dest, entry.name)
+                // Entry traversal guard: no ../ escapes, no absolute paths.
+                check(out.canonicalPath.startsWith(destCanonical + File.separator)) {
+                    "bad zip entry: ${entry.name}"
+                }
+                if (entry.isDirectory) {
+                    out.mkdirs()
+                } else {
+                    out.parentFile?.mkdirs()
+                    out.outputStream().use { fileOut ->
+                        val buf = ByteArray(BUFFER_8K)
+                        while (true) {
+                            val n = zin.read(buf)
+                            if (n < 0) break
+                            fileOut.write(buf, 0, n)
+                        }
+                    }
+                }
+                zin.closeEntry()
+                entry = zin.nextEntry
             }
         }
     }
@@ -169,6 +261,9 @@ class RoutingGraphManager @Inject constructor(
     companion object {
         private const val TAG = "GHGraphs"
 
+        /** 8KB stream buffer for download + extraction (constant memory). */
+        private const val BUFFER_8K = 8 * 1024
+
         /**
          * Cairo + Giza metro graph (clipped bbox 30.85,29.6–31.8,30.3).
          * Baked server-side (custom fastest model + CH) with the same
@@ -177,14 +272,28 @@ class RoutingGraphManager @Inject constructor(
         val TEST_REGION = RoutingRegion(
             id = "cairo-giza",
             name = "Cairo + Giza (Egypt)",
-            // Fork owners: host your own .ghz — see utils.AppLinks.
-            url = "${com.app.wasalna.utils.AppLinks.GRAPH_BASE_URL}/cairo-giza.ghz",
+            url = "${AppLinks.GRAPH_BASE_URL}/cairo-giza.ghz",
             sizeMb = 42,
+        )
+
+        /**
+         * Step 3 contract: hardcoded region list, list-designed.
+         * "Monaco Test" is the small smoke-test graph; Cairo+Giza is the
+         * production Egypt graph. Add more RoutingRegion entries here.
+         */
+        val REGIONS = listOf(
+            RoutingRegion(
+                id = "monaco-test",
+                name = "Monaco Test",
+                url = "${AppLinks.GRAPH_BASE_URL}/monaco-test.ghz",
+                sizeMb = 2,
+            ),
+            TEST_REGION,
         )
     }
 }
 
-/** Phase 10.4.3.9: one downloadable routing graph. */
+/** One downloadable routing graph (ZIP/GHZ of a CH-prepared graph). */
 data class RoutingRegion(
     val id: String,
     val name: String,

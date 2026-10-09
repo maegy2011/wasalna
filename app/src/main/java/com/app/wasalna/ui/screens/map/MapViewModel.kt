@@ -53,6 +53,8 @@ class MapViewModel @Inject constructor(
     private val nominatim: NominatimRepository,
     private val vela: VelaSearchRepository,
     private val osrm: OSRMRepository,
+    private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
+    private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -294,20 +296,62 @@ class MapViewModel @Inject constructor(
      */
     private suspend fun refreshRouteAndEta(destLat: Double, destLng: Double) {
         val start = currentFix() ?: return
+        // Phase 10.5.x Step 4: Force Offline bypasses OSRM entirely.
+        val forceOffline = runCatching {
+            settingsRepository.isForceOffline.first()
+        }.getOrDefault(false)
+        if (forceOffline) {
+            refreshOfflineRoute(start.latitude, start.longitude, destLat, destLng)
+            return
+        }
         val profile = _transportMode.value.osrmProfile
         val route: OsrmRoute? = runCatching {
             osrm.fetchRoute(start.latitude, start.longitude, destLat, destLng, profile)
         }.onFailure {
             Log.e(TAG, "route fetch failed: ${it.message}")
         }.getOrNull()
+        if (route != null) {
+            _routeGeoJson.value = route.geoJson
+            _etaMinutes.value = route.durationSec
+                .takeIf { it >= 0 }
+                ?.let { kotlin.math.round(it / 60.0).toInt().coerceAtLeast(1) }
+            return
+        }
         // Phase 10.4.3.2: offline routing — tell the user, keep the map.
-        if (route == null && osrm.lastWasOffline) {
+        if (osrm.lastWasOffline) {
             _events.emit(NetworkGuards.OFFLINE_MESSAGE)
         }
-        _routeGeoJson.value = route?.geoJson
-        _etaMinutes.value = route?.durationSec
-            ?.takeIf { it >= 0 }
-            ?.let { kotlin.math.round(it / 60.0).toInt().coerceAtLeast(1) }
+        // Step 5: OSRM failed — try the local engine before giving up.
+        refreshOfflineRoute(start.latitude, start.longitude, destLat, destLng)
+    }
+
+    /**
+     * Phase 10.5.x Step 5: on-device route on Dispatchers.IO (inside the
+     * engine). Success → road polyline + ETA. Failure → keep the map with
+     * no polyline + emit "Offline Routing failed, using GPS
+     * straight-line" (the alarm path always keeps its distanceTo()
+     * fallback in TrackingService, so it never breaks).
+     */
+    private suspend fun refreshOfflineRoute(
+        startLat: Double,
+        startLng: Double,
+        destLat: Double,
+        destLng: Double,
+    ) {
+        val local = runCatching {
+            val dir = withContext(Dispatchers.IO) {
+                graphManager.installedRegion()
+            } ?: return@runCatching null
+            if (!ghEngine.ensureLoaded(dir)) return@runCatching null
+            ghEngine.calculateRoute(startLat, startLng, destLat, destLng)
+        }.getOrNull()
+        if (local != null) {
+            _routeGeoJson.value = local.toGeoJson()
+            _etaMinutes.value = local.etaMinutes
+        } else {
+            _routeGeoJson.value = null
+            _events.emit(FALLBACK_MSG)
+        }
     }
 
     /**
@@ -442,6 +486,7 @@ class MapViewModel @Inject constructor(
         const val MIN_ZOOM = 3f
         const val MAX_ZOOM = 19f
         const val MSG_ALREADY_SAVED = "This place is already saved!"
+        const val FALLBACK_MSG = "Offline Routing failed, using GPS straight-line"
     }
 }
 

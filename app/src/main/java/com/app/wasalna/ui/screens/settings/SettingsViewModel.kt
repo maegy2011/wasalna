@@ -93,6 +93,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Phase 10.5.x Step 4: developer test-mode — force offline routing.
+    val forceOffline: StateFlow<Boolean> =
+        settingsRepository.isForceOffline.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    fun setForceOffline(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setForceOffline(enabled) }
+        }
+    }
+
     // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
     val proactiveAlert: StateFlow<Boolean> =
         settingsRepository.isProactiveAlertEnabled.stateIn(

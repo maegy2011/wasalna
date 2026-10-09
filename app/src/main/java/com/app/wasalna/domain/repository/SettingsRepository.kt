@@ -28,6 +28,8 @@ interface SettingsRepository {
 
     val customRingtoneUri: Flow<String>
 
+    val isForceOffline: Flow<Boolean>
+
     val homeLat: Flow<Double?>
     val homeLng: Flow<Double?>
     val homeAddress: Flow<String>
@@ -63,6 +65,8 @@ interface SettingsRepository {
     suspend fun setHome(lat: Double?, lng: Double?, address: String)
 
     suspend fun setWork(lat: Double?, lng: Double?, address: String)
+
+    suspend fun setForceOffline(enabled: Boolean)
 
     suspend fun setTrafficEnabled(enabled: Boolean)
 

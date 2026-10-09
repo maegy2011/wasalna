@@ -60,6 +60,7 @@ import org.maplibre.android.maps.Style
 @Composable
 fun OfflineMapsScreen(
     onBack: () -> Unit = {},
+    onOpenOfflineRouting: () -> Unit = {},
     viewModel: OfflineMapsViewModel = hiltViewModel(),
 ) {
     val regions by viewModel.regions.collectAsState()
@@ -149,6 +150,30 @@ fun OfflineMapsScreen(
                         OutlinedButton(onClick = { viewModel.clearError() }) {
                             Text("OK")
                         }
+                    }
+                }
+            }
+            // Phase 10.5.x Step 3: entry to the per-region manager.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Offline Routing (GraphHopper)",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Per-region graphs with live status",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Button(onClick = onOpenOfflineRouting) {
+                        Text("Manage")
                     }
                 }
             }

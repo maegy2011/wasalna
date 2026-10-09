@@ -9,6 +9,9 @@ import com.graphhopper.config.CHProfile
 import com.graphhopper.config.Profile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -49,6 +52,14 @@ class GraphHopperRouteEngine @Inject constructor(
         private set
 
     /**
+     * Step 2 contract: engine load state. Null = never attempted;
+     * non-null carries the EXACT failure message (profile mismatch /
+     * corrupt graph / IO). UI collects this for status display.
+     */
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError: StateFlow<String?> = _loadError.asStateFlow()
+
+    /**
      * Loads [graphDir] (a prepared `filesDir/graphs/<id>` folder) once;
      * repeat calls with the same dir are no-ops. Returns readiness.
      */
@@ -59,31 +70,31 @@ class GraphHopperRouteEngine @Inject constructor(
             val ok = runCatching {
                 // A prepared graph always carries a properties file.
                 check(File(graphDir, "properties").exists()) { "no prepared graph in $graphDir" }
-                gh.apply {
-                    setGraphHopperLocation(graphDir.absolutePath)
-                    setEncodedValuesString("car_access, car_average_speed")
-                    setProfiles(
-                        // Same declaration as the server-side bake (GH compares
-                        // the stored profile fingerprint at load); the factory
-                        // still resolves it to KmhTimeWeighting — Janino-free.
-                        Profile(PROFILE_CAR)
-                            .setWeighting(JaninoFreeWeightingFactory.CUSTOM_WEIGHTING)
-                            .setCustomModel(JaninoFreeWeightingFactory.fastestModel()),
-                    )
-                    // Fix #3: CH-only — the prepared car profile, no flex fallback.
-                    getCHPreparationHandler().setCHProfiles(CHProfile(PROFILE_CAR))
-                    setAllowWrites(false)
-                    // RAM_STORE is the default — explicit MMAP (via
-                    // init(GraphHopperConfig)) stays reserved for hundred-MB
-                    // graphs, with ByteBufferCompat for its bulk IO.
-                }
+                configureEngine(graphDir)
                 // load() (not importOrLoad): the graph is baked server-side.
-                check(gh.load()) { "graph load failed" }
+                // Step 2: Android-safe load — first attempt with the
+                // default store; on store-level failure close + reconfigure
+                // and retry as the RAM fallback (ART-safe, no MMAP bulk
+                // IO on phones; ByteBufferCompat covers bulk reads).
+                val firstOk = runCatching {
+                    check(gh.load()) { "graph load failed" }
+                    true
+                }.getOrDefault(false)
+                if (!firstOk) {
+                    runCatching { gh.close() }
+                    configureEngine(graphDir)
+                    check(gh.load()) { "graph load failed (RAM fallback)" }
+                }
                 loadedDir = graphDir.absolutePath
                 true
             }.onFailure {
-                Log.w(TAG, "ensureLoaded failed: ${it.message}")
+                // Step 2: catch ALL (profile mismatch / corrupt / IO) —
+                // exact message into StateFlow, never a crash.
+                val msg = it.message?.ifBlank { null } ?: it.javaClass.simpleName
+                _loadError.value = msg
+                Log.e(TAG, "ensureLoaded failed: $msg", it)
             }.getOrDefault(false)
+            if (ok) _loadError.value = null
             isReady = ok
             ok
         }
@@ -121,6 +132,25 @@ class GraphHopperRouteEngine @Inject constructor(
         }.onFailure {
             Log.w(TAG, "calculateRoute failed: ${it.message}")
         }.getOrNull()
+    }
+
+    /** Shared engine configuration (MMAP flag set by the caller). */
+    private fun configureEngine(graphDir: File) {
+        gh.apply {
+            setGraphHopperLocation(graphDir.absolutePath)
+            setEncodedValuesString("car_access, car_average_speed")
+            setProfiles(
+                // Same declaration as the server-side bake (GH compares
+                // the stored profile fingerprint at load); the factory
+                // still resolves it to KmhTimeWeighting — Janino-free.
+                Profile(PROFILE_CAR)
+                    .setWeighting(JaninoFreeWeightingFactory.CUSTOM_WEIGHTING)
+                    .setCustomModel(JaninoFreeWeightingFactory.fastestModel()),
+            )
+            // Fix #3: CH-only — the prepared car profile, no flex fallback.
+            getCHPreparationHandler().setCHProfiles(CHProfile(PROFILE_CAR))
+            setAllowWrites(false)
+        }
     }
 
     /** Drop the loaded graph (region deleted). Swallows close() issues. */

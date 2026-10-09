@@ -62,6 +62,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isTrafficEnabled: Flow<Boolean>
         get() = settingsDataStore.isTrafficEnabled
 
+    override val isForceOffline: Flow<Boolean>
+        get() = settingsDataStore.isForceOffline
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -120,6 +123,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setWork(lat: Double?, lng: Double?, address: String) {
         settingsDataStore.setWork(lat, lng, address)
+    }
+
+    override suspend fun setForceOffline(enabled: Boolean) {
+        settingsDataStore.setForceOffline(enabled)
     }
 
     override suspend fun setTrafficEnabled(enabled: Boolean) {

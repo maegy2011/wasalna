@@ -57,6 +57,7 @@ import com.app.wasalna.ui.navigation.Screen
 import com.app.wasalna.ui.screens.home.HomeViewModel
 import com.app.wasalna.ui.screens.restrictions.DeviceRestrictionsScreen
 import com.app.wasalna.ui.screens.offline.OfflineMapsScreen
+import com.app.wasalna.ui.screens.offline.OfflineRoutingScreen
 import com.app.wasalna.ui.screens.paywall.PaywallScreen
 import com.app.wasalna.ui.screens.trips.TripRouteScreen
 import com.app.wasalna.ui.screens.trips.TripsHistoryScreen
@@ -380,6 +381,12 @@ fun MainContainerScreen() {
                 composable(Screen.OfflineMaps.route) {
                     OfflineMapsScreen(
                         onBack = { navigateTab(Screen.Settings.route) },
+                        onOpenOfflineRouting = { navigateTab(Screen.OfflineRouting.route) },
+                    )
+                }
+                composable(Screen.OfflineRouting.route) {
+                    OfflineRoutingScreen(
+                        onBack = { navigateTab(Screen.OfflineMaps.route) },
                     )
                 }
             }
