@@ -78,21 +78,6 @@ class MapViewModel @Inject constructor(
     private val _transportMode = MutableStateFlow(TransportMode.CAR)
     val transportMode: StateFlow<TransportMode> = _transportMode.asStateFlow()
 
-    init {
-        // Phase 10.4.2: restore the persisted mode (chosen on any screen).
-        viewModelScope.launch {
-            val saved = runCatching { settingsRepository.transportMode.first() }
-                .getOrDefault("CAR")
-            _transportMode.value = TransportMode.fromName(saved)
-        }
-        // Map UX fixes: restore persisted traffic toggle.
-        viewModelScope.launch {
-            _isTrafficEnabled.value = runCatching {
-                settingsRepository.isTrafficEnabled.first()
-            }.getOrDefault(false)
-        }
-    }
-
     // Map UX fixes: camera zoom level (3..19) bound to the map camera.
     // Applies to the MapLibre branch; a Google branch would feed
     // GoogleMap cameraPositionState zoom with the same flow.
@@ -228,6 +213,25 @@ class MapViewModel @Inject constructor(
     // Surfaced search error for UI (empty = no error).
     private val _searchError = MutableStateFlow<String?>(null)
     val searchError: StateFlow<String?> = _searchError.asStateFlow()
+
+    init {
+        // All MutableStateFlow/SharedFlow backing fields are declared ABOVE
+        // this block (declarations before use). viewModelScope uses
+        // Dispatchers.Main.immediate, so a launched coroutine may resume
+        // before later property initializers run -> NPE on setValue.
+        // Phase 10.4.2: restore the persisted mode (chosen on any screen).
+        viewModelScope.launch {
+            val saved = runCatching { settingsRepository.transportMode.first() }
+                .getOrDefault("CAR")
+            _transportMode.value = TransportMode.fromName(saved)
+        }
+        // Map UX fixes: restore persisted traffic toggle.
+        viewModelScope.launch {
+            _isTrafficEnabled.value = runCatching {
+                settingsRepository.isTrafficEnabled.first()
+            }.getOrDefault(false)
+        }
+    }
 
     private var searchJob: Job? = null
 

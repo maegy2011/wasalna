@@ -59,6 +59,12 @@ class OfflineMapsViewModel @Inject constructor(
 
     private var downloadingRegion: OfflineRegion? = null
 
+    private val _graphInstalled = MutableStateFlow(false)
+    val graphInstalled: StateFlow<Boolean> = _graphInstalled.asStateFlow()
+
+    private val _graphBusy = MutableStateFlow(false)
+    val graphBusy: StateFlow<Boolean> = _graphBusy.asStateFlow()
+
     init {
         refreshRegions()
         refreshGraphState()
@@ -71,12 +77,6 @@ class OfflineMapsViewModel @Inject constructor(
     // ---- Phase 10.4.3.9: offline routing data (on-demand, never bundled).
     val graphProgress = graphManager.downloadProgress
     val graphDownloadingId = graphManager.downloadingId
-
-    private val _graphInstalled = MutableStateFlow(false)
-    val graphInstalled: StateFlow<Boolean> = _graphInstalled.asStateFlow()
-
-    private val _graphBusy = MutableStateFlow(false)
-    val graphBusy: StateFlow<Boolean> = _graphBusy.asStateFlow()
 
     fun refreshGraphState() {
         _graphInstalled.value = graphManager.isInstalled(
