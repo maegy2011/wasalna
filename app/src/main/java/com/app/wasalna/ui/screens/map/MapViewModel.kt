@@ -90,7 +90,12 @@ class MapViewModel @Inject constructor(
     fun zoomOut() = setZoom(_cameraZoom.value - 1f)
 
     // Phase 10.8.0e (traffic): DEFERRED — persisted preference only.
-    // No free keyless congestion feed exists (OSRM = routing only).
+    // Evaluated 9 Oct 2026 per Mohamed's order: Vela (PimpinPumpkin/Vela)
+    // draws on MapLibre and is keyless, BUT its live traffic is
+    // Google-derived via unofficial web endpoints (not OSM-based
+    // congestion): sends trip endpoints/position to Google, fragile,
+    // privacy + ToS concerns — does not fit cleanly, so deferred.
+    // OSRM = routing only. Never invent fake data.
     private val _isTrafficEnabled = MutableStateFlow(false)
     val isTrafficEnabled: StateFlow<Boolean> = _isTrafficEnabled.asStateFlow()
 

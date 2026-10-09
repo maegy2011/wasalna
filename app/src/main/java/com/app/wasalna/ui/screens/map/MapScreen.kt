@@ -381,8 +381,9 @@ fun MapScreen(
                         )
                     }
                 }
-                // Phase 10.8.0e (traffic): DEFERRED — no free keyless
-                // congestion source fits (OSRM = routing only, no traffic).
+                // Phase 10.8.0e (traffic): DEFERRED — Vela evaluated 9 Oct 2026:
+                // MapLibre-keyless yes, but traffic is Google-derived via
+                // unofficial endpoints (not OSM congestion) — privacy/fragile.
                 // Toggle kept as persisted preference; MapLibre free tiles
                 // show a graceful note. Never invent fake data.
                 Row(
