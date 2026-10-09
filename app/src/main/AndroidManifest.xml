@@ -50,6 +50,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Phase 10.8.0: FileProvider for crash-log + places-backup sharing (internal files only). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <!-- Phase 6: full-screen destination alarm (lock-screen visible). -->
         <activity
             android:name=".ui.screens.alarm.AlarmActivity"

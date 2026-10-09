@@ -341,33 +341,61 @@ fun SettingsScreen(
             }
         }
 
-        // Hidden developer section — Force Offline lives here only.
+        // Hidden developer section — Force Offline + crash-log share live here.
         if (showDev) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Force Offline Routing (Dev)",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = "Bypass OSRM — always route on-device",
-                            style = MaterialTheme.typography.bodySmall,
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Force Offline Routing (Dev)",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "Bypass OSRM — always route on-device",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(
+                            checked = forceOffline,
+                            onCheckedChange = viewModel::setForceOffline,
                         )
                     }
-                    Switch(
-                        checked = forceOffline,
-                        onCheckedChange = viewModel::setForceOffline,
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Share crash log",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "Send the latest local crash report",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                runCatching {
+                                    com.app.wasalna.utils.CrashReporter.shareLatest(context)
+                                }.onFailure {
+                                    Toast.makeText(context, "No crash log yet", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        ) {
+                            Text("Share")
+                        }
+                    }
                 }
             }
         }
