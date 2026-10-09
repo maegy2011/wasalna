@@ -150,6 +150,38 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Phase 10.8.0b: restore a places backup (SAF import).
+     * Skips duplicates via [LocationRepository.isDuplicate].
+     * Returns imported count, or -1 on malformed JSON.
+     */
+    suspend fun importBackup(json: String): Int =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val parsed = runCatching {
+                com.app.wasalna.utils.PlacesBackup.parse(json)
+            }.getOrNull() ?: return@withContext -1
+            if (parsed.homeLat != null && parsed.homeLng != null) {
+                runCatching {
+                    settingsRepository.setHome(parsed.homeLat, parsed.homeLng, parsed.homeAddress)
+                }
+            }
+            if (parsed.workLat != null && parsed.workLng != null) {
+                runCatching {
+                    settingsRepository.setWork(parsed.workLat, parsed.workLng, parsed.workAddress)
+                }
+            }
+            var count = 0
+            parsed.places.forEach { place ->
+                runCatching {
+                    if (!locationRepository.isDuplicate(place.name, place.latitude, place.longitude)) {
+                        locationRepository.addLocation(place)
+                        count += 1
+                    }
+                }
+            }
+            count
+        }
+
     companion object {
         private const val TAG = "HomeViewModel"
     }

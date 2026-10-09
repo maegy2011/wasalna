@@ -103,6 +103,46 @@ fun MyPlacesScreen(
     val workLng by viewModel.workLng.collectAsState()
     val workAddress by viewModel.workAddress.collectAsState()
     var quickEditTarget by remember { mutableStateOf<String?>(null) }
+    // Phase 10.8.0b: SAF backup launchers (no permissions needed).
+    var pendingExport by remember { mutableStateOf<String?>(null) }
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val json = pendingExport ?: return@rememberLauncherForActivityResult
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(json.toByteArray())
+                }
+            }
+            launch(kotlinx.coroutines.Dispatchers.Main) {
+                snackbarHostState.showSnackbar("Backup exported")
+            }
+        }
+    }
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+            }.getOrNull()
+            if (text.isNullOrBlank()) {
+                launch(kotlinx.coroutines.Dispatchers.Main) {
+                    snackbarHostState.showSnackbar("Couldn't read backup file")
+                }
+                return@launch
+            }
+            val count = viewModel.importBackup(text)
+            launch(kotlinx.coroutines.Dispatchers.Main) {
+                snackbarHostState.showSnackbar(
+                    if (count < 0) "Invalid backup file" else "Restored $count place(s)",
+                )
+            }
+        }
+    }
     fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
         if (lat == null || lng == null) {
             quickEditTarget = if (address == homeAddress) "home" else "work"
@@ -222,6 +262,21 @@ fun MyPlacesScreen(
                 onWorkClick = { startQuickTrip(workLat, workLng, workAddress) },
                 onHomeEdit = { quickEditTarget = "home" },
                 onWorkEdit = { quickEditTarget = "work" },
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            // Phase 10.8.0b: backup row — export/import Home/Work + places
+            // via Storage Access Framework (no permissions). 48dp targets.
+            BackupRow(
+                onExport = {
+                    val json = com.app.wasalna.utils.PlacesBackup.buildJson(
+                        homeLat, homeLng, homeAddress,
+                        workLat, workLng, workAddress,
+                        locations,
+                    )
+                    pendingExport = json
+                    exportLauncher.launch("wasalna-places.json")
+                },
+                onImportPick = { importLauncher.launch(arrayOf("application/json")) },
             )
             Spacer(modifier = Modifier.height(4.dp))
             if (locations.isEmpty()) {
@@ -348,6 +403,30 @@ fun MyPlacesScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun BackupRow(
+    onExport: () -> Unit,
+    onImportPick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        androidx.compose.material3.OutlinedButton(
+            onClick = onExport,
+            modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Text("Export backup")
+        }
+        androidx.compose.material3.OutlinedButton(
+            onClick = onImportPick,
+            modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Text("Import backup")
+        }
     }
 }
 
