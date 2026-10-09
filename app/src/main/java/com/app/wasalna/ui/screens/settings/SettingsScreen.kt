@@ -8,6 +8,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,6 +107,10 @@ fun SettingsScreen(
 
     // DND override has no DataStore field — visual toggle only for now.
     var dndOverride by remember { mutableStateOf(false) }
+    // Hidden developer section: 5 taps on the version text reveal it.
+    // Ordinary users never see Force Offline Routing.
+    var devTaps by remember { mutableStateOf(0) }
+    var showDev by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -120,8 +125,8 @@ fun SettingsScreen(
         },
     ) { padding ->
     // Audit fix (9 Oct 2026): the content Column was NOT scrollable — on
-    // small/elderly phones the bottom cards (Force Offline, Offline Maps,
-    // Lead Time) were cut off and unreachable. Now vertically scrollable.
+    // small/elderly phones the bottom cards (Offline Maps, Lead Time)
+    // were cut off and unreachable. Now vertically scrollable.
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -336,32 +341,34 @@ fun SettingsScreen(
             }
         }
 
-        // Phase 10.5.x Step 4: developer test-mode — force offline routing.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+        // Hidden developer section — Force Offline lives here only.
+        if (showDev) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Force Offline Routing (Test Mode)",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "Bypass OSRM — always route on-device",
-                        style = MaterialTheme.typography.bodySmall,
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Force Offline Routing (Dev)",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "Bypass OSRM — always route on-device",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = forceOffline,
+                        onCheckedChange = viewModel::setForceOffline,
                     )
                 }
-                Switch(
-                    checked = forceOffline,
-                    onCheckedChange = viewModel::setForceOffline,
-                )
             }
         }
 
@@ -466,6 +473,23 @@ fun SettingsScreen(
                 )
             }
         }
+
+        // App version — tap 5x to reveal hidden developer options.
+        Text(
+            text = "Wasalna v${com.app.wasalna.BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .clickable {
+                    devTaps += 1
+                    if (devTaps >= 5) {
+                        showDev = true
+                        devTaps = 0
+                    }
+                }
+                .padding(16.dp),
+        )
     }
     }
 }

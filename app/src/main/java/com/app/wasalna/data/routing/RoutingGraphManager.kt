@@ -277,17 +277,11 @@ class RoutingGraphManager @Inject constructor(
         )
 
         /**
-         * Step 3 contract: hardcoded region list, list-designed.
-         * "Monaco Test" is the small smoke-test graph; Cairo+Giza is the
-         * production Egypt graph. Add more RoutingRegion entries here.
+         * Region list — list-designed for future regions.
+         * Cairo+Giza is the production Egypt graph. Add more RoutingRegion
+         * entries here (e.g. Alexandria, Luxor) — UI renders the list as-is.
          */
         val REGIONS = listOf(
-            RoutingRegion(
-                id = "monaco-test",
-                name = "Monaco Test",
-                url = "${AppLinks.GRAPH_BASE_URL}/monaco-test.ghz",
-                sizeMb = 2,
-            ),
             TEST_REGION,
         )
     }

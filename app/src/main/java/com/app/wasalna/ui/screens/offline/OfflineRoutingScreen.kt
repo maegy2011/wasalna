@@ -36,7 +36,7 @@ import com.app.wasalna.data.routing.RoutingRegion
 
 /**
  * Phase 10.5.x Step 3: Offline Routing screen — per-region graph manager.
- * Region list (hardcoded "Monaco Test" + Cairo+Giza, list-designed).
+ * Region list (Cairo+Giza, list-designed for future regions).
  * Per item: Download (if not downloaded), Delete (if READY/ERROR),
  * clear status (progress % or exact error). All work on Dispatchers.IO
  * inside RoutingGraphManager/GraphHopperRouteEngine — never here.

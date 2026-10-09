@@ -87,7 +87,7 @@ import org.maplibre.android.plugins.annotation.SymbolOptions
 
 private val DefaultCairoLibre = MapLibreLatLng(30.0444, 31.2357)
 
-/** Phase 10-1: free vector style — Google-like tiles, no API key. */
+/** Phase 10-1: free vector style — OpenFreeMap tiles, no API key. */
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 private const val MARKER_IMAGE_ID = "wasalna-marker"
 /** Phase 10-2: OSRM route source + layer ids (MapLibre free engine). */
@@ -381,8 +381,7 @@ fun MapScreen(
                         )
                     }
                 }
-                // Map UX fixes: traffic overlay toggle. Google branch:
-                // MapProperties(isTrafficEnabled = ...). MapLibre/OSM free
+                // Map UX fixes: traffic overlay toggle. MapLibre/OSM free
                 // tiles: best-effort — graceful note, never a crash.
                 Row(
                     modifier = Modifier
@@ -442,8 +441,7 @@ fun MapScreen(
                         Icon(Icons.Filled.MyLocation, contentDescription = "My location")
                     }
                     // Map UX fixes: zoom-level selector (3..19) bound to the
-                    // camera zoom — +/- steppers (48dp targets) + slider.
-                    // Same flow would drive GoogleMap cameraPositionState.
+                    // MapLibre camera zoom — +/- steppers (48dp targets) + slider.
                     Card(
                         modifier = Modifier
                             .align(Alignment.TopEnd)

@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 /**
  * Phase 9-3-1-fix-1: free OSM search engine (Nominatim).
- * Completely decoupled from Google — NO API key, NO billing.
+ * Keyless, no billing.
  *
  * CRITICAL: Nominatim usage policy requires a custom User-Agent header;
  * requests without one risk being banned. We send "WasalnaApp/1.0".

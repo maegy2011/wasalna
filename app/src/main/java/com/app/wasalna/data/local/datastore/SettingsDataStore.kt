@@ -48,9 +48,8 @@ class SettingsDataStore @Inject constructor(
     val isSilentAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.SILENT_ALARM_ENABLED] ?: false }
 
-    // Phase 9-1: preferred map engine ("OSM" free default, "GOOGLE" premium).
-    // Phase 10-1: "OSM" is now rendered by MapLibre + OpenFreeMap (value kept
-    // for DataStore compatibility — no migration needed).
+    // Preferred map engine ("OSM" free default). Kept for DataStore
+    // compatibility — the app renders 100% MapLibre + OpenFreeMap.
     val preferredMapEngine: Flow<String> =
         dataStore.data.map { it[Keys.PREFERRED_MAP_ENGINE] ?: MapEngines.OSM }
 
@@ -182,7 +181,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     // Map UX fixes: traffic overlay toggle (persisted; MapLibre free tiles
-    // show a graceful note — Google branch would map to isTrafficEnabled).
+    // show a graceful note — see Phase 2e note in MapScreen).
     val isTrafficEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.TRAFFIC_ENABLED] ?: false }
 
@@ -200,7 +199,7 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.FORCE_OFFLINE] = enabled }
     }
 
-    /** Phase 9-1: canonical map-engine values. */
+    /** Canonical map-engine values (legacy — app is 100% MapLibre). */
     object MapEngines {
         const val OSM = "OSM"
         const val GOOGLE = "GOOGLE"

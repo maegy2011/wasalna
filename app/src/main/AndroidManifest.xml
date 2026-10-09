@@ -34,10 +34,7 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713" />
-        <!-- Phase 4: Google Maps API key injected via manifestPlaceholders from local.properties -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}" />
+        <!-- 100% MapLibre — no Google Maps SDK key needed. -->
         <!-- Phase 5: background location engine (foreground service, location type). -->
         <service
             android:name=".data.service.TrackingService"

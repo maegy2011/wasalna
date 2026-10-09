@@ -1,6 +1,3 @@
-import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -12,17 +9,6 @@ plugins {
 android {
     namespace = "com.app.wasalna"
     compileSdk = 36
-
-    // Phase 4: Google Maps API key from local.properties (graceful default empty).
-    // local.properties is gitignored and never committed.
-    val mapsApiKey: String = run {
-        val props = Properties()
-        val propFile = rootProject.file("local.properties")
-        if (propFile.exists()) {
-            propFile.inputStream().use { props.load(it) }
-        }
-        (props.getProperty("MAPS_API_KEY") ?: System.getenv("MAPS_API_KEY") ?: "").trim()
-    }
 
     defaultConfig {
         applicationId = "com.app.wasalna"
@@ -38,8 +24,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey.ifEmpty { "YOUR_API_KEY_HERE" }
-        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
 
     buildTypes {
@@ -97,13 +81,15 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
 
-    // Phase 4: Google Maps + Places
-    implementation(libs.maps.compose)
-    implementation(libs.play.services.maps)
-    implementation(libs.places)
-    implementation(libs.coroutines.play.services)
+    // 100% MapLibre — no Google Maps Compose / Places SDK.
+    // Kept: play-services-maps (LatLng value type in MapViewModel/MapScreen),
+    // play-services-location (FusedLocation in TrackingService/MapViewModel),
+    // coroutines-play-services (await()), ads + billing (actively used).
     // Phase 5: background location engine (FusedLocationProviderClient)
     implementation(libs.play.services.location)
+    // LatLng value type (MapViewModel/MapScreen) + await() — no Map SDK UI.
+    implementation(libs.play.services.maps)
+    implementation(libs.coroutines.play.services)
     // Phase 8: Monetization — AdMob + Play Billing
     implementation(libs.play.services.ads)
     implementation(libs.billing.ktx)

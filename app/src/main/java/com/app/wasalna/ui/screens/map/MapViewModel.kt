@@ -78,9 +78,7 @@ class MapViewModel @Inject constructor(
     private val _transportMode = MutableStateFlow(TransportMode.CAR)
     val transportMode: StateFlow<TransportMode> = _transportMode.asStateFlow()
 
-    // Map UX fixes: camera zoom level (3..19) bound to the map camera.
-    // Applies to the MapLibre branch; a Google branch would feed
-    // GoogleMap cameraPositionState zoom with the same flow.
+    // Map UX fixes: camera zoom level (3..19) bound to the MapLibre camera.
     private val _cameraZoom = MutableStateFlow(15f)
     val cameraZoom: StateFlow<Float> = _cameraZoom.asStateFlow()
 
@@ -92,8 +90,7 @@ class MapViewModel @Inject constructor(
     fun zoomOut() = setZoom(_cameraZoom.value - 1f)
 
     // Map UX fixes: traffic overlay toggle (persisted). MapLibre free
-    // tiles: best-effort note in UI. Google branch: feed
-    // MapProperties(isTrafficEnabled = ...) with the same flow.
+    // tiles: best-effort note in UI (see Phase 2e traffic note).
     private val _isTrafficEnabled = MutableStateFlow(false)
     val isTrafficEnabled: StateFlow<Boolean> = _isTrafficEnabled.asStateFlow()
 
