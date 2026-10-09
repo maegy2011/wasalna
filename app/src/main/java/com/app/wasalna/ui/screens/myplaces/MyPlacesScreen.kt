@@ -235,7 +235,15 @@ fun MyPlacesScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Audit fix (9 Oct 2026): unconstrained LazyColumn inside a
+                // non-scrollable Column could be pushed off-screen — the
+                // saved-places list gets remaining space and scrolls itself.
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     items(visiblePlaces, key = { it.id }) { location ->
                         SavedPlaceCard(
                             location = location,

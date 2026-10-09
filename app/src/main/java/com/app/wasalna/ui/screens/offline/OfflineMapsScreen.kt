@@ -232,7 +232,13 @@ fun OfflineMapsScreen(
                             "The map then renders without internet.",
                         style = MaterialTheme.typography.bodyLarge,
                     )
+                // Audit fix (9 Oct 2026): unconstrained LazyColumn inside a
+                // non-scrollable Column could be pushed off-screen — the
+                // downloaded-regions list gets remaining space and scrolls.
                 else -> LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(regions, key = { it.id }) { info ->

@@ -39,6 +39,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -117,10 +119,14 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
+    // Audit fix (9 Oct 2026): the content Column was NOT scrollable — on
+    // small/elderly phones the bottom cards (Force Offline, Offline Maps,
+    // Lead Time) were cut off and unreachable. Now vertically scrollable.
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
