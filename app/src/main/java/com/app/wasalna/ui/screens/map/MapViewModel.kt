@@ -128,7 +128,7 @@ class MapViewModel @Inject constructor(
     private var trafficSettleJob: Job? = null
     private var trafficRefreshJob: Job? = null
 
-    /** Camera settled (debounced ~1.5s in the caller contract) -> probe once. */
+    /** Camera settled (debounced ~1s in the caller contract) -> probe once. */
     fun onTrafficCameraSettled(lat: Double?, lng: Double?, zoom: Float?) {
         if (_isTrafficEnabled.value != true) return
         lastTrafficLat = lat
@@ -589,7 +589,7 @@ class MapViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "MapViewModel"
-        private const val TRAFFIC_SETTLE_DEBOUNCE_MS = 1_500L
+        private const val TRAFFIC_SETTLE_DEBOUNCE_MS = 1_000L
         private const val TRAFFIC_REFRESH_MS = 60_000L
         private const val LOC_TIMEOUT_MS = 8_000L
         const val MIN_ZOOM = 3f

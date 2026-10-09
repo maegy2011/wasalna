@@ -476,11 +476,11 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Traffic data source",
+                    text = "مصدر بيانات الازدحام",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "يعتمد على بيانات خارجية وقد يرسل موقع المنطقة المعروضة",
+                    text = "طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

@@ -47,11 +47,15 @@ internal fun ensureTraffic(style: Style?, on: Boolean) {
                 PropertyFactory.rasterOpacity(0.6f),
                 PropertyFactory.rasterFadeDuration(900f),
             )
+            val satTop = style.layers?.firstOrNull {
+                it.id.contains("sat", ignoreCase = true)
+            }
             val buildingTop = style.getLayer("building-3d") ?: style.getLayer("building")
             val firstSymbol = style.layers?.firstOrNull {
                 it is org.maplibre.android.style.layers.SymbolLayer
             }?.id
             when {
+                satTop != null -> style.addLayerAbove(layer, satTop.id)
                 buildingTop != null -> style.addLayerAbove(layer, buildingTop.id)
                 firstSymbol != null -> style.addLayerBelow(layer, firstSymbol)
                 else -> style.addLayer(layer)

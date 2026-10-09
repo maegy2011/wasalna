@@ -1,8 +1,8 @@
 package com.app.wasalna.data.traffic
 
 import android.util.Log
-import com.app.wasalna.data.repository.NominatimRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +32,8 @@ import kotlin.math.tan
  *   (MapLibre RasterSource + TileSet) — NO API key, NO browser identity headers
  *   (Vela docs: "The map's own Google tiles ... go through the map engine's HTTP
  *   client. They do not carry the browser identity and are not counted.").
+ *   Re-verified 9 Oct 2026 vs fresh clone: health probes here carry NO headers
+ *   either (headerless GET), matching Vela's no-identity tile policy.
  * - Parameters: XYZ tile coords come from the CURRENT map viewport automatically;
  *   incidents + incidents_text sublayers on, locale en/us, Roadmap style.
  * - Response parsing: NONE — congestion is baked into the PNG (colored roads +
@@ -92,35 +94,36 @@ class TrafficRepository @Inject constructor() {
         centerLng: Double?,
         zoom: Float?,
     ): Boolean = withContext(Dispatchers.IO) {
-        val result = withTimeoutOrNull(PROBE_TIMEOUT_MS) {
-            runCatching {
-                val z = zoom?.toInt()?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: PROBE_ZOOM
-                val (x, y) = tileFor(
-                    centerLat ?: PROBE_LAT,
-                    centerLng ?: PROBE_LNG,
-                    z,
-                )
-                val request = Request.Builder()
-                    .url(tileUrl(z, x, y))
-                    .header("User-Agent", NominatimRepository.USER_AGENT)
-                    .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        Log.w(TAG, "traffic probe HTTP ${response.code}")
-                        return@runCatching false
-                    }
-                    val bytes = response.body?.bytes()
-                    val ok = bytes != null && bytes.isNotEmpty()
-                    if (!ok) Log.w(TAG, "traffic probe empty body")
-                    ok
-                }
-            }.onFailure {
-                Log.w(TAG, "traffic probe failed: ${it.message}")
-            }.getOrDefault(false)
-        } ?: false // timeout -> keep old overlay, silent retry later
+        val z = zoom?.toInt()?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: PROBE_ZOOM
+        val (x, y) = tileFor(
+            centerLat ?: PROBE_LAT,
+            centerLng ?: PROBE_LNG,
+            z,
+        )
+        // Retry ladder with exponential backoff (Vela routing uses 3x with
+        // backoff; tiles are engine-native so this covers the health probe).
+        // Headerless GET — Vela tiles carry no browser identity.
+        var ok = false
+        var backoffMs = RETRY_BASE_MS
+        for (attempt in 0 until MAX_ATTEMPTS) {
+            val single = withTimeoutOrNull(PROBE_TIMEOUT_MS) {
+                runCatching { fetchTileOnce(z, x, y) }
+                    .onFailure {
+                        Log.w(TAG, "traffic probe attempt ${attempt + 1} failed: ${it.message}")
+                    }.getOrDefault(false)
+            } ?: false // timeout -> backoff + retry
+            if (single) {
+                ok = true
+                break
+            }
+            if (attempt < MAX_ATTEMPTS - 1) {
+                delay(backoffMs)
+                backoffMs *= 2
+            }
+        }
 
         if (_overlayState.value !is TrafficOverlayState.Disabled) {
-            _overlayState.value = if (result) {
+            _overlayState.value = if (ok) {
                 TrafficOverlayState.Live
             } else {
                 when (_overlayState.value) {
@@ -129,7 +132,24 @@ class TrafficRepository @Inject constructor() {
                 }
             }
         }
-        result
+        ok
+    }
+
+    /** One headerless tile GET. Blocking — caller must be on Dispatchers.IO. */
+    private fun fetchTileOnce(z: Int, x: Int, y: Int): Boolean {
+        val request = Request.Builder()
+            .url(tileUrl(z, x, y))
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.w(TAG, "traffic probe HTTP ${response.code}")
+                return false
+            }
+            val bytes = response.body?.bytes()
+            val ok = bytes != null && bytes.isNotEmpty()
+            if (!ok) Log.w(TAG, "traffic probe empty body")
+            return ok
+        }
     }
 
     /** Viewport center -> XYZ tile (Web-Mercator slippy-map math). Null-safe. */
@@ -159,6 +179,8 @@ class TrafficRepository @Inject constructor() {
         private const val TAG = "TrafficRepository"
         private const val TIMEOUT_S = 12L
         private const val PROBE_TIMEOUT_MS = 14_000L
+        private const val MAX_ATTEMPTS = 3
+        private const val RETRY_BASE_MS = 1_000L
         private const val MIN_ZOOM = 0
         private const val MAX_ZOOM = 19
         private const val MAX_LAT = 85.05112878

@@ -412,7 +412,7 @@ fun MapScreen(
                         FilterChip(
                             selected = isTrafficEnabled,
                             onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
-                            label = { Text("Traffic") },
+                            label = { Text("الازدحام") },
                             leadingIcon = {
                                 Icon(Icons.Filled.Traffic, contentDescription = null)
                             },
@@ -420,10 +420,10 @@ fun MapScreen(
                         if (isTrafficEnabled) {
                             Text(
                                 text = when (trafficOverlayState) {
-                                    is TrafficOverlayState.Live -> "Live"
-                                    is TrafficOverlayState.Stale -> "Stale — retrying"
-                                    is TrafficOverlayState.Checking -> "Checking…"
-                                    else -> "Unavailable"
+                                    is TrafficOverlayState.Live -> "مباشر"
+                                    is TrafficOverlayState.Stale -> "قديم — تتم إعادة المحاولة"
+                                    is TrafficOverlayState.Checking -> "جارٍ الفحص…"
+                                    else -> "غير متاح"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -431,7 +431,7 @@ fun MapScreen(
                         }
                     }
                     Text(
-                        text = "يعتمد على بيانات خارجية وقد يرسل موقع المنطقة المعروضة",
+                        text = "طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
