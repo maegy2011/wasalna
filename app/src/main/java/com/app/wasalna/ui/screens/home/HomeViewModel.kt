@@ -55,6 +55,23 @@ class HomeViewModel @Inject constructor(
                 initialValue = 0L,
             )
 
+    // True offline mode (GPS-chip only): the SAME DataStore-backed flow the
+    // Map header cloud button writes (single source of truth, two-way
+    // synced) — the Home header icon always reflects the current mode.
+    val isOfflineMode: StateFlow<Boolean> =
+        settingsRepository.isForceOffline
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = false,
+            )
+
+    fun setOfflineMode(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setForceOffline(enabled) }
+        }
+    }
+
     init {
         // Revert premium if a trial expired while the app was closed.
         viewModelScope.launch {

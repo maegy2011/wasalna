@@ -56,6 +56,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
@@ -71,7 +72,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
 import com.app.wasalna.ui.components.HomeWorkQuickRow
+import com.app.wasalna.ui.components.OfflineModeBanner
+import com.app.wasalna.ui.components.OfflineModeButton
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
+import kotlinx.coroutines.launch
 import com.google.android.gms.maps.model.LatLng
 import org.maplibre.android.camera.CameraPosition as MapLibreCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory as MapLibreCameraUpdateFactory
@@ -95,6 +99,9 @@ private val DefaultCairoLibre = MapLibreLatLng(30.0444, 31.2357)
 /** Phase 10-1: free vector style — OpenFreeMap tiles, no API key. */
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 private const val MARKER_IMAGE_ID = "wasalna-marker"
+// True offline mode (GPS-chip only): Arabic toggle confirmations.
+private const val MSG_OFFLINE_ON = "تم تفعيل وضع أوفلاين — الاعتماد على GPS فقط 🛰️"
+private const val MSG_OFFLINE_OFF = "تم إيقاف وضع أوفلاين — عودة إلى الاتصال 🌐"
 /** Phase 10-2: OSRM route source + layer ids (MapLibre free engine). */
 private const val ROUTE_SOURCE_ID = "route-source"
 private const val ROUTE_LAYER_ID = "route-layer"
@@ -142,7 +149,11 @@ fun MapScreen(
     val workLat by viewModel.workLat.collectAsState()
     val workLng by viewModel.workLng.collectAsState()
     val workAddress by viewModel.workAddress.collectAsState()
+    // True offline mode (GPS-chip only): same StateFlow the toggle writes
+    // (single source of truth, two-way synced with Settings).
+    val isOfflineMode by viewModel.isOfflineMode.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -222,6 +233,22 @@ fun MapScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                actions = {
+                    // Header cloud button: icon shows the CURRENT mode
+                    // (cloud = online, cloud-off = offline); tap toggles
+                    // with an Arabic confirmation Snackbar.
+                    OfflineModeButton(
+                        isOffline = isOfflineMode,
+                        onToggle = { enabled ->
+                            viewModel.setOfflineMode(enabled)
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (enabled) MSG_OFFLINE_ON else MSG_OFFLINE_OFF,
+                                )
+                            }
+                        },
+                    )
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -235,6 +262,15 @@ fun MapScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            // Persistent offline indicator — visible on every frame while
+            // offline mode is ON (not a transient toast).
+            if (isOfflineMode) {
+                OfflineModeBanner(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             SearchBar(
                 query = query,
                 onQueryChange = viewModel::onQueryChange,
@@ -414,7 +450,9 @@ fun MapScreen(
                         routeGeoJson = routeGeoJson,
                         recenterTarget = recenterTarget,
                         cameraZoom = cameraZoom,
-                        trafficEnabled = isTrafficEnabled,
+                        // ── OFFLINE BOUNDARY: traffic raster tiles are
+                        // network (Google `/maps/vt`) — never rendered offline.
+                        trafficEnabled = isTrafficEnabled && !isOfflineMode,
                         modifier = Modifier.fillMaxSize(),
                         onTrafficCameraSettled = { lat, lng, zoom ->
                             viewModel.onTrafficCameraSettled(lat, lng, zoom)

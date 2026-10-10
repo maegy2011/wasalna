@@ -109,7 +109,10 @@ class TrackingService : Service() {
     private var isOfflineMode: Boolean = false
     private var lastOsrmFailureAt: Long = 0L
     private var isSilent: Boolean = false
-    // Phase 10.5.x Step 4/5: developer force-offline + fallback notice.
+    // True offline mode (GPS-chip only): user-facing flag persisted in
+    // SettingsDataStore (same key the header cloud button writes). Read at
+    // trip START and re-read live on every stationary fix so mid-trip
+    // toggles apply immediately (see OFFLINE BOUNDARY in onFix).
     private var forceOffline: Boolean = false
     private var offlineFallbackNotice: String? = null
 
@@ -189,7 +192,7 @@ class TrackingService : Service() {
             }.getOrDefault(false)
             if (forceOffline) {
                 isOfflineMode = true
-                Log.i(TAG, "Force Offline Routing ON — OSRM bypassed")
+                Log.i(TAG, "Offline mode ON — OSRM bypassed, GPS + local engine only")
             }
         }
         // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
@@ -315,6 +318,13 @@ class TrackingService : Service() {
             persistEta()
         } else {
             val now = System.currentTimeMillis()
+            // ── OFFLINE BOUNDARY: user offline-mode flag re-read live
+            // (DataStore, IO scope) so a mid-trip toggle applies at once —
+            // when ON, osrm.fetchRoute below is never reached: GPS fixes +
+            // local GraphHopper engine + straight-line fallback only.
+            forceOffline = runCatching {
+                SettingsDataStore(applicationContext).isForceOffline.first()
+            }.getOrDefault(forceOffline)
             // Phase 10.4.3.7: while offline, silence the radio — one probe
             // per minute max, pure GPS distance on every tick meanwhile.
             val mayProbe = !forceOffline && (!isOfflineMode ||

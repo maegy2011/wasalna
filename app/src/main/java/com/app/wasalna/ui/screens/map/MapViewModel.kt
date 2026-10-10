@@ -104,7 +104,27 @@ class MapViewModel @Inject constructor(
 
     val trafficState: StateFlow<TrafficOverlayState> = traffic.overlayState
 
+    // True offline mode (GPS-chip only): persisted user flag — the SAME
+    // DataStore key the header cloud button + Settings toggle write
+    // (single source of truth, two-way synced). When true, EVERY network
+    // call site in this ViewModel is bypassed — see OFFLINE BOUNDARY marks.
+    val isOfflineMode: StateFlow<Boolean> = settingsRepository.isForceOffline
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setOfflineMode(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setForceOffline(enabled) }
+                .onFailure { Log.e(TAG, "persist offline mode failed: ${it.message}") }
+        }
+    }
+
     fun setTrafficEnabled(enabled: Boolean) {
+        // Offline keeps the persisted traffic preference untouched (it
+        // restores on reconnect) — probes + raster rendering stay gated
+        // by isOfflineMode, so enabling here only takes effect online.
+        if (enabled && isOfflineMode.value) {
+            viewModelScope.launch { _events.emit(MSG_TRAFFIC_OFFLINE) }
+        }
         _isTrafficEnabled.value = enabled
         traffic.setEnabled(enabled)
         if (enabled) {
@@ -130,7 +150,8 @@ class MapViewModel @Inject constructor(
 
     /** Camera settled (debounced ~1s in the caller contract) -> probe once. */
     fun onTrafficCameraSettled(lat: Double?, lng: Double?, zoom: Float?) {
-        if (_isTrafficEnabled.value != true) return
+        // ── OFFLINE BOUNDARY: no traffic health probe when offline.
+        if (_isTrafficEnabled.value != true || isOfflineMode.value) return
         lastTrafficLat = lat
         lastTrafficLng = lng
         lastTrafficZoom = zoom
@@ -143,7 +164,8 @@ class MapViewModel @Inject constructor(
 
     /** One health probe on Dispatchers.IO (inside the repository). Silent. */
     fun probeTrafficNow() {
-        if (_isTrafficEnabled.value != true) return
+        // ── OFFLINE BOUNDARY: no traffic health probe when offline.
+        if (_isTrafficEnabled.value != true || isOfflineMode.value) return
         viewModelScope.launch {
             runCatching {
                 traffic.probeViewport(lastTrafficLat, lastTrafficLng, lastTrafficZoom)
@@ -156,9 +178,10 @@ class MapViewModel @Inject constructor(
     private fun restartTrafficRefreshLoop() {
         trafficRefreshJob?.cancel()
         trafficRefreshJob = viewModelScope.launch {
-            while (_isTrafficEnabled.value == true) {
+            while (_isTrafficEnabled.value == true && !isOfflineMode.value) {
                 delay(TRAFFIC_REFRESH_MS)
-                if (_isTrafficEnabled.value != true) break
+                // ── OFFLINE BOUNDARY: loop exits the moment offline turns on.
+                if (_isTrafficEnabled.value != true || isOfflineMode.value) break
                 runCatching {
                     traffic.probeViewport(lastTrafficLat, lastTrafficLng, lastTrafficZoom)
                 }.onFailure { Log.w(TAG, "traffic refresh failed: ${it.message}") }
@@ -208,9 +231,15 @@ class MapViewModel @Inject constructor(
      */
     fun saveMapPointAsHome(lat: Double, lng: Double) {
         viewModelScope.launch {
-            val address = nominatim.reverseGeocode(lat, lng)
-                ?: _selectedAddress.value?.takeIf { it.isNotBlank() }
-                ?: fallbackName(lat, lng)
+            // ── OFFLINE BOUNDARY: no Nominatim reverse-geocode when offline.
+            val address = if (isOfflineMode.value) {
+                _selectedAddress.value?.takeIf { it.isNotBlank() }
+                    ?: fallbackName(lat, lng)
+            } else {
+                nominatim.reverseGeocode(lat, lng)
+                    ?: _selectedAddress.value?.takeIf { it.isNotBlank() }
+                    ?: fallbackName(lat, lng)
+            }
             runCatching { settingsRepository.setHome(lat, lng, address) }
                 .onSuccess { _events.emit(MSG_HOME_SAVED) }
                 .onFailure {
@@ -222,9 +251,15 @@ class MapViewModel @Inject constructor(
 
     fun saveMapPointAsWork(lat: Double, lng: Double) {
         viewModelScope.launch {
-            val address = nominatim.reverseGeocode(lat, lng)
-                ?: _selectedAddress.value?.takeIf { it.isNotBlank() }
-                ?: fallbackName(lat, lng)
+            // ── OFFLINE BOUNDARY: no Nominatim reverse-geocode when offline.
+            val address = if (isOfflineMode.value) {
+                _selectedAddress.value?.takeIf { it.isNotBlank() }
+                    ?: fallbackName(lat, lng)
+            } else {
+                nominatim.reverseGeocode(lat, lng)
+                    ?: _selectedAddress.value?.takeIf { it.isNotBlank() }
+                    ?: fallbackName(lat, lng)
+            }
             runCatching { settingsRepository.setWork(lat, lng, address) }
                 .onSuccess { _events.emit(MSG_WORK_SAVED) }
                 .onFailure {
@@ -252,8 +287,13 @@ class MapViewModel @Inject constructor(
             val latLng = LatLng(fix.latitude, fix.longitude)
             _selectedLatLng.value = latLng
             _recenterTarget.value = latLng
-            val address = nominatim.reverseGeocode(fix.latitude, fix.longitude)
-                ?: fallbackName(fix.latitude, fix.longitude)
+            // ── OFFLINE BOUNDARY: no Nominatim reverse-geocode when offline.
+            val address = if (isOfflineMode.value) {
+                fallbackName(fix.latitude, fix.longitude)
+            } else {
+                nominatim.reverseGeocode(fix.latitude, fix.longitude)
+                    ?: fallbackName(fix.latitude, fix.longitude)
+            }
             _selectedAddress.value = address
             _selectedName.value = address
             _searchQuery.value = address
@@ -322,6 +362,23 @@ class MapViewModel @Inject constructor(
                 .getOrDefault("CAR")
             _transportMode.value = TransportMode.fromName(saved)
         }
+        // True offline mode: react to the flag itself (collecting
+        // isOfflineMode guarantees the guard reads below see the fresh
+        // value). Offline ON stops all traffic network work; back online
+        // with traffic enabled resumes probes — persisted traffic
+        // preference is never clobbered by the mode switch.
+        viewModelScope.launch {
+            isOfflineMode.collect { offline ->
+                trafficSettleJob?.cancel()
+                if (offline) {
+                    trafficRefreshJob?.cancel()
+                    trafficRefreshJob = null
+                } else if (_isTrafficEnabled.value) {
+                    probeTrafficNow()
+                    restartTrafficRefreshLoop()
+                }
+            }
+        }
         // Map UX fixes: restore persisted traffic toggle (default OFF).
         viewModelScope.launch {
             val restored = runCatching {
@@ -367,6 +424,13 @@ class MapViewModel @Inject constructor(
      */
     fun searchPlaces(query: String) {
         viewModelScope.launch {
+            // ── OFFLINE BOUNDARY: Photon search needs network — when
+            // offline, keep the map usable and say so in Arabic.
+            if (isOfflineMode.value) {
+                _predictions.value = emptyList()
+                _searchError.value = MSG_OFFLINE_SEARCH
+                return@launch
+            }
             val fix = currentFix()
             runCatching {
                 vela.suggest(query, lat = fix?.latitude, lon = fix?.longitude)
@@ -403,11 +467,9 @@ class MapViewModel @Inject constructor(
      */
     private suspend fun refreshRouteAndEta(destLat: Double, destLng: Double) {
         val start = currentFix() ?: return
-        // Phase 10.5.x Step 4: Force Offline bypasses OSRM entirely.
-        val forceOffline = runCatching {
-            settingsRepository.isForceOffline.first()
-        }.getOrDefault(false)
-        if (forceOffline) {
+        // ── OFFLINE BOUNDARY: offline mode bypasses OSRM entirely — local
+        // GraphHopper engine + GPS straight-line fallback only, no network.
+        if (isOfflineMode.value) {
             refreshOfflineRoute(start.latitude, start.longitude, destLat, destLng)
             return
         }
@@ -523,7 +585,12 @@ class MapViewModel @Inject constructor(
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
         viewModelScope.launch {
-            val address = nominatim.reverseGeocode(lat, lng) ?: fallbackName(lat, lng)
+            // ── OFFLINE BOUNDARY: no Nominatim reverse-geocode when offline.
+            val address = if (isOfflineMode.value) {
+                fallbackName(lat, lng)
+            } else {
+                nominatim.reverseGeocode(lat, lng) ?: fallbackName(lat, lng)
+            }
             _selectedAddress.value = address
             _selectedName.value = address
             _searchQuery.value = address
@@ -599,6 +666,10 @@ class MapViewModel @Inject constructor(
         const val MSG_WORK_SAVED = "تم حفظ Work ✅"
         const val MSG_SAVE_FAILED = "تعذر الحفظ — تحقق من الاتصال وحاول مجددًا"
         const val FALLBACK_MSG = "Offline Routing failed, using GPS straight-line"
+        const val MSG_OFFLINE_SEARCH =
+            "وضع أوفلاين: البحث يحتاج اتصال — اعتمد على الأماكن المحفوظة 🛰️"
+        const val MSG_TRAFFIC_OFFLINE =
+            "وضع أوفلاين: طبقة الازدحام متوقفة — تعود مع الاتصال 🛰️"
     }
 }
 

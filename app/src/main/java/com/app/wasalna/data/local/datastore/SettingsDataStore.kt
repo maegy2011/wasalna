@@ -199,9 +199,12 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.APP_LANGUAGE_CODE] = normalized }
     }
 
-    // Phase 10.5.x Step 4: developer test-mode — force offline routing.
-    // When true, TrackingService + MapViewModel bypass OSRM and force
-    // GraphHopperRouteEngine (with GPS straight-line fallback).
+    // True offline mode (GPS-chip only) — user-facing flag, single source
+    // of truth for the header cloud button + Settings toggle (two-way
+    // synced, same key). When true, TrackingService + MapViewModel bypass
+    // ALL network repositories (OSRM, Photon/search, Nominatim, traffic
+    // probes + raster) and use GPS fixes + offline tiles + the local
+    // GraphHopper engine (with GPS straight-line fallback).
     val isForceOffline: Flow<Boolean> =
         dataStore.data.map { it[Keys.FORCE_OFFLINE] ?: false }
 

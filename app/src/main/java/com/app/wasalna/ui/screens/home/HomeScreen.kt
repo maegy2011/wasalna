@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.ads.AdBanner
 import com.app.wasalna.ui.ads.InterstitialHelper
+import com.app.wasalna.ui.components.OfflineModeButton
 import kotlinx.coroutines.launch
 
 /**
@@ -64,6 +65,8 @@ fun HomeScreen(
     val isPremium by viewModel.isPremium.collectAsState()
     // Phase 10.4.2.1: live active trip for the top widget.
     val activeTrip by viewModel.activeTrip.collectAsState()
+    // True offline mode: same StateFlow the Map header writes (two-way synced).
+    val isOfflineMode by viewModel.isOfflineMode.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -100,6 +103,26 @@ fun HomeScreen(
                     IconButton(onClick = onMenuClick) {
                         Icon(Icons.Filled.Menu, contentDescription = "Open menu")
                     }
+                },
+                actions = {
+                    // Header cloud button: icon shows the CURRENT mode
+                    // (cloud = online, cloud-off = offline); tap toggles
+                    // with an Arabic confirmation Snackbar.
+                    OfflineModeButton(
+                        isOffline = isOfflineMode,
+                        onToggle = { enabled ->
+                            viewModel.setOfflineMode(enabled)
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (enabled) {
+                                        "تم تفعيل وضع أوفلاين — الاعتماد على GPS فقط 🛰️"
+                                    } else {
+                                        "تم إيقاف وضع أوفلاين — عودة إلى الاتصال 🌐"
+                                    },
+                                )
+                            }
+                        },
+                    )
                 },
             )
         },
