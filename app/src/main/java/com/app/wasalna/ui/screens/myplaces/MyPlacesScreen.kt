@@ -65,8 +65,12 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
+import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.domain.model.Location
+import com.app.wasalna.domain.model.NearestStation
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.ui.components.TransitApproxNote
+import com.app.wasalna.ui.components.TransitGuideCard
 import com.app.wasalna.ui.ads.AdBanner
 import com.app.wasalna.ui.ads.InterstitialHelper
 import com.app.wasalna.ui.components.ConfirmDialog
@@ -350,9 +354,16 @@ fun MyPlacesScreen(
     }
     // DYNAMIC WAKE-UP: Arabic trip-setup dialog (vehicle + mode + minutes).
     if (showAlarmSetup) {
+        // TRANSIT pre-trip hint: nearest table station to the chosen
+        // destination (origin unknown until tracking starts). Pure
+        // haversine, no IO — safe to compute during composition.
+        val transitAlighting: NearestStation? = pendingTrip?.let {
+            CairoTransitStations.nearest(it.latitude, it.longitude)
+        }
         AlarmSetupDialog(
             vehicle = transportMode,
             onVehicleChange = viewModel::setTransportMode,
+            transitAlighting = transitAlighting,
             mode = alarmMode,
             minutes = alarmTimeMinutes,
             onModeChange = viewModel::setAlarmMode,
@@ -485,6 +496,7 @@ private fun BackupRow(
 private fun AlarmSetupDialog(
     vehicle: TransportMode,
     onVehicleChange: (TransportMode) -> Unit,
+    transitAlighting: NearestStation? = null,
     mode: String,
     minutes: Int,
     onModeChange: (String) -> Unit,
@@ -519,6 +531,7 @@ private fun AlarmSetupDialog(
                                 TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
                                 TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
                                 TransportMode.WALK -> stringResource(R.string.transport_walk)
+                                TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
                                 TransportMode.TRAIN -> stringResource(R.string.transport_train)
                             }
                             if (option == vehicle) {
@@ -542,6 +555,25 @@ private fun AlarmSetupDialog(
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                // TRANSIT (Oct 2026, approximate): alighting hint near the
+                // chosen destination + honesty label. Origin unknown
+                // pre-trip, so no boarding line here (mid-trip card has it).
+                if (vehicle == TransportMode.TRANSIT && transitAlighting != null) {
+                    TransitGuideCard(
+                        boardingText = null,
+                        alightingText = stringResource(
+                            R.string.transit_alight_at,
+                            transitAlighting.station.displayName(),
+                        ) + " " + stringResource(
+                            R.string.transit_walk_leg,
+                            walkKm(transitAlighting.distanceM),
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else if (vehicle == TransportMode.TRANSIT) {
+                    TransitApproxNote()
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 Row(
@@ -744,6 +776,10 @@ private fun hasLocationPermission(context: Context): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
     return fine || coarse
 }
+
+/** Straight-line meters → "1.2" km string (US locale, caller adds the unit resource). */
+private fun walkKm(distanceM: Float): String =
+    String.format(java.util.Locale.US, "%.1f", distanceM / 1000f)
 
 private fun startTracking(
     context: Context,

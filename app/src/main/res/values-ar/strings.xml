@@ -420,6 +420,12 @@
     <string name="vehicle_motorcycle">🏍️ دراجة نارية</string>
     <string name="vehicle_bicycle">🚲 دراجة هوائية</string>
     <string name="vehicle_midtrip_note">تغيير الوسيلة يعيد حساب المسار مباشرة.</string>
+    <!-- وضع النقل العام (أكتوبر 2026، إرشاد تقريبي — مطابق لقيم values). -->
+    <string name="vehicle_transit">🚇 نقل عام</string>
+    <string name="transit_approx_note">إرشاد تقريبي — تحقق من المواعيد قبل الركوب.</string>
+    <string name="transit_board_at">🚇 اركب من محطة: %1$s</string>
+    <string name="transit_alight_at">🚇 انزل عند محطة: %1$s</string>
+    <string name="transit_walk_leg">≈ %1$s كم مشيًا</string>
     <!-- شريط أزرار المحاكاة الصريحة (نفس صياغة المستخدم — مطابق لقيم values). -->
     <string name="sim_explicit_start">▶ تشغيل المحاكاة</string>
     <string name="sim_explicit_pause">⏸ إيقاف مؤقت</string>

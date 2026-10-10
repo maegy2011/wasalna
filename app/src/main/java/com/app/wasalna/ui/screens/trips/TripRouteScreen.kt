@@ -3,6 +3,7 @@ package com.app.wasalna.ui.screens.trips
 import androidx.compose.ui.res.stringResource
 import com.app.wasalna.R
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,10 +41,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 import com.app.wasalna.data.simulation.TripSimulationController
+import com.app.wasalna.domain.model.CairoTransitStations
+import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.components.DestinationShareSheet
+import com.app.wasalna.ui.components.TransitApproxNote
+import com.app.wasalna.ui.components.TransitGuideCard
 import com.app.wasalna.ui.components.SimulationBanner
 import com.app.wasalna.ui.components.SimulationControlBar
 import androidx.compose.ui.Alignment
@@ -56,7 +62,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.app.wasalna.domain.model.RoutePoint
-import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.screens.offline.OPENFREEMAP_STYLE_URL
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -314,8 +319,11 @@ fun TripRouteScreen(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // 5 vehicles now: horizontal scroll keeps 48dp+
+                        // chips reachable on narrow screens (RTL-safe).
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             TransportMode.pickerEntries.forEach { option ->
@@ -329,6 +337,7 @@ fun TripRouteScreen(
                                                 TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
                                                 TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
                                                 TransportMode.WALK -> stringResource(R.string.transport_walk)
+                                                TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
                                                 TransportMode.TRAIN -> stringResource(R.string.transport_train)
                                             },
                                         )
@@ -342,6 +351,42 @@ fun TripRouteScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // TRANSIT mid-trip guide (Oct 2026, approximate):
+                        // boarding = nearest station to the trip origin
+                        // (first breadcrumb), alighting = nearest to the
+                        // destination. Honesty label always attached.
+                        if (vehicle == TransportMode.TRANSIT) {
+                            val dest = trip
+                            if (dest != null) {
+                                val guide = remember(points, dest) {
+                                    val origin = points.firstOrNull()
+                                    CairoTransitStations.buildGuide(
+                                        originLat = origin?.lat ?: dest.destLat,
+                                        originLng = origin?.lng ?: dest.destLng,
+                                        destLat = dest.destLat,
+                                        destLng = dest.destLng,
+                                    )
+                                }
+                                TransitGuideCard(
+                                    boardingText = stringResource(
+                                        R.string.transit_board_at,
+                                        guide.boarding.station.displayName(),
+                                    ) + " " + stringResource(
+                                        R.string.transit_walk_leg,
+                                        walkKm(guide.boarding.distanceM),
+                                    ),
+                                    alightingText = stringResource(
+                                        R.string.transit_alight_at,
+                                        guide.alighting.station.displayName(),
+                                    ) + " " + stringResource(
+                                        R.string.transit_walk_leg,
+                                        walkKm(guide.alighting.distanceM),
+                                    ),
+                                )
+                            } else {
+                                TransitApproxNote()
+                            }
+                        }
                         // Phase 10.11: share the trip destination to the
                         // user's own installed maps / ride apps (dynamic).
                         TextButton(
@@ -433,6 +478,10 @@ fun TripRouteScreen(
 }
 
 /** LineString FeatureCollection from breadcrumbs ([lng, lat] order). */
+/** Straight-line meters → "1.2" km string (US locale, caller adds the unit resource). */
+private fun walkKm(distanceM: Float): String =
+    String.format(java.util.Locale.US, "%.1f", distanceM / 1000f)
+
 private fun lineStringGeoJson(points: List<RoutePoint>): String {
     val coords = points.joinToString(",") { "[${it.lng},${it.lat}]" }
     return "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\"," +

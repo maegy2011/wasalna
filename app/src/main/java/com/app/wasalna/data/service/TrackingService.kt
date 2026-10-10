@@ -1023,7 +1023,7 @@ class TrackingService : Service() {
 
     /**
      * Phase 10.4.3.3: adaptive trigger distance — mode base (WALK 500m /
-     * BICYCLE 1km / CAR 2km / MOTORCYCLE 2.5km / TRAIN 4km), stretched
+     * BICYCLE 1km / CAR 2km / MOTORCYCLE 2.5km / TRANSIT 1km / TRAIN 4km), stretched
      * when actually moving fast so the
      * user always gets ~2 minutes of warning (capped at 8 km).
      * Adaptive off → legacy fixed 2 km.
@@ -1033,12 +1033,16 @@ class TrackingService : Service() {
         // Vehicle bases (user order Oct 2026): walk 500 m (= the 500 m
         // FAILSAFE floor — the guard and the trigger coincide, never
         // conflict); bicycle 1 km; car 2 km (legacy); motorcycle 2.5 km
-        // (faster city pace, ~2 min warning); train 4 km (legacy proxy).
+        // (faster city pace, ~2 min warning); TRANSIT 1 km (station-stop
+        // rhythm: stops land ~1 km apart, and the 500 m FAILSAFE backstops
+        // every fix regardless — the stop is never overshot); train 4 km
+        // (legacy proxy).
         val base = when (mode) {
             TransportMode.WALK -> 500f
             TransportMode.BICYCLE -> 1000f
             TransportMode.CAR -> 2000f
             TransportMode.MOTORCYCLE -> 2500f
+            TransportMode.TRANSIT -> 1000f
             TransportMode.TRAIN -> 4000f
         }
         // Bonus only when unusually fast: guarantees ~2 min of warning

@@ -430,6 +430,12 @@
     <string name="vehicle_motorcycle">🏍️ Motorcycle</string>
     <string name="vehicle_bicycle">🚲 Bicycle</string>
     <string name="vehicle_midtrip_note">Changing the vehicle recomputes the route live.</string>
+    <!-- TRANSIT first-class mode (Oct 2026, APPROXIMATE guidance — mirrored in values-ar). -->
+    <string name="vehicle_transit">🚇 Transit</string>
+    <string name="transit_approx_note">Approximate guidance — verify schedules before boarding.</string>
+    <string name="transit_board_at">🚇 Board near: %1$s</string>
+    <string name="transit_alight_at">🚇 Alight near: %1$s</string>
+    <string name="transit_walk_leg">≈ %1$s km on foot</string>
     <!-- Explicit simulation action bar (user-ordered wording). Mirrored in values-ar. -->
     <string name="sim_explicit_start">▶ Start simulation</string>
     <string name="sim_explicit_pause">⏸ Pause</string>

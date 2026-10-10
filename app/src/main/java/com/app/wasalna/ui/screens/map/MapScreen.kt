@@ -455,6 +455,7 @@ fun MapScreen(
                                             TransportMode.CAR -> stringResource(R.string.transport_car)
                                             TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
                                             TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
+                                            TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
                                             TransportMode.TRAIN -> stringResource(R.string.transport_train)
                                         },
                                     )
