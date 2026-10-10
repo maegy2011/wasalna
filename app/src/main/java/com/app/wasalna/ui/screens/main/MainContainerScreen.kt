@@ -203,6 +203,19 @@ fun MainContainerScreen() {
                 NavigationBar {
                     // Icon-only bottom bar (user order Oct 2026): no text
                     // labels — the icon contentDescription keeps TalkBack.
+                    // Drawer entry FIRST (mirrored to the opposite end per
+                    // user order) — works on every tab, incl. Map where
+                    // edge-swipe is locked. No navigation, no state change.
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { openDrawer() },
+                        icon = {
+                            Icon(
+                                Icons.Filled.Menu,
+                                contentDescription = stringResource(R.string.nav_menu_desc),
+                            )
+                        },
+                    )
                     NavigationBarItem(
                         selected = isSelected(Screen.Home.route),
                         onClick = { navigateTab(Screen.Home.route) },
@@ -240,19 +253,6 @@ fun MainContainerScreen() {
                             Icon(
                                 Icons.Filled.History,
                                 contentDescription = stringResource(R.string.nav_trips_desc),
-                            )
-                        },
-                    )
-                    // Drawer entry from the bottom bar (works on every tab,
-                    // incl. Map where edge-swipe is locked). Opens the drawer
-                    // via the existing scope — no navigation, no state change.
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = { openDrawer() },
-                        icon = {
-                            Icon(
-                                Icons.Filled.Menu,
-                                contentDescription = stringResource(R.string.nav_menu_desc),
                             )
                         },
                     )
