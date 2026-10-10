@@ -319,6 +319,28 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.GRADUAL_RINGTONE_URI] = uri }
     }
 
+    // Phase 10.13-exp: Google account sign-in (EXPERIMENTAL, local-only).
+    // Display name + email only — no tokens, no server upload, no secrets.
+    // "" = signed out. New keys — no duplicates, no behavior change.
+    val accountDisplayName: Flow<String> =
+        dataStore.data.map { it[Keys.ACCOUNT_DISPLAY_NAME] ?: "" }
+    val accountEmail: Flow<String> =
+        dataStore.data.map { it[Keys.ACCOUNT_EMAIL] ?: "" }
+
+    suspend fun setGoogleAccount(displayName: String, email: String) {
+        dataStore.edit {
+            it[Keys.ACCOUNT_DISPLAY_NAME] = displayName
+            it[Keys.ACCOUNT_EMAIL] = email
+        }
+    }
+
+    suspend fun clearGoogleAccount() {
+        dataStore.edit {
+            it.remove(Keys.ACCOUNT_DISPLAY_NAME)
+            it.remove(Keys.ACCOUNT_EMAIL)
+        }
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("is_onboarding_completed")
         val ELDERLY_MODE = booleanPreferencesKey("is_elderly_mode")
@@ -351,5 +373,7 @@ class SettingsDataStore @Inject constructor(
         val GRADUAL_RAMP_SEC = intPreferencesKey("gradual_ramp_sec")
         val GRADUAL_VIBRATION_STRENGTH = intPreferencesKey("gradual_vibration_strength")
         val GRADUAL_RINGTONE_URI = stringPreferencesKey("gradual_ringtone_uri")
+        val ACCOUNT_DISPLAY_NAME = stringPreferencesKey("account_display_name")
+        val ACCOUNT_EMAIL = stringPreferencesKey("account_email")
     }
 }

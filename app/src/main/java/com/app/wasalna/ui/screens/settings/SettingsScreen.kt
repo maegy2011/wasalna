@@ -218,6 +218,9 @@ fun SettingsScreen(
             }
         }
 
+        // Phase 10.13-exp: Google account sign-in (EXPERIMENTAL, local-only).
+        AccountSettingsSection()
+
         // In-app language: System default + العربية + English.
         // Persisted in the existing SettingsDataStore (app_language_code).
         // API 33+: LocaleManager recreates activities automatically;

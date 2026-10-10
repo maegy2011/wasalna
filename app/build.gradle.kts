@@ -96,6 +96,10 @@ dependencies {
     // Phase 8: Monetization — AdMob + Play Billing
     implementation(libs.play.services.ads)
     implementation(libs.billing.ktx)
+    // Phase 10.13-exp: Google account sign-in (EXPERIMENTAL, local-only).
+    // Classic GoogleSignInClient — lightest API, no server client-id,
+    // no secrets; profile+email stored in DataStore on-device only.
+    implementation(libs.play.services.auth)
     // Phase 10-1: Free map engine (MapLibre + OpenFreeMap vector tiles).
     implementation(libs.maplibre.sdk)
     implementation(libs.maplibre.annotation)

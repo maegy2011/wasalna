@@ -79,6 +79,11 @@ class SettingsRepositoryImpl @Inject constructor(
     override val appLanguageCode: Flow<String>
         get() = settingsDataStore.appLanguageCode
 
+    override val accountDisplayName: Flow<String>
+        get() = settingsDataStore.accountDisplayName
+    override val accountEmail: Flow<String>
+        get() = settingsDataStore.accountEmail
+
     override val isForceOffline: Flow<Boolean>
         get() = settingsDataStore.isForceOffline
 
@@ -203,5 +208,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setAppLanguageCode(code: String) {
         settingsDataStore.setAppLanguageCode(code)
+    }
+
+    override suspend fun setGoogleAccount(displayName: String, email: String) {
+        settingsDataStore.setGoogleAccount(displayName, email)
+    }
+
+    override suspend fun clearGoogleAccount() {
+        settingsDataStore.clearGoogleAccount()
     }
 }

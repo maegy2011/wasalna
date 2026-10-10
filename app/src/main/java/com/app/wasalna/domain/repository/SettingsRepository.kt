@@ -57,6 +57,10 @@ interface SettingsRepository {
 
     val appLanguageCode: Flow<String>
 
+    // Phase 10.13-exp: Google account (local-only, "" = signed out).
+    val accountDisplayName: Flow<String>
+    val accountEmail: Flow<String>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -105,6 +109,10 @@ interface SettingsRepository {
     suspend fun setTrafficEnabled(enabled: Boolean)
 
     suspend fun setAppLanguageCode(code: String)
+
+    suspend fun setGoogleAccount(displayName: String, email: String)
+
+    suspend fun clearGoogleAccount()
 
     suspend fun setPreferredMapEngine(engine: String)
 }

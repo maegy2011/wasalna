@@ -42,6 +42,21 @@ class PaywallViewModel @Inject constructor(
             initialValue = 0L,
         )
 
+    // Phase 10.13-exp: Google account row on the paywall (local-only).
+    val accountDisplayName: StateFlow<String> =
+        settingsRepository.accountDisplayName.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    val accountEmail: StateFlow<String> =
+        settingsRepository.accountEmail.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
     fun enforceExpiry() {
         viewModelScope.launch {
             runCatching { settingsRepository.enforceTrialExpiry() }

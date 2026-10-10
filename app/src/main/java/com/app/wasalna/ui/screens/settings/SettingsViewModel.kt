@@ -337,6 +337,34 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Phase 10.13-exp: Google account (EXPERIMENTAL, local-only).
+    // "" = signed out. Setters run in viewModelScope; never throw.
+    val accountDisplayName: StateFlow<String> =
+        settingsRepository.accountDisplayName.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    val accountEmail: StateFlow<String> =
+        settingsRepository.accountEmail.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    fun setGoogleAccount(displayName: String, email: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setGoogleAccount(displayName, email) }
+        }
+    }
+
+    fun clearGoogleAccount() {
+        viewModelScope.launch {
+            runCatching { settingsRepository.clearGoogleAccount() }
+        }
+    }
+
     // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE (legacy default)
     // vs TIME (minutes-before-arrival). Persisted, StateFlow-exposed.
     val alarmMode: StateFlow<String> =
