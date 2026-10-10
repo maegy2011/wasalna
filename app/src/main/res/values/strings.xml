@@ -448,6 +448,16 @@
     <string name="routing_region_fallback">Region</string>
     <string name="routing_delete_title">Delete routing graph?</string>
     <string name="routing_delete_msg">The “%1$s” graph will be deleted — download it again for offline navigation.</string>
+    <!-- Settings sections + search + drawer groups — one language per locale. Mirrored in values-ar. -->
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_section_alarm">Alarm</string>
+    <string name="settings_section_map">Map &amp; tracking</string>
+    <string name="settings_section_access">Accessibility</string>
+    <string name="settings_section_account">Account</string>
+    <string name="settings_advanced_title">Advanced options</string>
+    <string name="settings_advanced_sub">Developer tools and experimental features</string>
+    <string name="drawer_section_general">General</string>
+    <string name="drawer_section_more">More</string>
     <string name="tracking_paused_title">Paused — %1$s</string>
     <string name="tracking_heading_title">Heading to: %1$s</string>
     <string name="tracking_paused_body">Trip paused — tap Resume to continue</string>

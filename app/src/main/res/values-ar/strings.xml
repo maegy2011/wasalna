@@ -438,6 +438,16 @@
     <string name="routing_region_fallback">المنطقة</string>
     <string name="routing_delete_title">حذف جراف التوجيه؟</string>
     <string name="routing_delete_msg">سيتم حذف جراف “%1$s” وستحتاج لتنزيله من جديد للملاحة دون إنترنت.</string>
+    <!-- Settings sections + search + drawer groups — one language per locale. Mirrored in values. -->
+    <string name="settings_search_hint">ابحث في الإعدادات</string>
+    <string name="settings_section_alarm">المنبه</string>
+    <string name="settings_section_map">الخريطة والتتبع</string>
+    <string name="settings_section_access">سهولة الوصول</string>
+    <string name="settings_section_account">الحساب</string>
+    <string name="settings_advanced_title">خيارات متقدمة</string>
+    <string name="settings_advanced_sub">أدوات المطور والمزايا التجريبية</string>
+    <string name="drawer_section_general">عام</string>
+    <string name="drawer_section_more">المزيد</string>
     <string name="tracking_paused_title">متوقف مؤقتًا — %1$s</string>
     <string name="tracking_heading_title">متجه إلى: %1$s</string>
     <string name="tracking_paused_body">الرحلة متوقفة — انقر استئناف للمتابعة</string>

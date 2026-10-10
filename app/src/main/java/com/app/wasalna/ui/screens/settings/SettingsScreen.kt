@@ -24,12 +24,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -173,6 +180,27 @@ fun SettingsScreen(
     // Ordinary users never see Force Offline Routing.
     var devTaps by remember { mutableStateOf(0) }
     var showDev by remember { mutableStateOf(false) }
+    // Settings reorganization (user order Oct 2026): search + sections.
+    var searchQuery by remember { mutableStateOf("") }
+    var showAdvanced by remember { mutableStateOf(false) }
+    val searchQ = searchQuery.trim()
+    fun match(vararg kw: String): Boolean =
+        searchQ.isBlank() || kw.any { it.contains(searchQ, ignoreCase = true) }
+    val showAccess = match("elderly", "كبار", "السن", "aged", "font", "خط",
+        "language", "لغة", "locale", "arabic", "english", "عربي", "إنجليزي")
+    val showAlarm = match("dnd", "silent", "صامت", "disturb", "إزعاج", "bypass", "تجاوز",
+        "premium", "earphone", "headphone", "سماعة", "bluetooth", "بلوتوث", "watch", "ساعة",
+        "gradual", "تدريجي", "vibration", "اهتزاز", "ramp", "تصاعد", "ringtone", "نغمة",
+        "tone", "sound", "صوت", "adaptive", "distance", "مسافة", "trigger", "تفعيل",
+        "nudge", "heads", "تنبيه", "alert", "lead", "مهلة", "warn", "قبل الوصول", "دقائق")
+    val showMapSec = match("battery", "بطارية", "autostart", "تشغيل تلقائي", "xiaomi",
+        "شاومي", "oppo", "restrictions", "offline", "أوفلاين", "maps", "خرائط",
+        "download", "تنزيل", "regions", "مناطق", "traffic", "ازدحام", "congestion",
+        "google", "routes", "api", "key", "مفتاح", "مسارات", "transit", "نقل",
+        "osm", "attribution", "openstreetmap", "credit", "نسب")
+    val showAccountSec = match("account", "حساب", "google", "sign", "دخول")
+    val showAdv = match("advanced", "متقدمة", "dev", "مطور", "developer", "force",
+        "crash", "سجل", "experimental", "تجريبي") && (showDev || searchQ.isNotBlank())
     // Phase 10.9.x: in-app gradual-alarm tone picker dialog.
     var showGradualPicker by remember { mutableStateOf(false) }
 
@@ -199,350 +227,132 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Card(
+        // Settings search (proposal 5): filters every card by bilingual keywords.
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_elderly_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_elderly_sub),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
-                    checked = elderlyMode,
-                    onCheckedChange = viewModel::setElderlyMode,
+            placeholder = { Text(stringResource(R.string.settings_search_hint)) },
+            leadingIcon = {
+                Icon(
+                    Icons.Filled.Search,
+                    contentDescription = stringResource(R.string.settings_search_hint),
                 )
-            }
-        }
-
-        // Phase 10.13-exp: Google account sign-in (EXPERIMENTAL, local-only).
-        AccountSettingsSection()
-
-        // In-app language: System default + العربية + English.
-        // Persisted in the existing SettingsDataStore (app_language_code).
-        // API 33+: LocaleManager recreates activities automatically;
-        // API 26–32: recreate manually so the new locale takes effect.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.settings_language_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = stringResource(R.string.settings_language_sub),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                val languageOptions = listOf(
-                    "" to stringResource(R.string.settings_language_auto),
-                    "ar" to stringResource(R.string.settings_language_arabic),
-                    "en" to stringResource(R.string.settings_language_english),
-                )
-                languageOptions.forEach { (code, label) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clickable {
-                                viewModel.setAppLanguage(code)
-                                AppLocaleHelper.apply(context, code)
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                    (context as? Activity)?.recreate()
-                                }
-                            },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(
-                            selected = appLanguage == code,
-                            onClick = {
-                                viewModel.setAppLanguage(code)
-                                AppLocaleHelper.apply(context, code)
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                    (context as? Activity)?.recreate()
-                                }
-                            },
-                        )
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        // Silent-mode (DND) bypass choice — persisted, default RESPECT.
-        // Each option carries a one-line explanation; 48dp+ radio rows.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.settings_dnd_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = stringResource(R.string.settings_dnd_sub),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                val dndOptions = listOf(
-                    Triple(
-                        DndChoice.RESPECT,
-                        stringResource(R.string.settings_dnd_respect),
-                        stringResource(R.string.settings_dnd_respect_sub),
-                    ),
-                    Triple(
-                        DndChoice.BYPASS,
-                        stringResource(R.string.settings_dnd_bypass),
-                        stringResource(R.string.settings_dnd_bypass_sub),
-                    ),
-                    Triple(
-                        DndChoice.ASK,
-                        stringResource(R.string.settings_dnd_ask),
-                        stringResource(R.string.settings_dnd_ask_sub),
-                    ),
-                )
-                dndOptions.forEach { (choice, label, explain) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clickable { pickDndChoice(choice) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(
-                            selected = dndChoice == choice,
-                            onClick = { pickDndChoice(choice) },
-                        )
-                        Column(modifier = Modifier.padding(start = 8.dp)) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            Text(
-                                text = explain,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                }
-                if (dndChoice == DndChoice.BYPASS) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (viewModel.isDndPolicyAccessGranted()) {
-                        Text(
-                            text = stringResource(R.string.settings_dnd_granted),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.settings_dnd_rationale),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                dndSettingsLauncher.launch(DndPolicy.policyAccessIntent(context))
-                            },
-                            modifier = Modifier.heightIn(min = 48.dp),
-                        ) {
-                            Text(stringResource(R.string.settings_dnd_grant))
-                        }
-                    }
-                }
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_silent_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = if (isPremium) {
-                            stringResource(R.string.settings_silent_sub)
-                        } else {
-                            stringResource(R.string.settings_silent_locked)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
-                    checked = silentAlarm && isPremium,
-                    enabled = isPremium,
-                    onCheckedChange = viewModel::setSilentAlarm,
-                )
-            }
-        }
-
-        // Headphone-only alerts (premium): destination alarm plays ONLY
-        // through connected headphones — the phone speaker stays silent.
-        // Free users tapping the card see the Paywall upsell. The status
-        // line below the toggle shows the live headphone connection.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            onClick = {
-                if (!isPremium) onOpenPaywall()
             },
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            Icons.Filled.Clear,
+                            contentDescription = stringResource(R.string.map_clear_search),
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+        )
+
+        if (showAccess) {
+        Text(
+            text = stringResource(R.string.settings_section_access),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+        )
+        if (match("elderly", "كبار", "السن", "aged", "font", "خط")) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Icon(
-                        Icons.Filled.Headset,
-                        contentDescription = null,
-                        tint = if (!isPremium) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
+                        painterResource(R.drawable.ic_svg_accessibility),
+                        contentDescription = stringResource(R.string.settings_elderly_title),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp),
                     )
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 12.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_headphone_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = if (isPremium) {
-                                stringResource(R.string.settings_headphone_sub)
-                            } else {
-                                stringResource(R.string.settings_headphone_locked)
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Switch(
-                        checked = headphoneOnly && isPremium,
-                        enabled = isPremium,
-                        onCheckedChange = { enabled ->
-                            if (!enabled) {
-                                viewModel.setHeadphoneOnly(false)
-                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.BLUETOOTH_CONNECT,
-                                ) != PackageManager.PERMISSION_GRANTED
-                            ) {
-                                btPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-                            } else {
-                                viewModel.setHeadphoneOnly(true)
-                            }
-                        },
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = when (headphoneState) {
-                        HeadphoneState.BLUETOOTH ->
-                            stringResource(R.string.settings_headphone_bt)
-                        HeadphoneState.WIRED ->
-                            stringResource(R.string.settings_headphone_wired)
-                        HeadphoneState.NONE ->
-                            stringResource(R.string.settings_headphone_none)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (headphoneState == HeadphoneState.NONE) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                )
-            }
-        }
-
-        // Phase 10.10: smartwatch companion (الساعة الذكية) — connection
-        // status + test vibration + premium-gated watch-only alert toggle.
-        WatchSettingsSection(
-            viewModel = viewModel,
-            onOpenPaywall = onOpenPaywall,
-        )
-
-        // Phase 10.9.x: smart gradual alarm (المنبه التدريجي) — vibration
-        // first, then a quiet sound that rises slowly. Disabled by default
-        // so the legacy full-volume path is untouched when off.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.settings_gradual_title),
+                            text = stringResource(R.string.settings_elderly_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = stringResource(R.string.settings_gradual_sub),
+                            text = stringResource(R.string.settings_elderly_sub),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     Switch(
-                        checked = gradualEnabled,
-                        onCheckedChange = viewModel::setGradualEnabled,
+                        checked = elderlyMode,
+                        onCheckedChange = viewModel::setElderlyMode,
                     )
                 }
-                if (gradualEnabled) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.settings_gradual_strength),
-                        style = MaterialTheme.typography.titleSmall,
+            }
+
+        }
+        if (match("language", "لغة", "locale", "arabic", "english", "عربي", "إنجليزي")) {
+            // In-app language: System default + العربية + English.
+            // Persisted in the existing SettingsDataStore (app_language_code).
+            // API 33+: LocaleManager recreates activities automatically;
+            // API 26–32: recreate manually so the new locale takes effect.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_language),
+                            contentDescription = stringResource(R.string.settings_language_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_language_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_language_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val languageOptions = listOf(
+                        "" to stringResource(R.string.settings_language_auto),
+                        "ar" to stringResource(R.string.settings_language_arabic),
+                        "en" to stringResource(R.string.settings_language_english),
                     )
-                    val strengthOptions = listOf(
-                        1 to stringResource(R.string.settings_gradual_strength_1),
-                        2 to stringResource(R.string.settings_gradual_strength_2),
-                        3 to stringResource(R.string.settings_gradual_strength_3),
-                    )
-                    strengthOptions.forEach { (level, label) ->
+                    languageOptions.forEach { (code, label) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp)
-                                .clickable { viewModel.setGradualStrength(level) },
+                                .clickable {
+                                    viewModel.setAppLanguage(code)
+                                    AppLocaleHelper.apply(context, code)
+                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                        (context as? Activity)?.recreate()
+                                    }
+                                },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(
-                                selected = gradualStrength == level,
-                                onClick = { viewModel.setGradualStrength(level) },
+                                selected = appLanguage == code,
+                                onClick = {
+                                    viewModel.setAppLanguage(code)
+                                    AppLocaleHelper.apply(context, code)
+                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                        (context as? Activity)?.recreate()
+                                    }
+                                },
                             )
                             Text(
                                 text = label,
@@ -551,230 +361,253 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_gradual_vib_duration),
-                            style = MaterialTheme.typography.titleSmall,
+                }
+            }
+
+        }
+        }
+        if (showAlarm) {
+        Text(
+            text = stringResource(R.string.settings_section_alarm),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+        )
+        if (match("dnd", "silent", "صامت", "disturb", "إزعاج", "bypass", "تجاوز")) {
+            // Silent-mode (DND) bypass choice — persisted, default RESPECT.
+            // Each option carries a one-line explanation; 48dp+ radio rows.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_alarm),
+                            contentDescription = stringResource(R.string.settings_dnd_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
                         )
-                        Text(
-                            text = stringResource(R.string.settings_gradual_seconds, gradualVibSec),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    Slider(
-                        value = gradualVibSec.toFloat(),
-                        onValueChange = { viewModel.setGradualVibrationSec(it.toInt()) },
-                        valueRange = 5f..20f,
-                        steps = 14,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_gradual_ramp),
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_gradual_seconds, gradualRampSec),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    Slider(
-                        value = gradualRampSec.toFloat(),
-                        onValueChange = { viewModel.setGradualRampSec(it.toInt()) },
-                        valueRange = 15f..60f,
-                        steps = 44,
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clickable { showGradualPicker = true },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = stringResource(R.string.settings_gradual_ringtone),
-                                style = MaterialTheme.typography.titleSmall,
+                                text = stringResource(R.string.settings_dnd_title),
+                                style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = if (gradualRingtoneUri.isBlank()) {
-                                    stringResource(R.string.settings_gradual_ringtone_default)
-                                } else {
-                                    stringResource(R.string.settings_gradual_ringtone_set)
-                                },
+                                text = stringResource(R.string.settings_dnd_sub),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        Icon(
-                            Icons.Filled.MusicNote,
-                            contentDescription = stringResource(R.string.settings_gradual_ringtone),
-                        )
                     }
-                }
-            }
-        }
-
-        if (showGradualPicker) {
-            GradualRingtonePickerDialog(
-                currentUri = gradualRingtoneUri,
-                onConfirm = { uri ->
-                    viewModel.setGradualRingtoneUri(uri)
-                    showGradualPicker = false
-                    Toast.makeText(context, context.getString(R.string.settings_gradual_saved), Toast.LENGTH_SHORT).show()
-                },
-                onDismiss = { showGradualPicker = false },
-            )
-        }
-
-        // Phase 10.4.3.1: premium custom alarm ringtone (locked → paywall).
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            onClick = {
-                if (!isPremium) {
-                    onOpenPaywall()
-                } else {
-                    runCatching {
-                        val existing: Uri? = customRingtoneUri.ifBlank { null }?.let {
-                            runCatching { Uri.parse(it) }.getOrNull()
-                        } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                        val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.settings_picker_title))
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                            if (existing != null) {
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val dndOptions = listOf(
+                        Triple(
+                            DndChoice.RESPECT,
+                            stringResource(R.string.settings_dnd_respect),
+                            stringResource(R.string.settings_dnd_respect_sub),
+                        ),
+                        Triple(
+                            DndChoice.BYPASS,
+                            stringResource(R.string.settings_dnd_bypass),
+                            stringResource(R.string.settings_dnd_bypass_sub),
+                        ),
+                        Triple(
+                            DndChoice.ASK,
+                            stringResource(R.string.settings_dnd_ask),
+                            stringResource(R.string.settings_dnd_ask_sub),
+                        ),
+                    )
+                    dndOptions.forEach { (choice, label, explain) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable { pickDndChoice(choice) },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = dndChoice == choice,
+                                onClick = { pickDndChoice(choice) },
+                            )
+                            Column(modifier = Modifier.padding(start = 8.dp)) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                Text(
+                                    text = explain,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
                             }
                         }
-                        ringtoneLauncher.launch(picker)
-                    }.onFailure {
-                        Toast.makeText(context, context.getString(R.string.settings_no_picker), Toast.LENGTH_LONG).show()
+                    }
+                    if (dndChoice == DndChoice.BYPASS) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (viewModel.isDndPolicyAccessGranted()) {
+                            Text(
+                                text = stringResource(R.string.settings_dnd_granted),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.settings_dnd_rationale),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    dndSettingsLauncher.launch(DndPolicy.policyAccessIntent(context))
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text(stringResource(R.string.settings_dnd_grant))
+                            }
+                        }
                     }
                 }
-            },
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_ringtone_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = if (!isPremium) {
-                            stringResource(R.string.settings_premium_only)
-                        } else if (customRingtoneUri.isBlank()) {
-                            stringResource(R.string.settings_system_default)
-                        } else {
-                            stringResource(R.string.settings_custom_set)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Icon(
-                    if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
-                    contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_pick_desc),
-                )
             }
-        }
 
-        // Phase 10.4.3.3: adaptive trigger distance (Walk 500m / Car 2km /
-        // Train 4km + speed stretch); off = legacy fixed 2 km.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+        }
+        if (match("silent", "صامت", "premium", "earphone")) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_adaptive_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_adaptive_sub),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
-                    checked = adaptiveAlarm,
-                    onCheckedChange = viewModel::setAdaptiveAlarm,
-                )
-            }
-        }
-
-        // Pre-arrival NUDGE: silent once-per-trip heads-up strictly before
-        // the main alarm. Enable switch (default ON) + lead slider 1..10
-        // min (default 3) — Arabic-first labels.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    Icon(
+                        painterResource(R.drawable.ic_svg_vibration),
+                        contentDescription = stringResource(R.string.settings_silent_title),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.settings_nudge_title),
+                            text = stringResource(R.string.settings_silent_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = stringResource(R.string.settings_nudge_sub),
+                            text = if (isPremium) {
+                                stringResource(R.string.settings_silent_sub)
+                            } else {
+                                stringResource(R.string.settings_silent_locked)
+                            },
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     Switch(
-                        checked = proactiveAlert,
-                        onCheckedChange = viewModel::setProactiveAlert,
-                    )
-                }
-                if (proactiveAlert) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_nudge_lead, nudgeLead),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Slider(
-                        value = nudgeLead.toFloat(),
-                        onValueChange = { viewModel.setNudgeLeadMinutes(it.toInt()) },
-                        valueRange = 1f..10f,
-                        steps = 8,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp),
+                        checked = silentAlarm && isPremium,
+                        enabled = isPremium,
+                        onCheckedChange = viewModel::setSilentAlarm,
                     )
                 }
             }
-        }
 
-        // Hidden developer section — Force Offline + crash-log share live here.
-        if (showDev) {
+        }
+        if (match("headphone", "سماعة", "earphone", "bluetooth", "بلوتوث")) {
+            // Headphone-only alerts (premium): destination alarm plays ONLY
+            // through connected headphones — the phone speaker stays silent.
+            // Free users tapping the card see the Paywall upsell. The status
+            // line below the toggle shows the live headphone connection.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                onClick = {
+                    if (!isPremium) onOpenPaywall()
+                },
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_headphones),
+                            contentDescription = stringResource(R.string.settings_headphone_title),
+                            tint = if (!isPremium) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 12.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_headphone_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = if (isPremium) {
+                                    stringResource(R.string.settings_headphone_sub)
+                                } else {
+                                    stringResource(R.string.settings_headphone_locked)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(
+                            checked = headphoneOnly && isPremium,
+                            enabled = isPremium,
+                            onCheckedChange = { enabled ->
+                                if (!enabled) {
+                                    viewModel.setHeadphoneOnly(false)
+                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.BLUETOOTH_CONNECT,
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    btPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                                } else {
+                                    viewModel.setHeadphoneOnly(true)
+                                }
+                            },
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = when (headphoneState) {
+                            HeadphoneState.BLUETOOTH ->
+                                stringResource(R.string.settings_headphone_bt)
+                            HeadphoneState.WIRED ->
+                                stringResource(R.string.settings_headphone_wired)
+                            HeadphoneState.NONE ->
+                                stringResource(R.string.settings_headphone_none)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (headphoneState == HeadphoneState.NONE) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
+            }
+
+        }
+        if (match("watch", "ساعة")) {
+            // Phase 10.10: smartwatch companion (الساعة الذكية) — connection
+            // status + test vibration + premium-gated watch-only alert toggle.
+            WatchSettingsSection(
+                viewModel = viewModel,
+                onOpenPaywall = onOpenPaywall,
+            )
+
+        }
+        if (match("gradual", "تدريجي", "vibration", "اهتزاز", "ramp", "تصاعد")) {
+            // Phase 10.9.x: smart gradual alarm (المنبه التدريجي) — vibration
+            // first, then a quiet sound that rises slowly. Disabled by default
+            // so the legacy full-volume path is untouched when off.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -785,59 +618,172 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_music),
+                            contentDescription = stringResource(R.string.settings_gradual_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = stringResource(R.string.settings_dev_title),
+                                text = stringResource(R.string.settings_gradual_title),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = stringResource(R.string.settings_dev_sub),
+                                text = stringResource(R.string.settings_gradual_sub),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
                         Switch(
-                            checked = forceOffline,
-                            onCheckedChange = viewModel::setForceOffline,
+                            checked = gradualEnabled,
+                            onCheckedChange = viewModel::setGradualEnabled,
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    if (gradualEnabled) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.settings_gradual_strength),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        val strengthOptions = listOf(
+                            1 to stringResource(R.string.settings_gradual_strength_1),
+                            2 to stringResource(R.string.settings_gradual_strength_2),
+                            3 to stringResource(R.string.settings_gradual_strength_3),
+                        )
+                        strengthOptions.forEach { (level, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clickable { viewModel.setGradualStrength(level) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = gradualStrength == level,
+                                    onClick = { viewModel.setGradualStrength(level) },
+                                )
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Text(
-                                text = stringResource(R.string.settings_crash_title),
-                                style = MaterialTheme.typography.titleMedium,
+                                text = stringResource(R.string.settings_gradual_vib_duration),
+                                style = MaterialTheme.typography.titleSmall,
                             )
                             Text(
-                                text = stringResource(R.string.settings_crash_sub),
-                                style = MaterialTheme.typography.bodySmall,
+                                text = stringResource(R.string.settings_gradual_seconds, gradualVibSec),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                runCatching {
-                                    com.app.wasalna.utils.CrashReporter.shareLatest(context)
-                                }.onFailure {
-                                    Toast.makeText(context, context.getString(R.string.settings_no_crash), Toast.LENGTH_SHORT).show()
-                                }
-                            },
+                        Slider(
+                            value = gradualVibSec.toFloat(),
+                            onValueChange = { viewModel.setGradualVibrationSec(it.toInt()) },
+                            valueRange = 5f..20f,
+                            steps = 14,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.common_share))
+                            Text(
+                                text = stringResource(R.string.settings_gradual_ramp),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_gradual_seconds, gradualRampSec),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Slider(
+                            value = gradualRampSec.toFloat(),
+                            onValueChange = { viewModel.setGradualRampSec(it.toInt()) },
+                            valueRange = 15f..60f,
+                            steps = 44,
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable { showGradualPicker = true },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_gradual_ringtone),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    text = if (gradualRingtoneUri.isBlank()) {
+                                        stringResource(R.string.settings_gradual_ringtone_default)
+                                    } else {
+                                        stringResource(R.string.settings_gradual_ringtone_set)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = stringResource(R.string.settings_gradual_ringtone),
+                            )
                         }
                     }
                 }
             }
-        }
 
-        // Phase 10.4.3.6: strict-OEM revisit entry (hidden on lenient devices).
-        if (AutoStartUtils.isStrictDevice()) {
+            if (showGradualPicker) {
+                GradualRingtonePickerDialog(
+                    currentUri = gradualRingtoneUri,
+                    onConfirm = { uri ->
+                        viewModel.setGradualRingtoneUri(uri)
+                        showGradualPicker = false
+                        Toast.makeText(context, context.getString(R.string.settings_gradual_saved), Toast.LENGTH_SHORT).show()
+                    },
+                    onDismiss = { showGradualPicker = false },
+                )
+            }
+
+        }
+        if (match("ringtone", "نغمة", "tone", "sound", "صوت")) {
+            // Phase 10.4.3.1: premium custom alarm ringtone (locked → paywall).
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                onClick = onOpenRestrictions,
+                onClick = {
+                    if (!isPremium) {
+                        onOpenPaywall()
+                    } else {
+                        runCatching {
+                            val existing: Uri? = customRingtoneUri.ifBlank { null }?.let {
+                                runCatching { Uri.parse(it) }.getOrNull()
+                            } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                            val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.settings_picker_title))
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                if (existing != null) {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
+                                }
+                            }
+                            ringtoneLauncher.launch(picker)
+                        }.onFailure {
+                            Toast.makeText(context, context.getString(R.string.settings_no_picker), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
             ) {
                 Row(
                     modifier = Modifier
@@ -846,31 +792,431 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    Icon(
+                        painterResource(R.drawable.ic_svg_music),
+                        contentDescription = stringResource(R.string.settings_ringtone_title),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.settings_fix_title),
+                            text = stringResource(R.string.settings_ringtone_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = stringResource(R.string.settings_fix_sub),
+                            text = if (!isPremium) {
+                                stringResource(R.string.settings_premium_only)
+                            } else if (customRingtoneUri.isBlank()) {
+                                stringResource(R.string.settings_system_default)
+                            } else {
+                                stringResource(R.string.settings_custom_set)
+                            },
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     Icon(
-                        Icons.Filled.BatteryAlert,
-                        contentDescription = stringResource(R.string.settings_fix_desc),
+                        if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
+                        contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_pick_desc),
+                    )
+                }
+            }
+
+        }
+        if (match("adaptive", "distance", "مسافة", "trigger", "تفعيل")) {
+            // Phase 10.4.3.3: adaptive trigger distance (Walk 500m / Car 2km /
+            // Train 4km + speed stretch); off = legacy fixed 2 km.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_svg_distance),
+                        contentDescription = stringResource(R.string.settings_adaptive_title),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_adaptive_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_adaptive_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = adaptiveAlarm,
+                        onCheckedChange = viewModel::setAdaptiveAlarm,
+                    )
+                }
+            }
+
+        }
+        if (match("nudge", "heads", "تنبيه", "alert")) {
+            // Pre-arrival NUDGE: silent once-per-trip heads-up strictly before
+            // the main alarm. Enable switch (default ON) + lead slider 1..10
+            // min (default 3) — Arabic-first labels.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_schedule),
+                            contentDescription = stringResource(R.string.settings_nudge_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_nudge_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_nudge_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(
+                            checked = proactiveAlert,
+                            onCheckedChange = viewModel::setProactiveAlert,
+                        )
+                    }
+                    if (proactiveAlert) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.settings_nudge_lead, nudgeLead),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Slider(
+                            value = nudgeLead.toFloat(),
+                            onValueChange = { viewModel.setNudgeLeadMinutes(it.toInt()) },
+                            valueRange = 1f..10f,
+                            steps = 8,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                        )
+                    }
+                }
+            }
+
+        }
+        if (match("lead", "مهلة", "warn", "قبل الوصول", "دقائق")) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_alarm),
+                            contentDescription = stringResource(R.string.settings_lead_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_lead_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_lead_value, leadTime),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_lead_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Slider(
+                        value = leadTime.toFloat(),
+                        onValueChange = { viewModel.setLeadTimeMinutes(it.toInt()) },
+                        valueRange = 1f..30f,
+                        steps = 28,
+                    )
+                }
+            }
+
+        }
+        }
+        if (showMapSec) {
+        Text(
+            text = stringResource(R.string.settings_section_map),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+        )
+        if (match("battery", "بطارية", "autostart", "تشغيل تلقائي", "xiaomi", "شاومي", "oppo", "restrictions")) {
+            // Phase 10.4.3.6: strict-OEM revisit entry (hidden on lenient devices).
+            if (AutoStartUtils.isStrictDevice()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    onClick = onOpenRestrictions,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_fix_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_fix_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Icon(
+                            painterResource(R.drawable.ic_svg_battery),
+                            contentDescription = stringResource(R.string.settings_fix_desc),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+
+        }
+        if (match("offline", "أوفلاين", "maps", "خرائط", "download", "تنزيل", "regions", "مناطق")) {
+            // Phase 10.4.3.2: offline regions (premium only → paywall).
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                onClick = {
+                    if (isPremium) onOpenOfflineMaps() else onOpenPaywall()
+                },
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_svg_map),
+                        contentDescription = stringResource(R.string.settings_offline_title),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_offline_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = if (isPremium) {
+                                stringResource(R.string.settings_offline_sub)
+                            } else {
+                                stringResource(R.string.settings_premium_only)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Icon(
+                        if (!isPremium) Icons.Filled.Lock else Icons.Filled.Download,
+                        contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_offline_open),
+                    )
+                }
+            }
+
+        }
+        if (match("traffic", "ازدحام", "congestion", "google")) {
+            // Phase 10.8.0g (traffic): enable/disable switch bound to the
+            // existing SettingsDataStore traffic flow (reused, not duplicated).
+            // Default OFF. Tile viewport may leave the device (Arabic disclosure).
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Icon(
+                        Icons.Filled.Traffic,
+                        contentDescription = stringResource(R.string.settings_traffic_title),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_traffic_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_traffic_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = isTrafficEnabled,
+                        onCheckedChange = viewModel::setTrafficEnabled,
+                    )
+                }
+            }
+
+        }
+        if (match("routes", "api", "key", "مفتاح", "مسارات", "transit", "نقل")) {
+            // TRANSIT BYOK (user order Oct 2026): the user's OWN Google
+            // Routes API v2 key. Optional — empty keeps APPROXIMATE guidance.
+            // Stored app-private on this device only; never in code/resources.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_key),
+                            contentDescription = stringResource(R.string.settings_routes_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_routes_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.settings_routes_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var keyDraft by remember(routesApiKey) { mutableStateOf(routesApiKey) }
+                    var keyVisible by remember { mutableStateOf(false) }
+                    OutlinedTextField(
+                        value = keyDraft,
+                        onValueChange = { keyDraft = it.take(256) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.settings_routes_hint)) },
+                        singleLine = true,
+                        visualTransformation = if (keyVisible) VisualTransformation.None
+                            else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { keyVisible = !keyVisible },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(
+                                    imageVector = if (keyVisible) Icons.Filled.VisibilityOff
+                                        else Icons.Filled.Visibility,
+                                    contentDescription = stringResource(
+                                        if (keyVisible) R.string.settings_routes_hide
+                                        else R.string.settings_routes_show,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.setRoutesApiKey(keyDraft)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.settings_routes_saved),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_routes_save))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                keyDraft = ""
+                                viewModel.setRoutesApiKey("")
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.settings_routes_cleared),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_routes_clear))
+                        }
+                    }
+                }
+            }
+
+        }
+        if (match("osm", "attribution", "openstreetmap", "credit", "نسب")) {
+            // OSM ODbL ATTRIBUTION (Oct 2026, outcome c — user-visible credit
+            // for the bundled transit rosters; Arabic-first, RTL-safe Column).
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(
+                            R.string.transit_osm_attribution,
+                            CairoTransitStations.DATASET_DATE,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
+        }
+        if (showAccountSec) {
+        Text(
+            text = stringResource(R.string.settings_section_account),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+        )
+        if (match("account", "حساب", "google", "sign", "دخول")) {
+            // Phase 10.13-exp: Google account sign-in (EXPERIMENTAL, local-only).
+            AccountSettingsSection()
 
-        // Phase 10.4.3.2: offline regions (premium only → paywall).
+        }
+        }
+        if (showAdv) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            onClick = {
-                if (isPremium) onOpenOfflineMaps() else onOpenPaywall()
-            },
+            onClick = { showAdvanced = !showAdvanced },
         ) {
             Row(
                 modifier = Modifier
@@ -881,188 +1227,90 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_offline_title),
+                        text = stringResource(R.string.settings_advanced_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = if (isPremium) {
-                            stringResource(R.string.settings_offline_sub)
-                        } else {
-                            stringResource(R.string.settings_premium_only)
-                        },
+                        text = stringResource(R.string.settings_advanced_sub),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Icon(
-                    if (!isPremium) Icons.Filled.Lock else Icons.Filled.Download,
-                    contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_offline_open),
+                    if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = stringResource(R.string.settings_advanced_title),
                 )
             }
         }
-
-        // Phase 10.8.0g (traffic): enable/disable switch bound to the
-        // existing SettingsDataStore traffic flow (reused, not duplicated).
-        // Default OFF. Tile viewport may leave the device (Arabic disclosure).
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_traffic_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_traffic_sub),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
-                    checked = isTrafficEnabled,
-                    onCheckedChange = viewModel::setTrafficEnabled,
-                )
-            }
-        }
-
-        // TRANSIT BYOK (user order Oct 2026): the user's OWN Google
-        // Routes API v2 key. Optional — empty keeps APPROXIMATE guidance.
-        // Stored app-private on this device only; never in code/resources.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.settings_routes_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.settings_routes_sub),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                var keyDraft by remember(routesApiKey) { mutableStateOf(routesApiKey) }
-                var keyVisible by remember { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = keyDraft,
-                    onValueChange = { keyDraft = it.take(256) },
+        if (showAdvanced) {
+        if (match("dev", "مطور", "developer", "force", "crash", "سجل")) {
+            // Hidden developer section — Force Offline + crash-log share live here.
+            if (showDev) {
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.settings_routes_hint)) },
-                    singleLine = true,
-                    visualTransformation = if (keyVisible) VisualTransformation.None
-                        else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(
-                            onClick = { keyVisible = !keyVisible },
-                            modifier = Modifier.size(48.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Icon(
-                                imageVector = if (keyVisible) Icons.Filled.VisibilityOff
-                                    else Icons.Filled.Visibility,
-                                contentDescription = stringResource(
-                                    if (keyVisible) R.string.settings_routes_hide
-                                    else R.string.settings_routes_show,
-                                ),
+                                painterResource(R.drawable.ic_svg_settings),
+                                contentDescription = stringResource(R.string.settings_dev_title),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 12.dp),
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_dev_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_dev_sub),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Switch(
+                                checked = forceOffline,
+                                onCheckedChange = viewModel::setForceOffline,
                             )
                         }
-                    },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Button(
-                        onClick = {
-                            viewModel.setRoutesApiKey(keyDraft)
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.settings_routes_saved),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.settings_routes_save))
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            keyDraft = ""
-                            viewModel.setRoutesApiKey("")
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.settings_routes_cleared),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.settings_routes_clear))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_crash_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_crash_sub),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    runCatching {
+                                        com.app.wasalna.utils.CrashReporter.shareLatest(context)
+                                    }.onFailure {
+                                        Toast.makeText(context, context.getString(R.string.settings_no_crash), Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            ) {
+                                Text(stringResource(R.string.common_share))
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        // OSM ODbL ATTRIBUTION (Oct 2026, outcome c — user-visible credit
-        // for the bundled transit rosters; Arabic-first, RTL-safe Column).
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(
-                        R.string.transit_osm_attribution,
-                        CairoTransitStations.DATASET_DATE,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_lead_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_lead_value, leadTime),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.settings_lead_sub),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Slider(
-                    value = leadTime.toFloat(),
-                    onValueChange = { viewModel.setLeadTimeMinutes(it.toInt()) },
-                    valueRange = 1f..30f,
-                    steps = 28,
-                )
-            }
         }
-
+        }
         // App version — tap 5x to reveal hidden developer options.
         Text(
             text = stringResource(

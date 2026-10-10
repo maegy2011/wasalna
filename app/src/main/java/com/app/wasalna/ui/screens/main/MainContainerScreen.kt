@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.wasalna.R
@@ -212,7 +213,7 @@ fun MainContainerScreen() {
                         onClick = { openDrawer() },
                         icon = {
                             Icon(
-                                Icons.Filled.Menu,
+                                painterResource(R.drawable.ic_svg_menu),
                                 contentDescription = stringResource(R.string.nav_menu_desc),
                             )
                         },
@@ -222,7 +223,7 @@ fun MainContainerScreen() {
                         onClick = { navigateTab(Screen.Home.route) },
                         icon = {
                             Icon(
-                                Icons.Filled.Home,
+                                painterResource(R.drawable.ic_svg_home),
                                 contentDescription = stringResource(R.string.nav_home),
                             )
                         },
@@ -232,7 +233,7 @@ fun MainContainerScreen() {
                         onClick = { navigateTab(Screen.MyPlaces.route) },
                         icon = {
                             Icon(
-                                Icons.Filled.Place,
+                                painterResource(R.drawable.ic_svg_place),
                                 contentDescription = stringResource(R.string.myplaces_title),
                             )
                         },
@@ -242,7 +243,7 @@ fun MainContainerScreen() {
                         onClick = { navigateTab(Screen.Paywall.route) },
                         icon = {
                             Icon(
-                                Icons.Filled.Diamond,
+                                painterResource(R.drawable.ic_svg_diamond),
                                 contentDescription = stringResource(R.string.paywall_title),
                             )
                         },
@@ -252,7 +253,7 @@ fun MainContainerScreen() {
                         onClick = { navigateTab(Screen.TripsHistory.route) },
                         icon = {
                             Icon(
-                                Icons.Filled.History,
+                                painterResource(R.drawable.ic_svg_history),
                                 contentDescription = stringResource(R.string.nav_trips_desc),
                             )
                         },
@@ -279,6 +280,13 @@ fun MainContainerScreen() {
                 }
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.drawer_section_general),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
+                )
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.settings_title)) },
                     selected = isSelected(Screen.Settings.route),
@@ -286,7 +294,13 @@ fun MainContainerScreen() {
                         closeDrawer()
                         navigateTab(Screen.Settings.route)
                     },
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_settings),
+                            contentDescription = stringResource(R.string.settings_title),
+                        )
+                    },
+                    badge = null,
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
@@ -296,7 +310,21 @@ fun MainContainerScreen() {
                         closeDrawer()
                         navigateTab(Screen.TripsHistory.route)
                     },
-                    icon = { Icon(Icons.Filled.History, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_history),
+                            contentDescription = stringResource(R.string.trips_title),
+                        )
+                    },
+                    badge = {
+                        if (successfulTrips > 0) {
+                            Text(
+                                text = successfulTrips.toString(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 // Phase 10.4.2.1: Your Impact — live stats from TripDao.
@@ -315,7 +343,12 @@ fun MainContainerScreen() {
                         closeDrawer()
                         navigateTab(Screen.TripsHistory.route)
                     },
-                    icon = { Icon(Icons.Filled.Favorite, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_favorite),
+                            contentDescription = stringResource(R.string.drawer_impact),
+                        )
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
@@ -327,8 +360,20 @@ fun MainContainerScreen() {
                         closeDrawer()
                         navigateTab(Screen.TripsHistory.route)
                     },
-                    icon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_schedule),
+                            contentDescription = stringResource(R.string.drawer_impact),
+                        )
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                )
+                Text(
+                    text = stringResource(R.string.drawer_section_more),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
                 )
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.common_share)) },
@@ -337,7 +382,12 @@ fun MainContainerScreen() {
                         closeDrawer()
                         shareApp()
                     },
-                    icon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_share),
+                            contentDescription = stringResource(R.string.common_share),
+                        )
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
@@ -347,7 +397,12 @@ fun MainContainerScreen() {
                         closeDrawer()
                         rateApp()
                     },
-                    icon = { Icon(Icons.Filled.Star, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_star),
+                            contentDescription = stringResource(R.string.drawer_rate),
+                        )
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
@@ -357,7 +412,12 @@ fun MainContainerScreen() {
                         closeDrawer()
                         contactUs()
                     },
-                    icon = { Icon(Icons.Filled.Email, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_email),
+                            contentDescription = stringResource(R.string.drawer_contact),
+                        )
+                    },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
             }
