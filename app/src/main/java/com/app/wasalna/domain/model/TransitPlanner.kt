@@ -42,6 +42,9 @@ object TransitPlanner {
     /** Walk speed for access/egress legs (5 km/h stroll). */
     const val WALK_M_PER_MIN = 80.0
 
+    /** LRT fork latitude (Badr): destinations north of it → N branch. */
+    const val LRT_FORK_LAT = 30.12
+
     data class RideSegment(
         val line: TransitLine,
         val from: TransitStop,
@@ -165,10 +168,16 @@ object TransitPlanner {
         destLng: Double,
     ): TransitItinerary {
         // Only termini/interchange anchors have no coords either — the
-        // honest output is the line + estimated end-to-end span. Pick the
-        // first operational route of the system (single-line systems).
-        val line = routes.firstOrNull()
-            ?: return TransitItinerary("NONE", null, null, emptyList(), 0.0, 0.0, 0, true, "no_line")
+        // honest output is the line + estimated end-to-end span. LRT has
+        // two branches: pick by destination latitude (fork at Badr ≈
+        // 30.17; trunk/Adly ≈ 30.15; NAC branch runs south of it).
+        // Rough but labeled approximate — never presented as precise.
+        val line = if (routes.size > 1) {
+            routes.firstOrNull { it.id == if (destLat > LRT_FORK_LAT) "LRTN" else "LRTS" }
+                ?: routes.firstOrNull()
+        } else {
+            routes.firstOrNull()
+        } ?: return TransitItinerary("NONE", null, null, emptyList(), 0.0, 0.0, 0, true, "no_line")
         val n = line.stations.size
         if (n < 2) {
             return TransitItinerary("NONE", null, null, emptyList(), 0.0, 0.0, 0, true, "no_line")

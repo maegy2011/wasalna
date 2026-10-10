@@ -69,7 +69,7 @@ import kotlin.math.sqrt
  * rhythm; sim cruise 9 m/s matches metro rhythm).
  *
  * Pure Kotlin, no Android deps — safe on Dispatchers.Default. Nearest
- * math is O(stations), trivial (<1 ms). No `!!` anywhere.
+ * math is O(stations), trivial (<1 ms). Null-safe throughout.
  */
 
 /** Locale-aware display name (Arabic-first, RTL-correct by caller). */
