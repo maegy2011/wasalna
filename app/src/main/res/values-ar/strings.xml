@@ -20,4 +20,12 @@
     <string name="settings_gradual_ringtone">نغمة المنبه</string>
     <string name="settings_gradual_ringtone_default">الافتراضي للنظام</string>
     <string name="settings_gradual_ringtone_set">نغمة مخصصة ✓</string>
+    <!-- التنبيه عبر السماعة فقط (ميزة مدفوعة — مطابقة لقيم values). -->
+    <string name="settings_headphone_title">التنبيه عبر السماعة فقط</string>
+    <string name="settings_headphone_sub">المنبه يعمل في سماعتك فقط — سماعة الهاتف تبقى صامتة</string>
+    <string name="settings_headphone_locked">للدرجة الأولى فقط — اضغط للترقية</string>
+    <string name="settings_headphone_none">لا توجد سماعة متصلة</string>
+    <string name="settings_headphone_wired">سماعة سلكية متصلة ✓</string>
+    <string name="settings_headphone_bt">سماعة بلوتوث متصلة ✓</string>
+    <string name="alarm_notif_headphone_fallback">السماعة غير متصلة — منبه الهاتف العادي يعمل بدلًا منها</string>
 </resources>

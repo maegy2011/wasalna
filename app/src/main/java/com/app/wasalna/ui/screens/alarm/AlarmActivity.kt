@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.app.wasalna.R
 import com.app.wasalna.data.local.datastore.SettingsDataStore
+import com.app.wasalna.domain.audio.HeadphoneMonitor
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -86,6 +87,13 @@ class AlarmActivity : ComponentActivity() {
     private var silentMode = false
     // Phase 10.4.3.1: gates the custom ringtone in resolveAlarmUri().
     private var premiumMode = false
+    // Headphone-only alerts (premium): alarm plays ONLY through connected
+    // headphones; the speaker stays silent. [headphoneFallback] = true when
+    // no headphones were connected at alarm time → normal phone alarm so
+    // the stop is never missed (noted in the alarm notification).
+    private var headphoneOnlyMode = false
+    private var headphoneActive = false
+    private var headphoneFallback = false
     // Phase 10.9.x: owns player + vibrator + volume while the gradual
     // escalation runs; null = legacy instant path. stop() halts ALL
     // sound + vibration synchronously (no leaks, no lingering coroutine).
@@ -104,9 +112,11 @@ class AlarmActivity : ComponentActivity() {
         }
         val wantSilent = intent.getBooleanExtra(EXTRA_SILENT, false)
         val isPremium = intent.getBooleanExtra(EXTRA_PREMIUM, false)
+        val wantHeadphoneOnly = intent.getBooleanExtra(EXTRA_HEADPHONE_ONLY, false)
         premiumMode = isPremium
         silentMode = wantSilent && isPremium
-        Log.i(TAG, "onCreate: alarm firing silent=$silentMode")
+        headphoneOnlyMode = wantHeadphoneOnly && isPremium
+        Log.i(TAG, "onCreate: alarm firing silent=$silentMode headphoneOnly=$headphoneOnlyMode")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -128,7 +138,34 @@ class AlarmActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        if (silentMode) {
+        if (headphoneOnlyMode) {
+            val device = HeadphoneMonitor(this).findHeadphoneDevice()
+            if (device != null) {
+                headphoneActive = true
+                Log.i(TAG, "headphone-only: pinned to ${device.productName} type=${device.type}")
+                val gradual = readGradualConfig()
+                if (gradual != null) {
+                    Log.i(TAG, "onCreate: headphone-only gradual alarm $gradual")
+                    val uri = resolveGradualUri()
+                    if (uri != null) {
+                        val controller = GradualAlarmController(this)
+                        gradualController = controller
+                        controller.start(uri, gradual, device, headphoneOnly = true)
+                    } else {
+                        startHeadphoneOnlySound(device)
+                    }
+                } else {
+                    startHeadphoneOnlySound(device)
+                }
+            } else {
+                // Fallback guarantee: headphones gone → normal loud phone
+                // alarm. Missing the stop is worse than waking others.
+                headphoneFallback = true
+                Log.w(TAG, "headphone-only: none connected → loud fallback")
+                maxAlarmVolume()
+                startAlarmSound()
+            }
+        } else if (silentMode) {
             if (isHeadsetConnected()) {
                 Log.i(TAG, "silent: headset on → earphones route")
                 startSilentEarphoneSound()
@@ -154,7 +191,7 @@ class AlarmActivity : ComponentActivity() {
 
         setContent {
             AlarmScreen(
-                silentMode = silentMode,
+                silentMode = silentMode || headphoneActive,
                 onLongPressStop = { stopAlarm() },
             )
         }
@@ -328,6 +365,55 @@ class AlarmActivity : ComponentActivity() {
         controller.start(uri, config)
     }
 
+    /**
+     * Headphone-only instant path (no gradual escalation): the ringtone
+     * loops with USAGE_MEDIA on STREAM_MUSIC, pinned to [device] via
+     * setPreferredDevice (API 28+) so the phone speaker stays silent.
+     * API 26–27 has no setPreferredDevice — the system already routes
+     * STREAM_MUSIC to connected headphones, so exclusivity holds there
+     * by platform routing. Vibration stays on (haptic, not a speaker).
+     */
+    private fun startHeadphoneOnlySound(device: AudioDeviceInfo) {
+        val uri = resolveAlarmUri(premiumMode)
+        if (uri == null) {
+            Log.e(TAG, "headphone-only: no ringtone, vibrate fallback")
+            startVibrateOnly()
+            return
+        }
+        val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioManager = am
+        try {
+            if (am != null) {
+                savedMusicVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                val mid = (am.getStreamMaxVolume(AudioManager.STREAM_MUSIC) / 2)
+                    .coerceAtLeast(1)
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, mid, 0)
+            }
+            player = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                )
+                setDataSource(this@AlarmActivity, uri)
+                isLooping = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    runCatching { setPreferredDevice(device) }
+                        .onFailure { Log.w(TAG, "preferred device failed: ${it.message}") }
+                }
+                prepare()
+                start()
+            }
+            Log.i(TAG, "headphone-only: looping to headphones, speaker silent")
+        } catch (e: Exception) {
+            Log.e(TAG, "headphone-only sound failed: ${e.message}")
+            releasePlayer()
+            startVibrateOnly()
+        }
+        startVibration(AGGRESSIVE_PATTERN, 0)
+    }
+
     private fun startVibrateOnly() {
         startVibration(AGGRESSIVE_PATTERN, 0)
     }
@@ -471,7 +557,13 @@ class AlarmActivity : ComponentActivity() {
             )
             val notification = androidx.core.app.NotificationCompat.Builder(this, ALARM_CHANNEL_ID)
                 .setContentTitle("⏰ Wasalna — destination reached!")
-                .setContentText("Tap to open, or stop from your watch")
+                .setContentText(
+                    if (headphoneFallback) {
+                        getString(R.string.alarm_notif_headphone_fallback)
+                    } else {
+                        "Tap to open, or stop from your watch"
+                    },
+                )
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
                 .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
@@ -582,6 +674,7 @@ class AlarmActivity : ComponentActivity() {
         private const val TAG = "AlarmActivity"
         const val EXTRA_SILENT = "extra_silent"
         const val EXTRA_PREMIUM = "extra_premium"
+        const val EXTRA_HEADPHONE_ONLY = "extra_headphone_only"
 
         // Phase 10.4.3.3: wrist actions (WearableExtender targets).
         const val ACTION_DISMISS_ALARM = "com.app.wasalna.action.DISMISS_ALARM"

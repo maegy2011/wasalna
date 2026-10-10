@@ -16,6 +16,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Phase 10.9.x: gradual alarm vibration (normal permission, auto-granted). -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Headphone-only alerts: improves Bluetooth profile-state accuracy on
+         API 31+ (runtime-requested when enabling the toggle). Wired + A2DP
+         detection via AudioManager.getDevices needs no permission, so a
+         denial only degrades accuracy — the feature keeps working. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Phase 10.4.2.1: CPU Partial WakeLock so tracking survives screen-off sleep. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

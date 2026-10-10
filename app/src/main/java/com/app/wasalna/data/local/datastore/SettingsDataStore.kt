@@ -48,6 +48,11 @@ class SettingsDataStore @Inject constructor(
     val isSilentAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.SILENT_ALARM_ENABLED] ?: false }
 
+    // Headphone-only alerts (premium): the destination alarm plays ONLY
+    // through connected headphones; the phone speaker stays silent.
+    val isHeadphoneOnlyEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.HEADPHONE_ONLY_ENABLED] ?: false }
+
     // Preferred map engine ("OSM" free default). Kept for DataStore
     // compatibility — the app renders 100% MapLibre + OpenFreeMap.
     val preferredMapEngine: Flow<String> =
@@ -113,6 +118,10 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.SILENT_ALARM_ENABLED] = enabled }
+    }
+
+    suspend fun setHeadphoneOnlyEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.HEADPHONE_ONLY_ENABLED] = enabled }
     }
 
     suspend fun setPreferredMapEngine(engine: String) {
@@ -268,6 +277,7 @@ class SettingsDataStore @Inject constructor(
         val PREMIUM = booleanPreferencesKey("is_premium")
         val TRIAL_END_TIME = longPreferencesKey("trial_end_time")
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
+        val HEADPHONE_ONLY_ENABLED = booleanPreferencesKey("headphone_only_enabled")
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
         val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
         val PROACTIVE_ALERT_ENABLED = booleanPreferencesKey("proactive_alert_enabled")

@@ -2,6 +2,7 @@ package com.app.wasalna.ui.screens.alarm
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
@@ -71,18 +72,30 @@ class GradualAlarmController(
     private var vibrator: Vibrator? = null
     private var audioManager: AudioManager? = null
     private var savedAlarmVolume: Int = -1
+    private var savedStream: Int = AudioManager.STREAM_ALARM
 
     /**
      * Starts the 3-phase escalation. Any previous run is stopped first.
      * [uri] is the already-resolved ringtone (gradual tone → custom tone →
      * system default); resolution lives in AlarmActivity.
+     *
+     * Headphone-only mode ([headphoneOnly] = true): the ramp runs on
+     * STREAM_MUSIC with USAGE_MEDIA and the player is pinned to
+     * [preferredDevice] (API 28+) so the phone speaker stays silent.
+     * The phase timings ([config]) are honoured exactly like the
+     * speaker path — the volume ramp respects the gradual settings.
      */
-    fun start(uri: Uri, config: GradualAlarmConfig) {
+    fun start(
+        uri: Uri,
+        config: GradualAlarmConfig,
+        preferredDevice: AudioDeviceInfo? = null,
+        headphoneOnly: Boolean = false,
+    ) {
         stop()
         _phase.value = GradualPhase.VIBRATION_ONLY
         job = scope.launch {
             runCatching {
-                runEscalation(uri, config)
+                runEscalation(uri, config, preferredDevice, headphoneOnly)
             }.onFailure { error ->
                 ensureActive()
                 Log.e(TAG, "escalation failed: ${error.message}")
@@ -90,12 +103,19 @@ class GradualAlarmController(
         }
     }
 
-    private suspend fun runEscalation(uri: Uri, config: GradualAlarmConfig) {
+    private suspend fun runEscalation(
+        uri: Uri,
+        config: GradualAlarmConfig,
+        preferredDevice: AudioDeviceInfo?,
+        headphoneOnly: Boolean,
+    ) {
         val am = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         audioManager = am
-        val maxVolume = am?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: FALLBACK_MAX_VOLUME
+        val stream = if (headphoneOnly) AudioManager.STREAM_MUSIC else AudioManager.STREAM_ALARM
+        val maxVolume = am?.getStreamMaxVolume(stream) ?: FALLBACK_MAX_VOLUME
+        savedStream = stream
         savedAlarmVolume = runCatching {
-            am?.getStreamVolume(AudioManager.STREAM_ALARM)
+            am?.getStreamVolume(stream)
         }.getOrNull() ?: -1
 
         try {
@@ -109,13 +129,14 @@ class GradualAlarmController(
             _phase.value = GradualPhase.RAMPING
             val steps = config.rampSec.coerceIn(15, 60)
             val startLevel = (maxVolume / 10).coerceAtLeast(1)
-            preparePlayer(uri)
-            Log.i(TAG, "phase2: ramping $startLevel->$maxVolume over ${steps}s")
+            preparePlayer(uri, preferredDevice, headphoneOnly)
+            Log.i(TAG, "phase2: ramping $startLevel->$maxVolume over ${steps}s" +
+                if (headphoneOnly) " (headphones only)" else "")
             for (step in 0..steps) {
                 ensureActive()
                 val level = startLevel + ((maxVolume - startLevel) * step / steps)
                 runCatching {
-                    am?.setStreamVolume(AudioManager.STREAM_ALARM, level, 0)
+                    am?.setStreamVolume(stream, level, 0)
                 }
                 if (step == steps) break
                 delay(1_000L)
@@ -125,7 +146,7 @@ class GradualAlarmController(
             // Phase 3 — full volume + aggressive vibration until dismissed.
             _phase.value = GradualPhase.FULL
             runCatching {
-                am?.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
+                am?.setStreamVolume(stream, maxVolume, 0)
             }
             startVibration(AlarmActivity.AGGRESSIVE_PATTERN, repeat = 0)
             Log.i(TAG, "phase3: full volume + vibration until dismissed")
@@ -144,17 +165,33 @@ class GradualAlarmController(
     }
 
     /** MediaPlayer prepare touches storage — stays on Dispatchers.IO. */
-    private suspend fun preparePlayer(uri: Uri) {
+    private suspend fun preparePlayer(
+        uri: Uri,
+        preferredDevice: AudioDeviceInfo? = null,
+        headphoneOnly: Boolean = false,
+    ) {
         withContext(Dispatchers.IO) {
             val mp = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(
+                            if (headphoneOnly) AudioAttributes.USAGE_MEDIA
+                            else AudioAttributes.USAGE_ALARM,
+                        )
+                        .setContentType(
+                            if (headphoneOnly) AudioAttributes.CONTENT_TYPE_MUSIC
+                            else AudioAttributes.CONTENT_TYPE_SONIFICATION,
+                        )
                         .build(),
                 )
                 setDataSource(appContext, uri)
                 isLooping = true
+                if (preferredDevice != null &&
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                ) {
+                    runCatching { setPreferredDevice(preferredDevice) }
+                        .onFailure { Log.w(TAG, "setPreferredDevice failed: ${it.message}") }
+                }
                 prepare()
             }
             withContext(Dispatchers.Main.immediate) {
@@ -249,12 +286,13 @@ class GradualAlarmController(
         val am = audioManager ?: return
         try {
             if (savedAlarmVolume >= 0) {
-                am.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0)
+                am.setStreamVolume(savedStream, savedAlarmVolume, 0)
             }
         } catch (e: SecurityException) {
             Log.w(TAG, "restoreVolume denied: ${e.message}")
         }
         savedAlarmVolume = -1
+        savedStream = AudioManager.STREAM_ALARM
     }
 
     companion object {

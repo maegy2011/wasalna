@@ -2,6 +2,8 @@ package com.app.wasalna.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.wasalna.domain.audio.HeadphoneMonitor
+import com.app.wasalna.domain.audio.HeadphoneState
 import com.app.wasalna.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,7 +19,17 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val headphoneMonitor: HeadphoneMonitor,
 ) : ViewModel() {
+
+    init {
+        headphoneMonitor.start()
+    }
+
+    override fun onCleared() {
+        headphoneMonitor.stop()
+        super.onCleared()
+    }
 
     val elderlyMode: StateFlow<Boolean> =
         settingsRepository.isElderlyMode.stateIn(
@@ -76,6 +88,24 @@ class SettingsViewModel @Inject constructor(
     fun setSilentAlarm(enabled: Boolean) {
         viewModelScope.launch {
             runCatching { settingsRepository.setSilentAlarmEnabled(enabled) }
+        }
+    }
+
+    // Headphone-only alerts (premium): alarm plays ONLY through connected
+    // headphones; the speaker stays silent. Live connection state comes
+    // from HeadphoneMonitor (NONE / WIRED / BLUETOOTH).
+    val headphoneOnly: StateFlow<Boolean> =
+        settingsRepository.isHeadphoneOnlyEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    val headphoneState: StateFlow<HeadphoneState> = headphoneMonitor.state
+
+    fun setHeadphoneOnly(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setHeadphoneOnlyEnabled(enabled) }
         }
     }
 

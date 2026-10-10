@@ -283,6 +283,12 @@ class TrackingService : Service() {
                     Log.w(TAG, "premium read failed: ${e.message}")
                     false
                 }
+                val headphoneOnly = try {
+                    prefs.isHeadphoneOnlyEnabled.first()
+                } catch (e: Exception) {
+                    Log.w(TAG, "headphone-only read failed: ${e.message}")
+                    false
+                }
                 val alarmIntent = Intent(
                     this@TrackingService,
                     com.app.wasalna.ui.screens.alarm.AlarmActivity::class.java,
@@ -295,6 +301,10 @@ class TrackingService : Service() {
                     putExtra(
                         com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_PREMIUM,
                         premium,
+                    )
+                    putExtra(
+                        com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_HEADPHONE_ONLY,
+                        headphoneOnly,
                     )
                 }
                 try {

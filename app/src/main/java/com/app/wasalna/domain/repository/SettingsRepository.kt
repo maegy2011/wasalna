@@ -16,6 +16,8 @@ interface SettingsRepository {
 
     val isSilentAlarmEnabled: Flow<Boolean>
 
+    val isHeadphoneOnlyEnabled: Flow<Boolean>
+
     val preferredMapEngine: Flow<String>
 
     val transportMode: Flow<String>
@@ -57,6 +59,8 @@ interface SettingsRepository {
     suspend fun startTrial(daysFromNow: Int)
 
     suspend fun enforceTrialExpiry()
+
+    suspend fun setHeadphoneOnlyEnabled(enabled: Boolean)
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
 

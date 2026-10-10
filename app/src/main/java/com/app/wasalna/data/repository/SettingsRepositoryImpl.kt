@@ -29,6 +29,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isSilentAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isSilentAlarmEnabled
 
+    override val isHeadphoneOnlyEnabled: Flow<Boolean>
+        get() = settingsDataStore.isHeadphoneOnlyEnabled
+
     override val preferredMapEngine: Flow<String>
         get() = settingsDataStore.preferredMapEngine
 
@@ -101,6 +104,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun enforceTrialExpiry() {
         settingsDataStore.enforceTrialExpiry()
+    }
+
+    override suspend fun setHeadphoneOnlyEnabled(enabled: Boolean) {
+        settingsDataStore.setHeadphoneOnlyEnabled(enabled)
     }
 
     override suspend fun setSilentAlarmEnabled(enabled: Boolean) {

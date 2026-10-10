@@ -1,13 +1,16 @@
 package com.app.wasalna.ui.screens.settings
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
@@ -53,6 +57,7 @@ import com.app.wasalna.utils.AutoStartUtils
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
+import com.app.wasalna.domain.audio.HeadphoneState
 
 /**
  * Phase 7: Settings — Material3 switches bound to DataStore.
@@ -74,6 +79,8 @@ fun SettingsScreen(
     val leadTime by viewModel.leadTimeMinutes.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     val silentAlarm by viewModel.silentAlarm.collectAsState()
+    val headphoneOnly by viewModel.headphoneOnly.collectAsState()
+    val headphoneState by viewModel.headphoneState.collectAsState()
     val customRingtoneUri by viewModel.customRingtoneUri.collectAsState()
     val adaptiveAlarm by viewModel.adaptiveAlarm.collectAsState()
     val proactiveAlert by viewModel.proactiveAlert.collectAsState()
@@ -114,6 +121,13 @@ fun SettingsScreen(
             Toast.makeText(context, "Couldn't use that audio file", Toast.LENGTH_LONG).show()
         }
     }
+
+    // Headphone-only alerts: Bluetooth profile state needs BLUETOOTH_CONNECT
+    // on API 31+. getDevices-based detection works without it, so a denial
+    // only reduces BT-profile accuracy — the toggle still enables.
+    val btPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission,
+    ) { viewModel.setHeadphoneOnly(true) }
 
     // DND override has no DataStore field — visual toggle only for now.
     var dndOverride by remember { mutableStateOf(false) }
@@ -289,6 +303,89 @@ fun SettingsScreen(
                     checked = silentAlarm && isPremium,
                     enabled = isPremium,
                     onCheckedChange = viewModel::setSilentAlarm,
+                )
+            }
+        }
+
+        // Headphone-only alerts (premium): destination alarm plays ONLY
+        // through connected headphones — the phone speaker stays silent.
+        // Free users tapping the card see the Paywall upsell. The status
+        // line below the toggle shows the live headphone connection.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            onClick = {
+                if (!isPremium) onOpenPaywall()
+            },
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Icon(
+                        Icons.Filled.Headset,
+                        contentDescription = null,
+                        tint = if (!isPremium) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_headphone_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = if (isPremium) {
+                                stringResource(R.string.settings_headphone_sub)
+                            } else {
+                                stringResource(R.string.settings_headphone_locked)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = headphoneOnly && isPremium,
+                        enabled = isPremium,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                viewModel.setHeadphoneOnly(false)
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.BLUETOOTH_CONNECT,
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                btPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                            } else {
+                                viewModel.setHeadphoneOnly(true)
+                            }
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = when (headphoneState) {
+                        HeadphoneState.BLUETOOTH ->
+                            stringResource(R.string.settings_headphone_bt)
+                        HeadphoneState.WIRED ->
+                            stringResource(R.string.settings_headphone_wired)
+                        HeadphoneState.NONE ->
+                            stringResource(R.string.settings_headphone_none)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (headphoneState == HeadphoneState.NONE) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
                 )
             }
         }

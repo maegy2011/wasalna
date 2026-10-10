@@ -34,6 +34,15 @@
     <string name="settings_silent_sub">Earphones only, vibrate if unplugged</string>
     <string name="settings_silent_locked">Premium only</string>
 
+    <!-- Headphone-only alerts (premium): alarm ONLY through headphones. Mirrored in values-ar. -->
+    <string name="settings_headphone_title">Headphone-Only Alerts</string>
+    <string name="settings_headphone_sub">Alarm plays only in your headphones — speaker stays silent</string>
+    <string name="settings_headphone_locked">First Class only — tap to upgrade</string>
+    <string name="settings_headphone_none">No headphones connected</string>
+    <string name="settings_headphone_wired">Wired headphones connected ✓</string>
+    <string name="settings_headphone_bt">Bluetooth headphones connected ✓</string>
+    <string name="alarm_notif_headphone_fallback">Headphones disconnected — loud phone alarm instead</string>
+
     <!-- In-app language (Arabic/English/System). Mirrored in values-ar. -->
     <string name="settings_language_title">Language</string>
     <string name="settings_language_sub">App language</string>
