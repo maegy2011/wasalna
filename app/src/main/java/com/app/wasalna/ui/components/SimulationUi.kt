@@ -85,6 +85,128 @@ fun SimulationBanner(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * EXPLICIT SIMULATION ACTION BAR (بأمر المستخدم — أكتوبر 2026).
+ *
+ * Three prominent Arabic buttons, state-driven visibility, shown during
+ * the simulation context on BOTH MapScreen and TripRouteScreen:
+ * - idle → [▶ تشغيل المحاكاة] only ([onStart] null hides it; the
+ *   MapScreen panel owns starting there).
+ * - running → [⏸ إيقاف مؤقت] + [⏹ إيقاف المحاكاة] (start hidden).
+ * - paused → [استئناف] + [⏹ إيقاف المحاكاة] (pause hidden).
+ *
+ * PAUSE SEMANTICS: pausing freezes virtual-fix emission at the
+ * controller (no new fixes enter onFix), so the ETA/alarm clocks
+ * derived from fixes hold their last state — no false alarm can fire
+ * while paused. Resume continues from the frozen point (travelled
+ * distance is kept, not reset). Stop deactivates the controller AND
+ * stops TrackingService, which restores real fused GPS instantly.
+ *
+ * Material3, 8dp grid, 56dp targets, RTL-safe (Row/Arrangement only).
+ * No `!!`, all strings resourced (EN + AR parity).
+ */
+@Composable
+fun SimulationControlBar(
+    onStart: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val simulating by TripSimulationController.isSimulating.collectAsState()
+    val paused by TripSimulationController.isPaused.collectAsState()
+    if (!simulating && onStart == null) return
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (!simulating) {
+            val start = onStart ?: return@Row
+            Button(
+                onClick = start,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.sim_explicit_start),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+        } else if (paused) {
+            Button(
+                onClick = { TripSimulationController.resume() },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                )
+                Text(
+                    text = stringResource(R.string.sim_resume),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+            OutlinedButton(
+                onClick = {
+                    TripSimulationController.stop()
+                    context.stopService(
+                        Intent(context, TrackingService::class.java),
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Stop,
+                    contentDescription = null,
+                )
+                Text(
+                    text = stringResource(R.string.sim_explicit_stop),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+        } else {
+            Button(
+                onClick = { TripSimulationController.pause() },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Pause,
+                    contentDescription = null,
+                )
+                Text(
+                    text = stringResource(R.string.sim_explicit_pause),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+            OutlinedButton(
+                onClick = {
+                    TripSimulationController.stop()
+                    context.stopService(
+                        Intent(context, TrackingService::class.java),
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Stop,
+                    contentDescription = null,
+                )
+                Text(
+                    text = stringResource(R.string.sim_explicit_stop),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun TripSimulationPanel(
     destLat: Double,
@@ -169,7 +291,7 @@ fun TripSimulationPanel(
                         )
                         Text(
                             text = stringResource(
-                                if (paused) R.string.sim_resume else R.string.sim_pause,
+                                if (paused) R.string.sim_resume else R.string.sim_explicit_pause,
                             ),
                             style = MaterialTheme.typography.titleSmall,
                         )
@@ -190,7 +312,7 @@ fun TripSimulationPanel(
                             contentDescription = null,
                         )
                         Text(
-                            text = stringResource(R.string.sim_stop),
+                            text = stringResource(R.string.sim_explicit_stop),
                             style = MaterialTheme.typography.titleSmall,
                         )
                     }
@@ -236,7 +358,7 @@ fun TripSimulationPanel(
                         contentDescription = null,
                     )
                     Text(
-                        text = stringResource(R.string.sim_start),
+                        text = stringResource(R.string.sim_explicit_start),
                         style = MaterialTheme.typography.titleMedium,
                     )
                 }

@@ -82,6 +82,7 @@ import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.OfflineModeBanner
 import com.app.wasalna.ui.components.OfflineModeButton
 import com.app.wasalna.ui.components.SimulationBanner
+import com.app.wasalna.ui.components.SimulationControlBar
 import com.app.wasalna.ui.components.TripSimulationPanel
 import com.app.wasalna.ui.components.DestinationShareSheet
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
@@ -289,9 +290,14 @@ fun MapScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            // TRIP SIMULATION: clearly-labeled test-mode strip.
+            // TRIP SIMULATION: clearly-labeled test-mode strip +
+            // prominent pause/stop bar (start lives in the panel below
+            // while idle; hidden here while running by state).
             if (isSimulating) {
                 SimulationBanner(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+                SimulationControlBar(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }

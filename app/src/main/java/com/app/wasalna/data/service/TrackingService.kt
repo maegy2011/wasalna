@@ -154,14 +154,27 @@ class TrackingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            // STOP from the notification (incl. during simulation):
+            // onDestroy() ends the controller too, so virtual fixes halt
+            // and real fused GPS is restored on the next START.
             ACTION_STOP -> {
                 Log.i(TAG, "onStartCommand: STOP from notification")
                 stopForegroundAndSelf()
                 return START_NOT_STICKY
             }
+            // PAUSE SEMANTICS (simulation-aware): the service-level pause
+            // drops every fix in onFix(), so ETA/alarm clocks derived from
+            // fixes hold their last state — no false alarm while paused.
+            // When a simulation drives the fixes, the controller is paused
+            // in lockstep so the virtual trip ALSO freezes: resume then
+            // continues from the frozen point instead of jumping ahead.
             ACTION_PAUSE_RESUME -> {
                 isPaused = !isPaused
                 Log.i(TAG, "onStartCommand: paused=$isPaused")
+                if (TripSimulationController.isActive) {
+                    if (isPaused) TripSimulationController.pause()
+                    else TripSimulationController.resume()
+                }
                 if (isPaused) {
                     runCatching { fusedClient.removeLocationUpdates(locationCallback) }
                     isTracking = false

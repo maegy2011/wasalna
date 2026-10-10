@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.ui.components.DestinationShareSheet
 import com.app.wasalna.ui.components.SimulationBanner
+import com.app.wasalna.ui.components.SimulationControlBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -221,13 +222,19 @@ fun TripRouteScreen(
                 } else {
                     0f
                 }
-            // TRIP SIMULATION: clearly-labeled test-mode strip on top.
+            // TRIP SIMULATION: clearly-labeled test-mode strip +
+            // prominent pause/resume/stop bar on top (same state-driven
+            // bar as MapScreen; stop also ends the service → real GPS).
             if (isSimulating) {
-                SimulationBanner(
+                Column(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SimulationBanner()
+                    SimulationControlBar()
+                }
             }
                 Card(
                     modifier = Modifier
@@ -235,7 +242,7 @@ fun TripRouteScreen(
                         .padding(
                             start = 16.dp,
                             end = 16.dp,
-                            top = if (isSimulating) 72.dp else 16.dp,
+                            top = if (isSimulating) 168.dp else 16.dp,
                             bottom = 16.dp,
                         )
                         .align(Alignment.TopCenter),

@@ -415,4 +415,8 @@
     <string name="sim_speed">%1$dx</string>
     <string name="sim_progress_desc">تقدم المحاكاة</string>
     <string name="sim_no_fix">تعذر تحديد موقعك — فعّل GPS وحاول مجددًا</string>
+    <!-- شريط أزرار المحاكاة الصريحة (نفس صياغة المستخدم — مطابق لقيم values). -->
+    <string name="sim_explicit_start">▶ تشغيل المحاكاة</string>
+    <string name="sim_explicit_pause">⏸ إيقاف مؤقت</string>
+    <string name="sim_explicit_stop">⏹ إيقاف المحاكاة</string>
 </resources>

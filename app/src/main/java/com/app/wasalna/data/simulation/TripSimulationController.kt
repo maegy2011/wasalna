@@ -107,6 +107,13 @@ object TripSimulationController {
         if (multiplier in SPEEDS) _speedMultiplier.value = multiplier
     }
 
+    /**
+     * PAUSE: freezes virtual-fix emission (the tick loop skips emitFix
+     * while paused, keeping `travelled` untouched). With no new fixes
+     * entering TrackingService.onFix(), the production ETA/alarm clocks
+     * hold their last state — no false alarm can fire mid-pause.
+     * [resume] continues from the exact frozen point (no reset).
+     */
     fun pause() {
         _isPaused.value = true
     }
