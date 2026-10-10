@@ -19,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -55,6 +56,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.app.wasalna.domain.model.RoutePoint
+import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.screens.offline.OPENFREEMAP_STYLE_URL
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -89,6 +91,9 @@ fun TripRouteScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val trip by viewModel.trip.collectAsState()
     val points by viewModel.points.collectAsState()
+    // VEHICLE (user order Oct 2026): mid-trip switch — persists live;
+    // the running service recomputes the route with the new profile.
+    val vehicle by viewModel.transportMode.collectAsState()
     // TRIP SIMULATION: test-mode strip while virtual GPS drives the trip.
     val isSimulating by TripSimulationController.isSimulating.collectAsState()
 
@@ -298,6 +303,43 @@ fun TripRouteScreen(
                                 "${t.status} • ${t.transportMode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${points.size} pts"
                             },
                             style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // VEHICLE mid-trip switch (user order Oct 2026):
+                        // 48dp+ chips, 8dp spacing, RTL-safe. Persists to
+                        // DataStore; TrackingService picks it up live and
+                        // recomputes the route (next OSRM fetch, new profile).
+                        Text(
+                            text = stringResource(R.string.vehicle_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            TransportMode.pickerEntries.forEach { option ->
+                                FilterChip(
+                                    selected = vehicle == option,
+                                    onClick = { viewModel.setTransportMode(option) },
+                                    label = {
+                                        Text(
+                                            when (option) {
+                                                TransportMode.CAR -> stringResource(R.string.transport_car)
+                                                TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
+                                                TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
+                                                TransportMode.WALK -> stringResource(R.string.transport_walk)
+                                                TransportMode.TRAIN -> stringResource(R.string.transport_train)
+                                            },
+                                        )
+                                    },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                )
+                            }
+                        }
+                        Text(
+                            text = stringResource(R.string.vehicle_midtrip_note),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         // Phase 10.11: share the trip destination to the

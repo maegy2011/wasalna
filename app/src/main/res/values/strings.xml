@@ -425,6 +425,11 @@
     <string name="sim_speed">%1$dx</string>
     <string name="sim_progress_desc">Simulation progress</string>
     <string name="sim_no_fix">Couldn\'t get your location — turn on GPS and retry</string>
+    <!-- VEHICLE TYPE pre-trip picker (user order Oct 2026). Mirrored in values-ar. -->
+    <string name="vehicle_title">Vehicle</string>
+    <string name="vehicle_motorcycle">🏍️ Motorcycle</string>
+    <string name="vehicle_bicycle">🚲 Bicycle</string>
+    <string name="vehicle_midtrip_note">Changing the vehicle recomputes the route live.</string>
     <!-- Explicit simulation action bar (user-ordered wording). Mirrored in values-ar. -->
     <string name="sim_explicit_start">▶ Start simulation</string>
     <string name="sim_explicit_pause">⏸ Pause</string>

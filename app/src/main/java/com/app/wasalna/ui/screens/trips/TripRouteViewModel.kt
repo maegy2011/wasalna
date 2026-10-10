@@ -1,16 +1,20 @@
 package com.app.wasalna.ui.screens.trips
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.domain.model.RoutePoint
+import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.model.TripHistory
+import com.app.wasalna.domain.repository.SettingsRepository
 import com.app.wasalna.domain.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,6 +28,7 @@ import javax.inject.Inject
 class TripRouteViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val tripRepository: TripRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val tripId: Long = savedStateHandle.get<Long>("tripId") ?: 0L
@@ -46,6 +51,27 @@ class TripRouteViewModel @Inject constructor(
     }
 
     /**
+     * VEHICLE (user order Oct 2026): mid-trip vehicle switch — persisted
+     * to the same DataStore key the pre-trip sheet writes; the running
+     * TrackingService re-reads it on the next fix and recomputes the
+     * route with the new OSRM profile (see TrackingService.onFix).
+     */
+    val transportMode: StateFlow<TransportMode> =
+        settingsRepository.transportMode.map { TransportMode.fromName(it) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = TransportMode.CAR,
+            )
+
+    fun setTransportMode(mode: TransportMode) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTransportMode(mode.name) }
+                .onFailure { Log.e(TAG, "persist vehicle failed: ${it.message}") }
+        }
+    }
+
+    /**
      * REDESIGN 10 Oct 2026: prominent end-trip action — reuses the
      * existing TripRepository.finishTrip storage (same as the tracking
      * service path). Clears local state, then navigates back via [onDone].
@@ -58,5 +84,9 @@ class TripRouteViewModel @Inject constructor(
                 .getOrNull()
             onDone()
         }
+    }
+
+    companion object {
+        private const val TAG = "TripRouteViewModel"
     }
 }

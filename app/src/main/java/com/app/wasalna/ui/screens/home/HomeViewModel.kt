@@ -46,6 +46,14 @@ class HomeViewModel @Inject constructor(
                 initialValue = TransportMode.CAR,
             )
 
+    /** Vehicle picker persistence (pre-trip sheet + mid-trip change). */
+    fun setTransportMode(mode: TransportMode) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTransportMode(mode.name) }
+                .onFailure { Log.e(TAG, "persist vehicle failed: ${it.message}") }
+        }
+    }
+
     // Phase 10.4.1: trial countdown for the drawer plan header.
     val trialEndTimeMillis: StateFlow<Long> =
         settingsRepository.trialEndTimeMillis

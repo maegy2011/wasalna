@@ -437,19 +437,24 @@ fun MapScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                     ) {
-                        TransportMode.entries.forEachIndexed { index, mode ->
+                        // Vehicle picker: the 4 offered vehicles (TRAIN is a
+                        // legacy alias, hidden — see TransportMode).
+                        val vehicleOptions = TransportMode.pickerEntries
+                        vehicleOptions.forEachIndexed { index, mode ->
                             SegmentedButton(
                                 selected = transportMode == mode,
                                 onClick = { viewModel.setTransportMode(mode) },
                                 shape = SegmentedButtonDefaults.itemShape(
                                     index = index,
-                                    count = TransportMode.entries.size,
+                                    count = vehicleOptions.size,
                                 ),
                                 label = {
                                     Text(
                                         when (mode) {
                                             TransportMode.WALK -> stringResource(R.string.transport_walk)
                                             TransportMode.CAR -> stringResource(R.string.transport_car)
+                                            TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
+                                            TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
                                             TransportMode.TRAIN -> stringResource(R.string.transport_train)
                                         },
                                     )

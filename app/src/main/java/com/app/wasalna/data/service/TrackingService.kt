@@ -362,6 +362,14 @@ class TrackingService : Service() {
                 .getOrDefault(alarmModeName)
             alarmTimeMinutes = runCatching { modePrefs.alarmTimeMinutes.first() }
                 .getOrDefault(alarmTimeMinutes)
+            // VEHICLE (user order Oct 2026): mid-trip vehicle switches
+            // (TripRoute selector) apply by the next fix — the following
+            // OSRM fetch uses the new profile and the trigger below uses
+            // the new base. Read failure keeps the current mode (never
+            // falls back to CAR mid-trip).
+            runCatching { modePrefs.transportMode.first() }.getOrNull()?.let {
+                mode = TransportMode.fromName(it)
+            }
             // Nudge prefs re-read live too — mid-trip enable/lead
             // changes apply by the next fix (never disturbs the alarm).
             proactiveEnabled = runCatching { modePrefs.isProactiveAlertEnabled.first() }
@@ -1015,15 +1023,22 @@ class TrackingService : Service() {
 
     /**
      * Phase 10.4.3.3: adaptive trigger distance — mode base (WALK 500m /
-     * CAR 2km / TRAIN 4km), stretched when actually moving fast so the
+     * BICYCLE 1km / CAR 2km / MOTORCYCLE 2.5km / TRAIN 4km), stretched
+     * when actually moving fast so the
      * user always gets ~2 minutes of warning (capped at 8 km).
      * Adaptive off → legacy fixed 2 km.
      */
     private fun triggerRadiusMeters(fix: Location): Float {
         if (!adaptiveEnabled) return TRIGGER_RADIUS_METERS
+        // Vehicle bases (user order Oct 2026): walk 500 m (= the 500 m
+        // FAILSAFE floor — the guard and the trigger coincide, never
+        // conflict); bicycle 1 km; car 2 km (legacy); motorcycle 2.5 km
+        // (faster city pace, ~2 min warning); train 4 km (legacy proxy).
         val base = when (mode) {
             TransportMode.WALK -> 500f
+            TransportMode.BICYCLE -> 1000f
             TransportMode.CAR -> 2000f
+            TransportMode.MOTORCYCLE -> 2500f
             TransportMode.TRAIN -> 4000f
         }
         // Bonus only when unusually fast: guarantees ~2 min of warning

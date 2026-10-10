@@ -330,12 +330,16 @@ fun TripSimulationPanel(
                                 starting = false
                                 return@launch
                             }
+                            // VEHICLE (user order Oct 2026): the virtual GPS
+                            // advances at the chosen vehicle's cruise speed
+                            // so TIME-mode ETA/alarm behave realistically.
                             TripSimulationController.start(
                                 originLat = origin.latitude,
                                 originLng = origin.longitude,
                                 destLat = destLat,
                                 destLng = destLng,
                                 routeGeoJson = routeGeoJson,
+                                baseSpeedMps = mode.simSpeedMps,
                             )
                             val intent = Intent(context, TrackingService::class.java).apply {
                                 action = TrackingService.ACTION_START

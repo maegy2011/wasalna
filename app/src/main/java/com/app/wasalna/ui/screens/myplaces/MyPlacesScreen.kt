@@ -348,9 +348,11 @@ fun MyPlacesScreen(
             }
         }
     }
-    // DYNAMIC WAKE-UP: Arabic trip-setup dialog (mode + minutes stepper).
+    // DYNAMIC WAKE-UP: Arabic trip-setup dialog (vehicle + mode + minutes).
     if (showAlarmSetup) {
         AlarmSetupDialog(
+            vehicle = transportMode,
+            onVehicleChange = viewModel::setTransportMode,
             mode = alarmMode,
             minutes = alarmTimeMinutes,
             onModeChange = viewModel::setAlarmMode,
@@ -481,6 +483,8 @@ private fun BackupRow(
  */
 @Composable
 private fun AlarmSetupDialog(
+    vehicle: TransportMode,
+    onVehicleChange: (TransportMode) -> Unit,
     mode: String,
     minutes: Int,
     onModeChange: (String) -> Unit,
@@ -494,6 +498,52 @@ private fun AlarmSetupDialog(
         title = { Text(stringResource(R.string.alarm_setup_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                // VEHICLE TYPE (user order Oct 2026): big icon cards per
+                // vehicle — one tap selects (persisted, last choice
+                // remembered); Start then begins tracking with it.
+                // 64dp cards, 8dp grid, RTL-safe (Row/Arrangement only).
+                Text(
+                    text = stringResource(R.string.vehicle_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TransportMode.pickerEntries.chunked(2).forEach { rowModes ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rowModes.forEach { option ->
+                            val label = when (option) {
+                                TransportMode.CAR -> stringResource(R.string.transport_car)
+                                TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
+                                TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
+                                TransportMode.WALK -> stringResource(R.string.transport_walk)
+                                TransportMode.TRAIN -> stringResource(R.string.transport_train)
+                            }
+                            if (option == vehicle) {
+                                Button(
+                                    onClick = { onVehicleChange(option) },
+                                    modifier = Modifier.weight(1f).height(64.dp),
+                                ) {
+                                    Text(label)
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onVehicleChange(option) },
+                                    modifier = Modifier.weight(1f).height(64.dp),
+                                ) {
+                                    Text(label)
+                                }
+                            }
+                        }
+                        // Keep the 2-column grid balanced on odd rows.
+                        if (rowModes.size < 2) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
