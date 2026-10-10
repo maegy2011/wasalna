@@ -349,6 +349,8 @@
     <string name="impact_hours">الوقت الموفّر: %1$s ساعات</string>
     <string name="splash_logo_desc">شعار وصلنا</string>
     <string name="splash_tagline">لا تفوّت محطتك أبدًا</string>
+    <!-- Splash footer: %1$s = localized app name (with ؟), %2$s = version. Mirrored in values. -->
+    <string name="splash_footer">© 2026 %1$s • v%2$s</string>
     <string name="tracking_paused_title">متوقف مؤقتًا — %1$s</string>
     <string name="tracking_heading_title">متجه إلى: %1$s</string>
     <string name="tracking_paused_body">الرحلة متوقفة — انقر استئناف للمتابعة</string>

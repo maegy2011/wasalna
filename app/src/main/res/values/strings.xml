@@ -359,6 +359,8 @@
     <string name="impact_hours">Time saved: %1$s hrs</string>
     <string name="splash_logo_desc">Wasalna logo</string>
     <string name="splash_tagline">Never miss your stop</string>
+    <!-- Splash footer: %1$s = localized app name (with ?), %2$s = version. Mirrored in values-ar. -->
+    <string name="splash_footer">© 2026 %1$s • v%2$s</string>
     <string name="tracking_paused_title">Paused — %1$s</string>
     <string name="tracking_heading_title">Heading to: %1$s</string>
     <string name="tracking_paused_body">Trip paused — tap Resume to continue</string>

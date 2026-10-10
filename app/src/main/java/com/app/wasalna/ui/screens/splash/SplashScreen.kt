@@ -68,8 +68,10 @@ fun SplashScreen(
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.height(16.dp))
+            // App name under the logo: localized via app_name (en: Wasalna? / ar: وصلنا؟
+            // — the ?/؟ is part of the name) so the splash speaks one language.
             Text(
-                text = "Wasalna وصلنا",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -83,9 +85,14 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(32.dp))
             CircularProgressIndicator()
         }
-        // Phase 10.5.0: copyright + version footer pinned to the bottom.
+        // Phase 10.5.0: copyright + version footer pinned to the bottom —
+        // localized app name (with ?) + version via splash_footer.
         Text(
-            text = "© 2026 Wasalna • v${BuildConfig.VERSION_NAME}",
+            text = stringResource(
+                R.string.splash_footer,
+                stringResource(R.string.app_name),
+                BuildConfig.VERSION_NAME,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.BottomCenter),
