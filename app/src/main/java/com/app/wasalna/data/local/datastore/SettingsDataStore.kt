@@ -97,6 +97,16 @@ class SettingsDataStore @Inject constructor(
     val alarmTimeMinutes: Flow<Int> =
         dataStore.data.map { it[Keys.ALARM_TIME_MINUTES]?.coerceIn(1, 30) ?: 5 }
 
+    // Silent-mode (DND) bypass choice — persisted 3-way value
+    // (respect/bypass/ask). Default RESPECT (safe, zero behaviour change).
+    val dndChoice: Flow<String> =
+        dataStore.data.map { com.app.wasalna.utils.DndChoice.normalize(it[Keys.DND_CHOICE]) }
+
+    suspend fun setDndChoice(choice: String) {
+        val normalized = com.app.wasalna.utils.DndChoice.normalize(choice)
+        dataStore.edit { it[Keys.DND_CHOICE] = normalized }
+    }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -375,5 +385,6 @@ class SettingsDataStore @Inject constructor(
         val GRADUAL_RINGTONE_URI = stringPreferencesKey("gradual_ringtone_uri")
         val ACCOUNT_DISPLAY_NAME = stringPreferencesKey("account_display_name")
         val ACCOUNT_EMAIL = stringPreferencesKey("account_email")
+        val DND_CHOICE = stringPreferencesKey("dnd_choice")
     }
 }

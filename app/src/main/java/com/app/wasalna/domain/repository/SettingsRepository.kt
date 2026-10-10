@@ -57,6 +57,9 @@ interface SettingsRepository {
 
     val appLanguageCode: Flow<String>
 
+    // Silent-mode (DND) bypass choice — persisted, default RESPECT (safe).
+    val dndChoice: Flow<String>
+
     // Phase 10.13-exp: Google account (local-only, "" = signed out).
     val accountDisplayName: Flow<String>
     val accountEmail: Flow<String>
@@ -76,6 +79,8 @@ interface SettingsRepository {
     suspend fun setHeadphoneOnlyEnabled(enabled: Boolean)
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
+
+    suspend fun setDndChoice(choice: String)
 
     suspend fun setWatchOnlyAlert(enabled: Boolean)
 

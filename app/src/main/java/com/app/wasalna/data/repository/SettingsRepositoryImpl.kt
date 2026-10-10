@@ -29,6 +29,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isSilentAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isSilentAlarmEnabled
 
+    override val dndChoice: Flow<String>
+        get() = settingsDataStore.dndChoice
+
     override val isHeadphoneOnlyEnabled: Flow<Boolean>
         get() = settingsDataStore.isHeadphoneOnlyEnabled
 
@@ -128,6 +131,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setSilentAlarmEnabled(enabled: Boolean) {
         settingsDataStore.setSilentAlarmEnabled(enabled)
+    }
+
+    override suspend fun setDndChoice(choice: String) {
+        settingsDataStore.setDndChoice(choice)
     }
 
     override suspend fun setWatchOnlyAlert(enabled: Boolean) {
