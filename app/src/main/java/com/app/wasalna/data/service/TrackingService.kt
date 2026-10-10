@@ -283,6 +283,15 @@ class TrackingService : Service() {
         Log.i(TAG, "onFix: distance=${distanceM.toInt()}m trigger=${triggerM.toInt()}m " +
             "speed=${"%.1f".format(lastSpeedKmh)}km/h mode=$mode")
 
+        // FAILSAFE 🛡️ (بأمر محمد — صمام الأمان): independent guard checked
+        // with EVERY fix BEFORE any other logic (top priority). Regardless
+        // of alarm mode (DISTANCE/TIME) and regardless of vehicle speed —
+        // at <=500 m actual remaining distance (walking distance) the alarm
+        // fires IMMEDIATELY without waiting. The stop is never overshot.
+        if (!hasFiredAlarm && distanceM <= SAFETY_VALVE_METERS) {
+            fireAlarm(alarmModeName)
+            return
+        }
         // Mid-trip switch support: refresh the cached mode on IO (never Main)
         // on every fix, so DISTANCE→TIME also takes effect by the next fix
         // (TIME→DISTANCE re-reads live inside evaluateTimeModeAlarm).
@@ -292,14 +301,6 @@ class TrackingService : Service() {
                 .getOrDefault(alarmModeName)
             alarmTimeMinutes = runCatching { modePrefs.alarmTimeMinutes.first() }
                 .getOrDefault(alarmTimeMinutes)
-        }
-        // SAFETY VALVE 🛡️ (بأمر محمد): regardless of mode (DISTANCE/TIME)
-        // and regardless of speed state — at <=500 m remaining (walking
-        // distance) the alarm fires IMMEDIATELY as an independent guard
-        // with top priority, before any other logic. The stop is never missed.
-        if (!hasFiredAlarm && distanceM <= SAFETY_VALVE_METERS) {
-            fireAlarm(alarmModeName)
-            return
         }
         // DYNAMIC WAKE-UP: DISTANCE mode fires on the radius here; TIME mode
         // never fires on distance alone — evaluated below on Default.
@@ -975,8 +976,8 @@ class TrackingService : Service() {
         private const val ROUTE_REMAINING_FRESH_MS = 120_000L
 
         /**
-         * SAFETY VALVE 🛡️: walking-distance backstop — the alarm fires
-         * here no matter the mode or speed state (never miss the stop).
+         * FAILSAFE 🛡️ (صمام الأمان): walking-distance backstop — the alarm
+         * fires here no matter the mode or speed state (never miss the stop).
          */
         private const val SAFETY_VALVE_METERS = 500f
 
