@@ -41,7 +41,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
+import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.ui.components.DestinationShareSheet
+import com.app.wasalna.ui.components.SimulationBanner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -86,6 +88,8 @@ fun TripRouteScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val trip by viewModel.trip.collectAsState()
     val points by viewModel.points.collectAsState()
+    // TRIP SIMULATION: test-mode strip while virtual GPS drives the trip.
+    val isSimulating by TripSimulationController.isSimulating.collectAsState()
 
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
@@ -217,10 +221,23 @@ fun TripRouteScreen(
                 } else {
                     0f
                 }
+            // TRIP SIMULATION: clearly-labeled test-mode strip on top.
+            if (isSimulating) {
+                SimulationBanner(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = if (isSimulating) 72.dp else 16.dp,
+                            bottom = 16.dp,
+                        )
                         .align(Alignment.TopCenter),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),

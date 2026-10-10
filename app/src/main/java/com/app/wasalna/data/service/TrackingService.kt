@@ -18,6 +18,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.app.wasalna.R
 import com.app.wasalna.data.local.datastore.SettingsDataStore
+import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.data.repository.OSRMRepository
 import com.app.wasalna.di.TripRepositoryEntryPoint
 import com.app.wasalna.domain.model.AlarmMode
@@ -32,6 +33,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -114,6 +116,12 @@ class TrackingService : Service() {
     private var nudgeLeadMinutes: Int = DEFAULT_NUDGE_LEAD_MINUTES
     private var currentIntervalMs: Long = -1L
     private var isTracking = false
+    // TRIP SIMULATION seam (وضع محاكاة للرحلة للتجربة): virtual-fix feed
+    // jobs. When the controller is off these stay null and the fused GPS
+    // path below runs exactly as before (zero behavior change).
+    private var simFeedJob: Job? = null
+    private var simWatchJob: Job? = null
+    private var isStopping: Boolean = false
 
     // Live stats for the notification body.
     private var lastSpeedKmh: Double = 0.0
@@ -191,6 +199,7 @@ class TrackingService : Service() {
         targetName = intent.getStringExtra(EXTRA_NAME)?.ifBlank { null } ?: "Destination"
         mode = TransportMode.fromName(intent.getStringExtra(EXTRA_MODE))
         isPaused = false
+        isStopping = false
         acquireWakeLock()
         // Phase 10.4.3.3/10.4.3.4: one-shot reads (never collect{} in a service).
         hasFiredProactiveAlert = false
@@ -256,8 +265,39 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
+    /**
+     * TRIP SIMULATION seam: when the simulation controller is active,
+     * virtual GPS fixes drive the SAME onFix() production path
+     * (estimator + failsafe + nudge + alarm). Sim off → fused GPS path
+     * below, byte-for-byte the legacy behavior.
+     */
+    private fun startSimFeed() {
+        simFeedJob?.cancel()
+        simWatchJob?.cancel()
+        isTracking = true
+        currentIntervalMs = SIM_FIX_INTERVAL_MS
+        Log.i(TAG, "startSimFeed: virtual GPS driving production onFix()")
+        simFeedJob = serviceScope.launch {
+            TripSimulationController.fixes.collect { fix -> onFix(fix) }
+        }
+        // Stopping the simulation restores real GPS instantly.
+        simWatchJob = serviceScope.launch {
+            TripSimulationController.isActiveFlow.first { !it }
+            simFeedJob?.cancel()
+            simFeedJob = null
+            if (!hasFiredAlarm && !isStopping && !isPaused) {
+                Log.i(TAG, "simulation stopped — restoring real GPS")
+                startTracking(force = true)
+            }
+        }
+    }
+
     private fun startTracking(force: Boolean = false) {
         if (isTracking && !force) return
+        if (TripSimulationController.isActive) {
+            startSimFeed()
+            return
+        }
         if (!hasLocationPermission()) {
             Log.e(TAG, "startTracking: location permission missing, stopping")
             stopSelf()
@@ -664,6 +704,7 @@ class TrackingService : Service() {
     }
 
     private fun stopForegroundAndSelf() {
+        isStopping = true
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -799,6 +840,10 @@ class TrackingService : Service() {
             hasFiredAlarm = true
         }
         Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng mode=$firedMode")
+        // TRIP SIMULATION: end the virtual trip (idempotent; onDestroy
+        // repeats it safely) so a re-run starts clean.
+        isStopping = true
+        TripSimulationController.notifyTripEnded()
         // Phase 10.4.3.4: the heads-up has served its purpose — dismiss.
         dismissProactiveAlert()
         hasFiredProactiveAlert = false
@@ -984,6 +1029,12 @@ class TrackingService : Service() {
     }
 
     override fun onDestroy() {
+        isStopping = true
+        simFeedJob?.cancel()
+        simFeedJob = null
+        simWatchJob?.cancel()
+        simWatchJob = null
+        TripSimulationController.notifyTripEnded()
         try {
             fusedClient.removeLocationUpdates(locationCallback)
         } catch (e: Exception) {
@@ -1084,6 +1135,9 @@ class TrackingService : Service() {
         private const val WAKELOCK_TIMEOUT_MS = 12L * 60L * 60L * 1000L
 
         private const val INITIAL_INTERVAL_MS = 10_000L
+
+        /** TRIP SIMULATION: virtual-fix cadence (matches the 10 s bucket). */
+        private const val SIM_FIX_INTERVAL_MS = 10_000L
 
         /** Local ETA only counts when actually moving (>5 km/h). */
         private const val MIN_MOVING_KMH = 5.0

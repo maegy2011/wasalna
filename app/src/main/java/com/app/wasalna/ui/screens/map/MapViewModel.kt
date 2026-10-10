@@ -460,6 +460,13 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * TRIP SIMULATION: exposes one GPS fix so the simulator can use it
+     * as the virtual origin. Null = no fix/permission. No behavior change
+     * to the existing private path.
+     */
+    suspend fun peekCurrentFix(): android.location.Location? = currentFix()
+
     /** Last GPS fix, guarded by permission with a short timeout. Null = none. */
     private suspend fun currentFix(): android.location.Location? {
         if (!hasLocationPermission()) return null

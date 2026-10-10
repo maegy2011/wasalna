@@ -75,11 +75,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
 import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.OfflineModeBanner
 import com.app.wasalna.ui.components.OfflineModeButton
+import com.app.wasalna.ui.components.SimulationBanner
+import com.app.wasalna.ui.components.TripSimulationPanel
 import com.app.wasalna.ui.components.DestinationShareSheet
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import kotlinx.coroutines.launch
@@ -159,6 +162,8 @@ fun MapScreen(
     // True offline mode (GPS-chip only): same StateFlow the toggle writes
     // (single source of truth, two-way synced with Settings).
     val isOfflineMode by viewModel.isOfflineMode.collectAsState()
+    // TRIP SIMULATION: banner visibility (controller singleton, no VM change).
+    val isSimulating by TripSimulationController.isSimulating.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -282,6 +287,12 @@ fun MapScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            // TRIP SIMULATION: clearly-labeled test-mode strip.
+            if (isSimulating) {
+                SimulationBanner(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
             SearchBar(
@@ -469,6 +480,19 @@ fun MapScreen(
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                     ) {
                         Text(stringResource(R.string.share_destination))
+                    }
+                    // TRIP SIMULATION (وضع محاكاة للرحلة للتجربة):
+                    // destination reused from the existing selection state.
+                    selectedLatLng?.let { point ->
+                        TripSimulationPanel(
+                            destLat = point.latitude,
+                            destLng = point.longitude,
+                            destName = addressLine ?: selectedName ?: "",
+                            mode = transportMode,
+                            routeGeoJson = routeGeoJson,
+                            originProvider = { viewModel.peekCurrentFix() },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
                     }
                 }
                 // Phase 10.8.0g (traffic): Vela live-traffic raster (Google

@@ -378,4 +378,41 @@
     <string name="alarm_phase_instant">منبه كامل</string>
     <string name="trip_card_distance_km">%1$s كم</string>
     <string name="trip_card_duration_min">%1$s دقيقة</string>
+    <!-- المرحلة 10.13: ترقية تسويق شاشة الاشتراك + الحساب التجريبي (مطابقة لقيم values). -->
+    <string name="paywall_hero_title">نام مرتاح… واصحى على محطتك بالظبط</string>
+    <string name="paywall_hero_sub">الدرجة الأولى بتخلي منبهك ذكي: صامت فين ما تحب، وعالي فين ما تحتاج.</string>
+    <string name="paywall_value_watch_title">⌚ تنبيه الساعة فقط</string>
+    <string name="paywall_value_watch_desc">الهاتف بيفضل صامت — ساعتك بس اللي بتهتز وترن. ولو الساعة مش متاحة، منبه الهاتف العادي بيشتغل.</string>
+    <string name="paywall_value_headphone_title">🎧 تنبيه السماعة فقط</string>
+    <string name="paywall_value_headphone_desc">المنبه بيشتغل في سماعتك بس — سماعة الهاتف بتفضل صامتة. ولو السماعة اتفصلت، منبه الهاتف العالي بيشتغل.</string>
+    <string name="paywall_value_perks_title">✦ كل مزايا الدرجة الأولى</string>
+    <string name="paywall_value_perks_desc">أماكن غير محدودة · بلا إعلانات · منبه صامت · نغمة مخصصة · خرائط أوفلاين</string>
+    <string name="paywall_plan_monthly_desc">مرونة شهر بشهر</string>
+    <string name="paywall_plan_yearly_desc">الأوفر للي بيركب كل يوم — أكبر توفير</string>
+    <string name="paywall_yearly_badge">أفضل قيمة</string>
+    <string name="paywall_trial_badge">٣ أيام مجانًا</string>
+    <string name="paywall_experimental_billing">دفع تجريبي — بلا رسوم حقيقية. الدفع الحقيقي عبر Play عند الإصدار.</string>
+    <string name="paywall_account_signed_as">مسجّل باسم %1$s</string>
+    <string name="paywall_account_guest">تصفح كضيف</string>
+    <string name="settings_account_title">حساب جوجل</string>
+    <string name="settings_account_sub">إظهار اسمك في الإعدادات وشاشة الاشتراك</string>
+    <string name="settings_account_experimental_badge">تجريبي</string>
+    <string name="settings_account_signin">تسجيل الدخول بحساب جوجل — تجريبي</string>
+    <string name="settings_account_signout">تسجيل الخروج</string>
+    <string name="settings_account_error">فشل تسجيل الدخول — تحقق من الإنترنت وحاول مجددًا</string>
+    <string name="settings_account_local_note">يُحفظ الاسم والبريد على جهازك فقط. لا يُرفع أي شيء.</string>
+    <string name="settings_account_signed_as">مسجّل باسم %1$s (%2$s)</string>
+    <!-- وضع محاكاة للرحلة للتجربة (مطابق لقيم values). -->
+    <string name="sim_banner">🧪 وضع تجريبي — رحلة محاكاة جارية</string>
+    <string name="sim_banner_desc">المحاكاة نشطة</string>
+    <string name="sim_title">محاكاة الرحلة (للتجربة)</string>
+    <string name="sim_hint">تشغّل مسار المنبه الحقيقي بإحداثيات افتراضية — بلا إنترنت.</string>
+    <string name="sim_start">بدء المحاكاة</string>
+    <string name="sim_stop">إيقاف المحاكاة</string>
+    <string name="sim_pause">إيقاف مؤقت</string>
+    <string name="sim_resume">استئناف</string>
+    <string name="sim_speed_label">السرعة</string>
+    <string name="sim_speed">%1$dx</string>
+    <string name="sim_progress_desc">تقدم المحاكاة</string>
+    <string name="sim_no_fix">تعذر تحديد موقعك — فعّل GPS وحاول مجددًا</string>
 </resources>
