@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -469,21 +470,45 @@ fun MainContainerScreen() {
  */
 @Composable
 private fun DrawerBrandHeader() {
+    val context = LocalContext.current
     val appName = stringResource(id = R.string.app_name)
     val versionName = com.app.wasalna.BuildConfig.VERSION_NAME
+    // The REAL launcher icon (same artwork + same scale as the app icon),
+    // rasterized once from the PackageManager drawable (user order Oct 2026).
+    val appIconBitmap = remember {
+        runCatching {
+            val drawable = context.packageManager.getApplicationIcon(context.packageName)
+            val px = 192
+            val bmp = android.graphics.Bitmap.createBitmap(
+                px, px, android.graphics.Bitmap.Config.ARGB_8888,
+            )
+            val canvas = android.graphics.Canvas(bmp)
+            drawable.setBounds(0, 0, px, px)
+            drawable.draw(canvas)
+            bmp
+        }.getOrNull()
+    }
     Column(modifier = Modifier.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
+            appIconBitmap?.let { bmp ->
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                )
+            } ?: Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(colorResource(id = R.color.ic_launcher_background)),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_launcher_foreground),
                     contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(40.dp),
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
