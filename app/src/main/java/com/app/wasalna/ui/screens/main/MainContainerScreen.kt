@@ -201,23 +201,37 @@ fun MainContainerScreen() {
     Scaffold(
         bottomBar = {
                 NavigationBar {
+                    // Icon-only bottom bar (user order Oct 2026): no text
+                    // labels — the icon contentDescription keeps TalkBack.
                     NavigationBarItem(
                         selected = isSelected(Screen.Home.route),
                         onClick = { navigateTab(Screen.Home.route) },
-                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_home)) },
+                        icon = {
+                            Icon(
+                                Icons.Filled.Home,
+                                contentDescription = stringResource(R.string.nav_home),
+                            )
+                        },
                     )
                     NavigationBarItem(
                         selected = isSelected(Screen.MyPlaces.route),
                         onClick = { navigateTab(Screen.MyPlaces.route) },
-                        icon = { Icon(Icons.Filled.Place, contentDescription = null) },
-                        label = { Text(stringResource(R.string.myplaces_title)) },
+                        icon = {
+                            Icon(
+                                Icons.Filled.Place,
+                                contentDescription = stringResource(R.string.myplaces_title),
+                            )
+                        },
                     )
                     NavigationBarItem(
                         selected = isSelected(Screen.Paywall.route),
                         onClick = { navigateTab(Screen.Paywall.route) },
-                        icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
-                        label = { Text(stringResource(R.string.paywall_title)) },
+                        icon = {
+                            Icon(
+                                Icons.Filled.Diamond,
+                                contentDescription = stringResource(R.string.paywall_title),
+                            )
+                        },
                     )
                     NavigationBarItem(
                         selected = isSelected(Screen.TripsHistory.route),
@@ -228,7 +242,6 @@ fun MainContainerScreen() {
                                 contentDescription = stringResource(R.string.nav_trips_desc),
                             )
                         },
-                        label = { Text(stringResource(R.string.nav_trips)) },
                     )
                     // Drawer entry from the bottom bar (works on every tab,
                     // incl. Map where edge-swipe is locked). Opens the drawer
@@ -242,7 +255,6 @@ fun MainContainerScreen() {
                                 contentDescription = stringResource(R.string.nav_menu_desc),
                             )
                         },
-                        label = { Text(stringResource(R.string.nav_menu)) },
                     )
                 }
         },
