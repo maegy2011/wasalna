@@ -245,9 +245,17 @@ class TrackingService : Service() {
             }
         }
         // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
+        // User order Oct 2026: SIMULATED trips are never recorded — close
+        // any stale ACTIVE row but insert nothing, so trip history +
+        // impact stats stay 100% real trips.
         serviceScope.launch {
             activeTripId = runCatching {
-                tripRepo.startTrip(targetName, targetLat, targetLng, mode)
+                if (TripSimulationController.isActive) {
+                    tripRepo.closeOpenTrips()
+                    null
+                } else {
+                    tripRepo.startTrip(targetName, targetLat, targetLng, mode)
+                }
             }.onFailure {
                 Log.w(TAG, "startTrip log failed: ${it.message}")
             }.getOrNull()
