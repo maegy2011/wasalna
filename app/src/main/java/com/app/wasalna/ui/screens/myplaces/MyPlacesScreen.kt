@@ -532,7 +532,9 @@ private fun AlarmSetupDialog(
                                 TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
                                 TransportMode.WALK -> stringResource(R.string.transport_walk)
                                 TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
-                                TransportMode.TRAIN -> stringResource(R.string.transport_train)
+                                TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+                                TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+                                TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
                             }
                             if (option == vehicle) {
                                 Button(

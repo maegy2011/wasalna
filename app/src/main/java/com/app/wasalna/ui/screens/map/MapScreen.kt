@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,6 +57,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.rememberScrollState
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -79,6 +81,7 @@ import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
+import com.app.wasalna.ui.components.TransitApproxNote
 import com.app.wasalna.ui.components.TransitGuideCard
 import com.app.wasalna.ui.components.TransitLiveCard
 import com.app.wasalna.ui.components.HomeWorkQuickRow
@@ -435,21 +438,21 @@ fun MapScreen(
                 // Phase 10.4.0: Vela-style multimodal ETA selector. Changing
                 // the mode recomputes route + ETA in the ViewModel.
                 if (selectedLatLng != null) {
+                    // Road vehicles (segmented, max 4) + transit systems
+                    // (chips row below) — 8 modes total (Oct 2026).
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                     ) {
-                        // Vehicle picker: the 4 offered vehicles (TRAIN is a
-                        // legacy alias, hidden — see TransportMode).
-                        val vehicleOptions = TransportMode.pickerEntries
-                        vehicleOptions.forEachIndexed { index, mode ->
+                        val roadOptions = TransportMode.roadEntries
+                        roadOptions.forEachIndexed { index, mode ->
                             SegmentedButton(
                                 selected = transportMode == mode,
                                 onClick = { viewModel.setTransportMode(mode) },
                                 shape = SegmentedButtonDefaults.itemShape(
                                     index = index,
-                                    count = vehicleOptions.size,
+                                    count = roadOptions.size,
                                 ),
                                 label = {
                                     Text(
@@ -459,11 +462,69 @@ fun MapScreen(
                                             TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
                                             TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
                                             TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
-                                            TransportMode.TRAIN -> stringResource(R.string.transport_train)
+                                            TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+                                            TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+                                            TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
                                         },
                                     )
                                 },
                             )
+                        }
+                    }
+                    // Transit systems row (Oct 2026): generic live/approx
+                    // TRANSIT + static-data METRO / MONORAIL / LRT train.
+                    // Horizontal scroll keeps 48dp+ targets (RTL-safe).
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TransportMode.transitEntries.forEach { mode ->
+                            FilterChip(
+                                selected = transportMode == mode,
+                                onClick = { viewModel.setTransportMode(mode) },
+                                label = {
+                                    Text(
+                                        when (mode) {
+                                            TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
+                                            TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+                                            TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+                                            TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
+                                            else -> stringResource(R.string.vehicle_title)
+                                        },
+                                    )
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            )
+                        }
+                    }
+                    // Static transit preview card (METRO/MONORAIL/TRAIN):
+                    // planner summary + honesty label (ViewModel text).
+                    if (transportMode in TransportMode.staticTransitEntries) {
+                        val staticText by viewModel.staticTransitText.collectAsState()
+                        staticText?.let { summary ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+                                ),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = summary,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    )
+                                    TransitApproxNote()
+                                }
+                            }
                         }
                     }
                     // TRANSIT planning surface (Oct 2026): live v2 plan

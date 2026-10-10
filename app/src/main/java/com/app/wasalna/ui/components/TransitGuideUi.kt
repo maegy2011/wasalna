@@ -106,12 +106,18 @@ fun TransitApproxNote(modifier: Modifier = Modifier) {
 /**
  * Nearest boarding/alighting card: walk → station → ride → station →
  * walk. Km strings are pre-formatted by the caller (locale-safe).
+ *
+ * OSM honesty (Oct 2026, outcome c): [showApproxNote]=true keeps the
+ * «إرشاد تقريبي» label (default — every legacy call site unchanged);
+ * pass false ONLY when both ends are OSM-covered metro stops, and the
+ * card shows the verified-data note instead (never a timetable claim).
  */
 @Composable
 fun TransitGuideCard(
     boardingText: String?,
     alightingText: String,
     modifier: Modifier = Modifier,
+    showApproxNote: Boolean = true,
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -136,7 +142,15 @@ fun TransitGuideCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            TransitApproxNote()
+            if (showApproxNote) {
+                TransitApproxNote()
+            } else {
+                Text(
+                    text = stringResource(R.string.transit_verified_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

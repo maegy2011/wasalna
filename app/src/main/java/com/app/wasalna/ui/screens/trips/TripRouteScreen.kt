@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.domain.model.CairoTransitStations
+import com.app.wasalna.domain.model.TransitPlanner
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.components.DestinationShareSheet
 import com.app.wasalna.ui.components.TransitApproxNote
@@ -338,7 +339,9 @@ fun TripRouteScreen(
                                                 TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
                                                 TransportMode.WALK -> stringResource(R.string.transport_walk)
                                                 TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
-                                                TransportMode.TRAIN -> stringResource(R.string.transport_train)
+                                                TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+                                                TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+                                                TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
                                             },
                                         )
                                     },
@@ -382,9 +385,62 @@ fun TripRouteScreen(
                                         R.string.transit_walk_leg,
                                         walkKm(guide.alighting.distanceM),
                                     ),
+                                    // OSM outcome (c): drop the approximate
+                                    // label only when both ends are OSM-covered.
+                                    showApproxNote = guide.approximate,
                                 )
                             } else {
                                 TransitApproxNote()
+                            }
+                        }
+                        // Static transit mid-trip guide (METRO/MONORAIL/
+                        // TRAIN, Oct 2026): TransitPlanner on embedded data
+                        // (origin = first breadcrumb, else the destination).
+                        // Walk legs in km; honesty label always attached.
+                        if (vehicle in TransportMode.staticTransitEntries) {
+                            val dest = trip
+                            if (dest != null) {
+                                val plan = remember(points, dest, vehicle) {
+                                    val origin = points.firstOrNull()
+                                    com.app.wasalna.domain.model.TransitPlanner.plan(
+                                        origin?.lat ?: dest.destLat,
+                                        origin?.lng ?: dest.destLng,
+                                        dest.destLat, dest.destLng, vehicle,
+                                    )
+                                }
+                                if (plan.kind == "NONE") {
+                                    Text(
+                                        text = stringResource(
+                                            R.string.transit_static_none,
+                                            vehicleStaticLabel(vehicle),
+                                            stringResource(R.string.transit_off_corridor),
+                                        ),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    TransitApproxNote()
+                                } else {
+                                    TransitGuideCard(
+                                        boardingText = stringResource(
+                                            R.string.transit_board_at,
+                                            plan.board?.displayName() ?: "—",
+                                        ) + " " + stringResource(
+                                            R.string.transit_walk_leg,
+                                            walkKm(plan.walkOriginM.toFloat()),
+                                        ),
+                                        alightingText = staticRideSummary(plan) + " " + stringResource(
+                                            R.string.transit_alight_at,
+                                            plan.alight?.displayName() ?: "—",
+                                        ) + " " + stringResource(
+                                            R.string.transit_walk_leg,
+                                            walkKm(plan.walkDestM.toFloat()),
+                                        ),
+                                        // OSM outcome (c): planner flags any
+                                        // estimated leg — label stays unless fully
+                                        // scheduled + OSM-covered.
+                                        showApproxNote = plan.approximate,
+                                    )
+                                }
                             }
                         }
                         // Phase 10.11: share the trip destination to the
@@ -481,6 +537,34 @@ fun TripRouteScreen(
 /** Straight-line meters → "1.2" km string (US locale, caller adds the unit resource). */
 private fun walkKm(distanceM: Float): String =
     String.format(java.util.Locale.US, "%.1f", distanceM / 1000f)
+
+/** Static-transit mode label (METRO/MONORAIL/LRT-train). */
+@Composable
+private fun vehicleStaticLabel(mode: TransportMode): String = when (mode) {
+    TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+    TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+    else -> stringResource(R.string.vehicle_train_lrt)
+}
+
+/** One-line ride summary for a static itinerary (mid-trip card). */
+@Composable
+private fun staticRideSummary(plan: TransitPlanner.TransitItinerary): String {
+    return if (plan.segments.size > 1) {
+        val legs = plan.segments.joinToString(" + ") { seg ->
+            "${seg.line.nameAr} (${seg.stops.size})"
+        }
+        stringResource(R.string.transit_static_transfer, legs, plan.totalMin)
+    } else {
+        val seg = plan.segments.firstOrNull()
+        val line = seg?.line?.nameAr ?: stringResource(R.string.vehicle_title)
+        val from = plan.board?.displayName() ?: "—"
+        val to = plan.alight?.displayName() ?: "—"
+        stringResource(
+            R.string.transit_static_direct,
+            line, from, to, seg?.stops?.size ?: 0, plan.totalMin,
+        )
+    }
+}
 
 private fun lineStringGeoJson(points: List<RoutePoint>): String {
     val coords = points.joinToString(",") { "[${it.lng},${it.lat}]" }

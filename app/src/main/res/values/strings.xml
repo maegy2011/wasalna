@@ -433,6 +433,8 @@
     <!-- TRANSIT first-class mode (Oct 2026, APPROXIMATE guidance — mirrored in values-ar). -->
     <string name="vehicle_transit">🚇 Transit</string>
     <string name="transit_approx_note">Approximate guidance — verify schedules before boarding.</string>
+    <string name="transit_verified_note">Station guidance from OpenStreetMap data — verify departure times before boarding.</string>
+    <string name="transit_osm_attribution">Station data © OpenStreetMap contributors (ODbL) + Wikipedia (CC BY-SA) • dataset %1$s</string>
     <string name="transit_board_at">🚇 Board near: %1$s</string>
     <string name="transit_alight_at">🚇 Alight near: %1$s</string>
     <string name="transit_walk_leg">≈ %1$s km on foot</string>
@@ -452,6 +454,15 @@
     <string name="settings_routes_cleared">Routes key cleared</string>
     <string name="settings_routes_show">Show key</string>
     <string name="settings_routes_hide">Hide key</string>
+    <!-- Static transit systems (METRO/MONORAIL/LRT-train, Oct 2026). Mirrored in values-ar. -->
+    <string name="vehicle_metro">🚇 Metro</string>
+    <string name="vehicle_monorail">🚝 Monorail</string>
+    <string name="vehicle_train_lrt">🚆 Light rail</string>
+    <string name="transit_static_direct">%1$s: %2$s → %3$s • %4$d stops • ~%5$d min</string>
+    <string name="transit_static_transfer">%1$s • ~%2$d min</string>
+    <string name="transit_static_none">No %1$s route here — %2$s</string>
+    <string name="transit_off_corridor">outside station coverage</string>
+    <string name="transit_line_level">(line-level estimate)</string>
     <!-- Explicit simulation action bar (user-ordered wording). Mirrored in values-ar. -->
     <string name="sim_explicit_start">▶ Start simulation</string>
     <string name="sim_explicit_pause">⏸ Pause</string>

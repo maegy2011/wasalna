@@ -18,6 +18,7 @@ import com.app.wasalna.data.traffic.TrafficOverlayState
 import com.app.wasalna.data.traffic.TrafficRepository
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
+import com.app.wasalna.domain.model.TransitPlanner
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
@@ -95,6 +96,12 @@ class MapViewModel @Inject constructor(
     // corridor below + APPROXIMATE guide stay (never a faked route).
     private val _transitPlan = MutableStateFlow<TransitPlan?>(null)
     val transitPlan: StateFlow<TransitPlan?> = _transitPlan.asStateFlow()
+
+    // Static transit (METRO/MONORAIL/TRAIN, Oct 2026): one-line Arabic
+    // summary of the TransitPlanner itinerary for the preview card.
+    // Null = no static plan (other modes, cleared, or unroutable).
+    private val _staticTransitText = MutableStateFlow<String?>(null)
+    val staticTransitText: StateFlow<String?> = _staticTransitText.asStateFlow()
 
     // Map UX fixes: camera zoom level (3..19) bound to the MapLibre camera.
     private val _cameraZoom = MutableStateFlow(15f)
@@ -533,6 +540,15 @@ class MapViewModel @Inject constructor(
         } else {
             _transitPlan.value = null
         }
+        // Static transit (METRO/MONORAIL/TRAIN): station-to-station plan
+        // on embedded data (TransitPlanner) + OSRM foot for the walk legs
+        // only — ride legs never touch OSRM/GraphHopper. Returns here.
+        if (_transportMode.value.isTransit && _transportMode.value != TransportMode.TRANSIT) {
+            _transitPlan.value = null
+            refreshStaticTransit(start.latitude, start.longitude, destLat, destLng)
+            return
+        }
+        _staticTransitText.value = null
         val profile = _transportMode.value.osrmProfile
         val route: OsrmRoute? = runCatching {
             osrm.fetchRoute(start.latitude, start.longitude, destLat, destLng, profile)
@@ -591,6 +607,127 @@ class MapViewModel @Inject constructor(
             } ?: appContext.getString(R.string.routing_span_unstored)
             _events.emit(notice)
         }
+    }
+
+    /**
+     * Static transit preview (METRO/MONORAIL/TRAIN, Oct 2026):
+     * TransitPlanner itinerary on embedded data + OSRM `foot` for the two
+     * walk legs (origin→board, alight→destination). The ride polyline is
+     * drawn ONLY through stations with real coords (metro); line-level
+     * plans (monorail/LRT, no coords) show text + ETA with NO polyline —
+     * never a faked route. ETA = planner door-to-door total. Offline:
+     * straight walk lines + real ride coords (still no network).
+     * ── HONESTY: every surface here pairs with the approximate label. ──
+     */
+    private suspend fun refreshStaticTransit(
+        startLat: Double,
+        startLng: Double,
+        destLat: Double,
+        destLng: Double,
+    ) {
+        val mode = _transportMode.value
+        val plan = withContext(Dispatchers.Default) {
+            runCatching {
+                TransitPlanner.plan(startLat, startLng, destLat, destLng, mode)
+            }.getOrNull()
+        }
+        if (plan == null || plan.kind == "NONE") {
+            _routeGeoJson.value = null
+            _etaMinutes.value = null
+            _staticTransitText.value = null
+            val why = appContext.getString(R.string.transit_off_corridor)
+            _events.emit(appContext.getString(R.string.transit_static_none, modeLabel(mode), why))
+            return
+        }
+        _etaMinutes.value = plan.totalMin
+        _staticTransitText.value = summarizeStatic(plan)
+        // Non-null station coords (smart-cast via locals — no !!).
+        val bLat = plan.board?.lat
+        val bLng = plan.board?.lng
+        val aLat = plan.alight?.lat
+        val aLng = plan.alight?.lng
+        if (bLat == null || bLng == null || aLat == null || aLng == null) {
+            // Line-level (no station coords): text + ETA only, no polyline.
+            _routeGeoJson.value = null
+            return
+        }
+        val rideCoords = plan.ridePoints()
+            .mapNotNull { st ->
+                val la = st.lat
+                val lo = st.lng
+                if (la == null || lo == null) null else listOf(lo, la)
+            }
+        if (isOfflineMode.value) {
+            // Offline: straight walk lines + real ride coords, no network.
+            val walkA = listOf(listOf(startLng, startLat), listOf(bLng, bLat))
+            val walkB = listOf(listOf(aLng, aLat), listOf(destLng, destLat))
+            _routeGeoJson.value = lineStringGeoJson(walkA + rideCoords + walkB)
+            return
+        }
+        val legA = runCatching {
+            osrm.fetchRoute(startLat, startLng, bLat, bLng, "foot")
+        }.getOrNull()
+        val legB = runCatching {
+            osrm.fetchRoute(aLat, aLng, destLat, destLng, "foot")
+        }.onFailure {
+            Log.e(TAG, "transit walk leg failed: ${it.message}")
+        }.getOrNull()
+        // JSON merge on Default (geometries can be large — never Main).
+        val merged = withContext(Dispatchers.Default) {
+            val coordsA = legA?.let { coordsOf(it.geoJson) } ?: emptyList()
+            val coordsB = legB?.let { coordsOf(it.geoJson) } ?: emptyList()
+            (coordsA + rideCoords + coordsB).distinct()
+        }
+        _routeGeoJson.value = if (merged.size >= 2) lineStringGeoJson(merged) else null
+    }
+
+    /** Arabic-first one-line summary of a static itinerary (preview card). */
+    private fun summarizeStatic(plan: TransitPlanner.TransitItinerary): String {
+        val stops = plan.segments.sumOf { it.stops.size }
+        return if (plan.segments.size > 1) {
+            val legs = plan.segments.joinToString(" + ") { it.line.nameAr }
+            appContext.getString(R.string.transit_static_transfer, legs, plan.totalMin)
+        } else {
+            val line = plan.segments.firstOrNull()?.line?.nameAr
+                ?: appContext.getString(R.string.vehicle_title)
+            val from = plan.board?.displayName() ?: "—"
+            val to = plan.alight?.displayName() ?: "—"
+            val base = appContext.getString(R.string.transit_static_direct, line, from, to, stops, plan.totalMin)
+            if (plan.reason == "line_level") {
+                base + " " + appContext.getString(R.string.transit_line_level)
+            } else {
+                base
+            }
+        }
+    }
+
+    private fun modeLabel(mode: TransportMode): String = when (mode) {
+        TransportMode.METRO -> appContext.getString(R.string.vehicle_metro)
+        TransportMode.MONORAIL -> appContext.getString(R.string.vehicle_monorail)
+        else -> appContext.getString(R.string.vehicle_train_lrt)
+    }
+
+    /** Extracts the [lng, lat] ring from an OSRM FeatureCollection string. */
+    private fun coordsOf(geoJson: String): List<List<Double>> {
+        return runCatching {
+            val coords = org.json.JSONObject(geoJson)
+                .optJSONArray("features")
+                ?.optJSONObject(0)
+                ?.optJSONObject("geometry")
+                ?.optJSONArray("coordinates") ?: return emptyList()
+            List(coords.length()) { i ->
+                val pair = coords.optJSONArray(i) ?: return emptyList()
+                listOf(pair.optDouble(0), pair.optDouble(1))
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /** Builds a FeatureCollection LineString from [lng, lat] pairs. */
+    private fun lineStringGeoJson(pairs: List<List<Double>>): String {
+        val coords = pairs.joinToString(",") { "[${it[0]},${it[1]}]" }
+        return "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\"," +
+            "\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}," +
+            "\"properties\":{}}]}"
     }
 
     /**
@@ -688,6 +825,7 @@ class MapViewModel @Inject constructor(
         _routeGeoJson.value = null
         _etaMinutes.value = null
         _transitPlan.value = null
+        _staticTransitText.value = null
     }
 
     /**

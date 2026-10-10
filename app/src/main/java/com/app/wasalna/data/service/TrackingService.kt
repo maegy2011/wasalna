@@ -393,6 +393,24 @@ class TrackingService : Service() {
             val mins = (distanceM / 1000.0) / lastSpeedKmh * 60.0
             lastEtaMin = mins.toInt().coerceAtLeast(1)
             persistEta()
+        } else if (mode.isTransit && mode != TransportMode.TRANSIT) {
+            // Static transit (METRO/MONORAIL/TRAIN): door-to-door ETA from
+            // the local planner — ride legs are not road-routable so OSRM
+            // is skipped entirely here (works offline too). Generic
+            // TRANSIT keeps its corridor path below (unchanged).
+            serviceScope.launch(Dispatchers.Default) {
+                val plan = runCatching {
+                    com.app.wasalna.domain.model.TransitPlanner.plan(
+                        fix.latitude, fix.longitude,
+                        targetLat, targetLng, mode,
+                    )
+                }.getOrNull()
+                if (plan != null && plan.kind != "NONE") {
+                    lastEtaMin = plan.totalMin
+                    persistEta()
+                }
+                pushNotification(fix)
+            }
         } else {
             val now = System.currentTimeMillis()
             // ── OFFLINE BOUNDARY: user offline-mode flag re-read live
@@ -1023,7 +1041,8 @@ class TrackingService : Service() {
 
     /**
      * Phase 10.4.3.3: adaptive trigger distance — mode base (WALK 500m /
-     * BICYCLE 1km / CAR 2km / MOTORCYCLE 2.5km / TRANSIT 1km / TRAIN 4km), stretched
+     * BICYCLE 1km / CAR 2km / MOTORCYCLE 2.5km / TRANSIT 1km / METRO
+     * 1.5km / MONORAIL 2km / TRAIN-LRT 2.5km), stretched
      * when actually moving fast so the
      * user always gets ~2 minutes of warning (capped at 8 km).
      * Adaptive off → legacy fixed 2 km.
@@ -1035,15 +1054,18 @@ class TrackingService : Service() {
         // conflict); bicycle 1 km; car 2 km (legacy); motorcycle 2.5 km
         // (faster city pace, ~2 min warning); TRANSIT 1 km (station-stop
         // rhythm: stops land ~1 km apart, and the 500 m FAILSAFE backstops
-        // every fix regardless — the stop is never overshot); train 4 km
-        // (legacy proxy).
+        // every fix regardless — the stop is never overshot); METRO
+        // 1.5 km; MONORAIL 2 km; TRAIN is now LRT Capital Train 2.5 km
+        // (was 4 km as a hidden driving proxy).
         val base = when (mode) {
             TransportMode.WALK -> 500f
             TransportMode.BICYCLE -> 1000f
             TransportMode.CAR -> 2000f
             TransportMode.MOTORCYCLE -> 2500f
             TransportMode.TRANSIT -> 1000f
-            TransportMode.TRAIN -> 4000f
+            TransportMode.METRO -> 1500f
+            TransportMode.MONORAIL -> 2000f
+            TransportMode.TRAIN -> 2500f
         }
         // Bonus only when unusually fast: guarantees ~2 min of warning
         // (speed × 120 s) but never shrinks the mode base.

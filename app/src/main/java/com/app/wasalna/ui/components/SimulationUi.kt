@@ -40,8 +40,11 @@ import androidx.core.content.ContextCompat
 import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.data.simulation.TripSimulationController
+import com.app.wasalna.domain.model.TransitPlanner
 import com.app.wasalna.domain.model.TransportMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * TRIP SIMULATION UI (وضع محاكاة للرحلة للتجربة) — test-only controls.
@@ -330,9 +333,28 @@ fun TripSimulationPanel(
                                 starting = false
                                 return@launch
                             }
-                            // VEHICLE (user order Oct 2026): the virtual GPS
-                            // advances at the chosen vehicle's cruise speed
-                            // so TIME-mode ETA/alarm behave realistically.
+                            // VEHICLE: cruise speed per vehicle so TIME-mode
+                            // ETA/alarm behave realistically. METRO additionally
+                            // dwells at the REAL ride stations (planner on
+                            // Default); systems without station coords ride
+                            // cruise-only (honest test rhythm, no fake stops).
+                            val stops = if (mode == TransportMode.METRO) {
+                                withContext(Dispatchers.Default) {
+                                    runCatching {
+                                        TransitPlanner.plan(
+                                            origin.latitude, origin.longitude,
+                                            destLat, destLng, mode,
+                                        )
+                                    }.getOrNull()?.ridePoints()?.mapNotNull { st ->
+                                        val la = st.lat
+                                        val lo = st.lng
+                                        if (la == null || lo == null) null
+                                        else TripSimulationController.Point(la, lo)
+                                    } ?: emptyList()
+                                }
+                            } else {
+                                emptyList()
+                            }
                             TripSimulationController.start(
                                 originLat = origin.latitude,
                                 originLng = origin.longitude,
@@ -340,6 +362,7 @@ fun TripSimulationPanel(
                                 destLng = destLng,
                                 routeGeoJson = routeGeoJson,
                                 baseSpeedMps = mode.simSpeedMps,
+                                stationStops = stops,
                             )
                             val intent = Intent(context, TrackingService::class.java).apply {
                                 action = TrackingService.ACTION_START

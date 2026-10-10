@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
 import com.app.wasalna.domain.audio.HeadphoneState
+import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.utils.DndChoice
 import com.app.wasalna.utils.DndPolicy
 
@@ -1007,6 +1008,24 @@ fun SettingsScreen(
                         Text(stringResource(R.string.settings_routes_clear))
                     }
                 }
+            }
+        }
+
+        // OSM ODbL ATTRIBUTION (Oct 2026, outcome c — user-visible credit
+        // for the bundled transit rosters; Arabic-first, RTL-safe Column).
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(
+                        R.string.transit_osm_attribution,
+                        CairoTransitStations.DATASET_DATE,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

@@ -91,6 +91,7 @@ object TripSimulationController {
         destLng: Double,
         routeGeoJson: String?,
         baseSpeedMps: Float = BASE_SPEED_MPS,
+        stationStops: List<Point> = emptyList(),
     ) {
         stopInternal()
         _isPaused.value = false
@@ -99,7 +100,7 @@ object TripSimulationController {
         _isSimulating.value = true
         simJob = simScope.launch {
             val points = parseRoutePoints(routeGeoJson, originLat, originLng, destLat, destLng)
-            runSimulation(points, baseSpeedMps)
+            runSimulation(points, baseSpeedMps, stationStops)
         }
     }
 
@@ -148,7 +149,17 @@ object TripSimulationController {
      * emitting the destination fix until stopped (alarm normally fires
      * first via the production failsafe).
      */
-    private suspend fun runSimulation(points: List<Point>, baseSpeedMps: Float) {
+    /**
+     * Station dwell (Oct 2026, metro rhythm): [stationStops] are matched
+     * to the nearest path points; reaching one holds the virtual GPS
+     * there for DWELL_TICKS ticks (scaled down at high multipliers) —
+     * like real station stops — before rolling on. Test-only.
+     */
+    private suspend fun runSimulation(
+        points: List<Point>,
+        baseSpeedMps: Float,
+        stationStops: List<Point> = emptyList(),
+    ) {
         if (points.size < 2) {
             val last = points.lastOrNull() ?: return
             while (_isSimulating.value) {
@@ -171,15 +182,50 @@ object TripSimulationController {
             }
             return
         }
+        // Station stops → path distances (nearest-point match), in order.
+        val stopMarks = stationStops.mapNotNull { stop ->
+            var best = 0
+            var bestM = Float.MAX_VALUE
+            points.forEachIndexed { i, p ->
+                val m = haversineM(stop, p)
+                if (m < bestM) {
+                    bestM = m
+                    best = i
+                }
+            }
+            // Ignore stops far off the path (>500 m — wrong line/leg).
+            if (bestM > 500f) null else cumulative[best]
+        }.sorted()
+        var stopIdx = 0
         var travelled = 0f
         while (_isSimulating.value && travelled < total) {
             ensureActive()
             if (!_isPaused.value) {
                 val speed = baseSpeedMps * _speedMultiplier.value.toFloat()
-                travelled = (travelled + speed * (TICK_MS / 1000f)).coerceAtMost(total)
-                val pos = interpolate(points, cumulative, travelled)
-                emitFix(pos.lat, pos.lng, speed, pos.bearing)
-                _progress.value = (travelled / total).coerceIn(0f, 1f)
+                val nextStop = stopMarks.getOrNull(stopIdx)
+                if (nextStop != null && travelled + speed * (TICK_MS / 1000f) >= nextStop &&
+                    nextStop > travelled
+                ) {
+                    // Arrive at the station, then dwell like a real stop
+                    // (dwell scales with the LIVE speed chip, min 2 ticks).
+                    travelled = nextStop
+                    stopIdx += 1
+                    val dwellTicks = (DWELL_TICKS / _speedMultiplier.value).coerceAtLeast(2)
+                    val pos = interpolate(points, cumulative, travelled)
+                    emitFix(pos.lat, pos.lng, 0f, pos.bearing)
+                    _progress.value = (travelled / total).coerceIn(0f, 1f)
+                    repeat(dwellTicks) {
+                        ensureActive()
+                        // Pause freezes the dwell too (no time passes).
+                        if (!_isPaused.value) emitFix(pos.lat, pos.lng, 0f, pos.bearing)
+                        delay(TICK_MS)
+                    }
+                } else {
+                    travelled = (travelled + speed * (TICK_MS / 1000f)).coerceAtMost(total)
+                    val pos = interpolate(points, cumulative, travelled)
+                    emitFix(pos.lat, pos.lng, speed, pos.bearing)
+                    _progress.value = (travelled / total).coerceIn(0f, 1f)
+                }
             }
             delay(TICK_MS)
         }
@@ -302,5 +348,8 @@ object TripSimulationController {
 
     companion object {
         private const val SNAP_M = 20f
+
+        /** Station dwell ticks at 1x (scaled down at 4x/16x, min 2). */
+        private const val DWELL_TICKS = 15
     }
 }

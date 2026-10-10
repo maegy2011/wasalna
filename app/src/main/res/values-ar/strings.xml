@@ -423,6 +423,8 @@
     <!-- وضع النقل العام (أكتوبر 2026، إرشاد تقريبي — مطابق لقيم values). -->
     <string name="vehicle_transit">🚇 نقل عام</string>
     <string name="transit_approx_note">إرشاد تقريبي — تحقق من المواعيد قبل الركوب.</string>
+    <string name="transit_verified_note">إرشاد المحطات من بيانات OpenStreetMap — تحقق من مواعيد المغادرة قبل الركوب.</string>
+    <string name="transit_osm_attribution">بيانات المحطات © مساهمو OpenStreetMap (ODbL) وويكيبيديا (CC BY-SA) • إصدار البيانات %1$s</string>
     <string name="transit_board_at">🚇 اركب من محطة: %1$s</string>
     <string name="transit_alight_at">🚇 انزل عند محطة: %1$s</string>
     <string name="transit_walk_leg">≈ %1$s كم مشيًا</string>
@@ -442,6 +444,15 @@
     <string name="settings_routes_cleared">تم مسح المفتاح</string>
     <string name="settings_routes_show">إظهار المفتاح</string>
     <string name="settings_routes_hide">إخفاء المفتاح</string>
+    <!-- أنظمة المواصلات الثابتة (مترو/مونوريل/قطار خفيف، أكتوبر 2026 — مطابق لقيم values). -->
+    <string name="vehicle_metro">🚇 مترو</string>
+    <string name="vehicle_monorail">🚝 مونوريل</string>
+    <string name="vehicle_train_lrt">🚆 قطار خفيف</string>
+    <string name="transit_static_direct">%1$s: %2$s ← %3$s • %4$d محطات • حوالي %5$d دقيقة</string>
+    <string name="transit_static_transfer">%1$s • حوالي %2$d دقيقة</string>
+    <string name="transit_static_none">لا يوجد مسار %1$s هنا — %2$s</string>
+    <string name="transit_off_corridor">خارج تغطية المحطات</string>
+    <string name="transit_line_level">(تقدير على مستوى الخط)</string>
     <!-- شريط أزرار المحاكاة الصريحة (نفس صياغة المستخدم — مطابق لقيم values). -->
     <string name="sim_explicit_start">▶ تشغيل المحاكاة</string>
     <string name="sim_explicit_pause">⏸ إيقاف مؤقت</string>
