@@ -97,6 +97,32 @@ fun QuickPlaceEditDialog(
     var address by remember(title) { mutableStateOf(initialAddress) }
     var latText by remember(title) { mutableStateOf(initialLat?.toString() ?: "") }
     var lngText by remember(title) { mutableStateOf(initialLng?.toString() ?: "") }
+    // رسالة تأكيد قبل مسح نقطة محفوظة: الحفظ بإحداثيات فارغة وكان
+    // يوجد نقطة من قبل = مسح لها — يُطلب التأكيد أولًا (امسح).
+    var showClearConfirm by remember { mutableStateOf(false) }
+    fun attemptSave() {
+        val clearsExisting = (initialLat != null || initialLng != null) &&
+            latText.toDoubleOrNull() == null && lngText.toDoubleOrNull() == null
+        if (clearsExisting) showClearConfirm = true
+        else {
+            onSave(latText.toDoubleOrNull(), lngText.toDoubleOrNull(), address.trim())
+            onDismiss()
+        }
+    }
+    if (showClearConfirm) {
+        ConfirmDialog(
+            title = "مسح نقطة $title؟",
+            message = "لديك نقطة $title محفوظة — الحفظ فارغًا سيمسحها وستحتاج لإدخالها من جديد.",
+            confirmLabel = "امسح",
+            isDestructive = true,
+            onConfirm = {
+                onSave(null, null, address.trim())
+                showClearConfirm = false
+                onDismiss()
+            },
+            onDismiss = { showClearConfirm = false },
+        )
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Set $title") },
@@ -131,10 +157,7 @@ fun QuickPlaceEditDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                onSave(latText.toDoubleOrNull(), lngText.toDoubleOrNull(), address.trim())
-                onDismiss()
-            }) {
+            TextButton(onClick = { attemptSave() }) {
                 Text("Save")
             }
         },

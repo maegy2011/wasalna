@@ -27,11 +27,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.data.routing.OfflineGraphState
+import com.app.wasalna.ui.components.ConfirmDialog
 import com.app.wasalna.data.routing.RoutingRegion
 
 /**
@@ -49,6 +53,8 @@ fun OfflineRoutingScreen(
     viewModel: OfflineRoutingViewModel = hiltViewModel(),
 ) {
     val engineError by viewModel.engineError.collectAsState()
+    // رسالة تأكيد قبل حذف جراف التوجيه (إعادة التنزيل مجهود كبير).
+    var pendingGraphDelete by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -93,11 +99,26 @@ fun OfflineRoutingScreen(
                         region = region,
                         state = state,
                         onDownload = { viewModel.download(region) },
-                        onDelete = { viewModel.delete(region.id) },
+                        onDelete = { pendingGraphDelete = region.id },
                     )
                 }
             }
         }
+    }
+    pendingGraphDelete?.let { regionId ->
+        val regionName = viewModel.regions.firstOrNull { it.id == regionId }?.name
+            ?: "المنطقة"
+        ConfirmDialog(
+            title = "حذف جراف التوجيه؟",
+            message = "سيتم حذف جراف \"$regionName\" وستحتاج لتنزيله من جديد للملاحة دون إنترنت.",
+            confirmLabel = "احذف",
+            isDestructive = true,
+            onConfirm = {
+                viewModel.delete(regionId)
+                pendingGraphDelete = null
+            },
+            onDismiss = { pendingGraphDelete = null },
+        )
     }
 }
 

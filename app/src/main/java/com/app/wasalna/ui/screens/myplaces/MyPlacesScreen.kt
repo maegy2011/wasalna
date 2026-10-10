@@ -69,6 +69,7 @@ import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.AdBanner
 import com.app.wasalna.ui.ads.InterstitialHelper
+import com.app.wasalna.ui.components.ConfirmDialog
 import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import com.app.wasalna.ui.screens.home.HomeViewModel
@@ -105,6 +106,8 @@ fun MyPlacesScreen(
     // Phase 10-Fix: local filter + rename dialog state (CRUD).
     var filter by remember { mutableStateOf("") }
     var renameTarget by remember { mutableStateOf<Location?>(null) }
+    // رسائل التأكيد: حذف مكان محفوظ إجراء مُتلِف — يُطلب التأكيد أولًا.
+    var pendingDelete by remember { mutableStateOf<Location?>(null) }
     // Map UX fixes: Home & Work quick places (visible on My Places only,
     // never on the Map view). Tap = quick trip (free plan: interstitial
     // first); long-press = set-location dialog.
@@ -334,7 +337,7 @@ fun MyPlacesScreen(
                                 requestTrip(location)
                             },
                             onEdit = { renameTarget = location },
-                            onDelete = { viewModel.deleteLocation(location) },
+                            onDelete = { pendingDelete = location },
                         )
                     }
                 }
@@ -396,6 +399,20 @@ fun MyPlacesScreen(
                 if (isHome) viewModel.setHome(lat, lng, address)
                 else viewModel.setWork(lat, lng, address)
             },
+        )
+    }
+    // رسالة تأكيد قبل حذف المكان المحفوظ — التراجع = لا يحدث شيء.
+    pendingDelete?.let { target ->
+        ConfirmDialog(
+            title = "حذف المكان؟",
+            message = "سيتم حذف \"${target.name}\" نهائيًا ولا يمكن استعادته.",
+            confirmLabel = "احذف",
+            isDestructive = true,
+            onConfirm = {
+                viewModel.deleteLocation(target)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null },
         )
     }
     // Phase 10-Fix: rename dialog (Update CRUD).
@@ -619,10 +636,10 @@ private fun SavedPlaceCard(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Rename destination")
+                    Icon(Icons.Filled.Edit, contentDescription = "إعادة تسمية المكان")
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete destination")
+                    Icon(Icons.Filled.Delete, contentDescription = "حذف المكان")
                 }
             }
             Text(

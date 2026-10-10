@@ -44,6 +44,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.app.wasalna.ui.components.ConfirmDialog
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -73,6 +74,11 @@ fun OfflineMapsScreen(
     val graphBusy by viewModel.graphBusy.collectAsState()
     val graphPct by viewModel.graphProgress.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
+    // رسائل التأكيد: حذف منطقة محمّلة / حذف جراف التوجيه / إلغاء تنزيل
+    // جارٍ — كلها فقدان (بيانات أو مجهود) فتُطلب الموافقة أولًا.
+    var pendingRegionDelete by remember { mutableStateOf<OfflineRegionInfo?>(null) }
+    var showGraphDeleteConfirm by remember { mutableStateOf(false) }
+    var showCancelDownloadConfirm by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         viewModel.refreshGraphState()
@@ -124,7 +130,7 @@ fun OfflineMapsScreen(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(onClick = { viewModel.cancelDownload() }) {
+                        OutlinedButton(onClick = { showCancelDownloadConfirm = true }) {
                             Text("Cancel")
                         }
                     }
@@ -208,7 +214,7 @@ fun OfflineMapsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (graphInstalled) {
                             OutlinedButton(
-                                onClick = { viewModel.deleteGraph() },
+                                onClick = { showGraphDeleteConfirm = true },
                                 enabled = !graphBusy,
                             ) {
                                 Text("Delete")
@@ -255,8 +261,8 @@ fun OfflineMapsScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.weight(1f),
                                 )
-                                IconButton(onClick = { viewModel.deleteRegion(info) }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                                IconButton(onClick = { pendingRegionDelete = info }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "حذف المنطقة")
                                 }
                             }
                         }
@@ -266,6 +272,45 @@ fun OfflineMapsScreen(
         }
     }
 
+    pendingRegionDelete?.let { info ->
+        ConfirmDialog(
+            title = "حذف المنطقة؟",
+            message = "سيتم حذف خريطة \"${info.name}\" المحمّلة نهائيًا وستحتاج لتنزيلها من جديد.",
+            confirmLabel = "احذف",
+            isDestructive = true,
+            onConfirm = {
+                viewModel.deleteRegion(info)
+                pendingRegionDelete = null
+            },
+            onDismiss = { pendingRegionDelete = null },
+        )
+    }
+    if (showGraphDeleteConfirm) {
+        ConfirmDialog(
+            title = "حذف بيانات التوجيه؟",
+            message = "سيتم حذف جراف التوجيه (القاهرة + الجيزة، ~42 م.ب) وستحتاج لتنزيله من جديد للملاحة دون إنترنت.",
+            confirmLabel = "احذف",
+            isDestructive = true,
+            onConfirm = {
+                viewModel.deleteGraph()
+                showGraphDeleteConfirm = false
+            },
+            onDismiss = { showGraphDeleteConfirm = false },
+        )
+    }
+    if (showCancelDownloadConfirm) {
+        ConfirmDialog(
+            title = "إلغاء التنزيل؟",
+            message = "التنزيل جارٍ الآن — إلغاؤه يعني فقدان ما تم تحميله وستبدأ من جديد.",
+            confirmLabel = "ألغِ",
+            isDestructive = true,
+            onConfirm = {
+                viewModel.cancelDownload()
+                showCancelDownloadConfirm = false
+            },
+            onDismiss = { showCancelDownloadConfirm = false },
+        )
+    }
     if (showPicker) {
         RegionPickerDialog(
             onDismiss = { showPicker = false },
