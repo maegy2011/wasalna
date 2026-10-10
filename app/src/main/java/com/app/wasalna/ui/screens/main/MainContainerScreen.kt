@@ -295,6 +295,17 @@ fun MainContainerScreen() {
                             icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
                             label = { Text("First Class") },
                         )
+                        NavigationBarItem(
+                            selected = isSelected(Screen.TripsHistory.route),
+                            onClick = { navigateTab(Screen.TripsHistory.route) },
+                            icon = {
+                                Icon(
+                                    Icons.Filled.History,
+                                    contentDescription = "فتح سجل الرحلات",
+                                )
+                            },
+                            label = { Text("رحلاتي") },
+                        )
                         // Drawer entry from the bottom bar (works on every tab,
                         // incl. Map where edge-swipe is locked). Opens the drawer
                         // via the existing scope — no navigation, no state change.
