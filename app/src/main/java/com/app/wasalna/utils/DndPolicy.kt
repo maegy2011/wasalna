@@ -29,9 +29,11 @@ object DndChoice {
 }
 
 /**
- * Notification-policy access helpers. No manifest permission is needed for
- * this grant — the user approves it in system Settings, and every bypass
- * path re-checks the grant at fire time so a denial/revocation always
+ * Notification-policy access helpers. The manifest MUST declare
+ * ACCESS_NOTIFICATION_POLICY — otherwise the app never appears in the
+ * system "Do Not Disturb access" list and the grant cannot be given.
+ * The user still approves it in system Settings, and every bypass path
+ * re-checks the grant at fire time so a denial/revocation always
  * degrades gracefully to respect-DND. Never throws.
  */
 object DndPolicy {
@@ -43,8 +45,10 @@ object DndPolicy {
             .getOrDefault(false)
     }
 
-    fun policyAccessIntent(): Intent =
+    /** Opens the DND-access screen scrolled straight to this app. */
+    fun policyAccessIntent(context: Context): Intent =
         Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         }
 }

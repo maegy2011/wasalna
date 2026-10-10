@@ -164,7 +164,7 @@ fun SettingsScreen(
     fun pickDndChoice(choice: String) {
         viewModel.setDndChoice(choice)
         if (choice == DndChoice.BYPASS && !viewModel.isDndPolicyAccessGranted()) {
-            dndSettingsLauncher.launch(DndPolicy.policyAccessIntent())
+            dndSettingsLauncher.launch(DndPolicy.policyAccessIntent(context))
         }
     }
 
@@ -359,7 +359,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                dndSettingsLauncher.launch(DndPolicy.policyAccessIntent())
+                                dndSettingsLauncher.launch(DndPolicy.policyAccessIntent(context))
                             },
                             modifier = Modifier.heightIn(min = 48.dp),
                         ) {
