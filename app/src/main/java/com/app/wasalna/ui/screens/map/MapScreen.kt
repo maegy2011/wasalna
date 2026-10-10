@@ -437,7 +437,7 @@ fun MapScreen(
                         FilterChip(
                             selected = isTrafficEnabled,
                             onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
-                            label = { Text("الازدحام") },
+                            label = { Text(stringResource(R.string.traffic_congestion)) },
                             leadingIcon = {
                                 Icon(Icons.Filled.Traffic, contentDescription = null)
                             },

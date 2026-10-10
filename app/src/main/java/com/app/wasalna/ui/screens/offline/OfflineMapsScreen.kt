@@ -269,7 +269,7 @@ fun OfflineMapsScreen(
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(onClick = { pendingRegionDelete = info }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "حذف المنطقة")
+                                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.region_delete_desc))
                                 }
                             }
                         }

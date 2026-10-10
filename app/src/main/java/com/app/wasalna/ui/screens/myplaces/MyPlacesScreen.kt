@@ -554,7 +554,7 @@ private fun AlarmSetupDialog(
                         ) {
                             Icon(
                                 Icons.Filled.Remove,
-                                contentDescription = "إنقاص الدقائق",
+                                contentDescription = stringResource(R.string.alarm_minutes_decrease),
                             )
                         }
                         Text(
@@ -571,7 +571,7 @@ private fun AlarmSetupDialog(
                         ) {
                             Icon(
                                 Icons.Filled.Add,
-                                contentDescription = "زيادة الدقائق",
+                                contentDescription = stringResource(R.string.alarm_minutes_increase),
                             )
                         }
                     }
@@ -638,10 +638,10 @@ private fun SavedPlaceCard(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "إعادة تسمية المكان")
+                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.place_rename_desc))
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "حذف المكان")
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.place_delete_desc))
                 }
             }
             Text(

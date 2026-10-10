@@ -313,6 +313,16 @@
     <string name="routing_ready">Ready — on-device routing available ✓</string>
     <string name="routing_error">Error: %1$s</string>
     <string name="nav_home">Home</string>
+    <string name="nav_trips">My Trips</string>
+    <string name="nav_menu">Menu</string>
+    <string name="nav_trips_desc">Open trip history</string>
+    <string name="nav_menu_desc">Open side menu</string>
+    <string name="traffic_congestion">Traffic</string>
+    <string name="alarm_minutes_decrease">Decrease minutes</string>
+    <string name="alarm_minutes_increase">Increase minutes</string>
+    <string name="place_rename_desc">Rename place</string>
+    <string name="place_delete_desc">Delete place</string>
+    <string name="region_delete_desc">Delete region</string>
     <string name="drawer_impact">Your Impact</string>
     <string name="drawer_rate">Rate</string>
     <string name="drawer_contact">Contact</string>

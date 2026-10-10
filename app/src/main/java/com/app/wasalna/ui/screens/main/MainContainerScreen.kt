@@ -225,10 +225,10 @@ fun MainContainerScreen() {
                         icon = {
                             Icon(
                                 Icons.Filled.History,
-                                contentDescription = "فتح سجل الرحلات",
+                                contentDescription = stringResource(R.string.nav_trips_desc),
                             )
                         },
-                        label = { Text("رحلاتي") },
+                        label = { Text(stringResource(R.string.nav_trips)) },
                     )
                     // Drawer entry from the bottom bar (works on every tab,
                     // incl. Map where edge-swipe is locked). Opens the drawer
@@ -239,10 +239,10 @@ fun MainContainerScreen() {
                         icon = {
                             Icon(
                                 Icons.Filled.Menu,
-                                contentDescription = "فتح القائمة الجانبية",
+                                contentDescription = stringResource(R.string.nav_menu_desc),
                             )
                         },
-                        label = { Text("القائمة") },
+                        label = { Text(stringResource(R.string.nav_menu)) },
                     )
                 }
         },
