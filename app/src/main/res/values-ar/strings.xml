@@ -108,6 +108,21 @@
     <string name="home_open_menu">فتح القائمة</string>
     <string name="home_title">وصلنا؟</string>
     <string name="home_current_trip">%1$s الرحلة الحالية: %2$s</string>
+    <!-- Home first-run wizard (mini scope) — one language per locale. Mirrored in values. -->
+    <string name="wizard_title">إعداد أول رحلة</string>
+    <string name="wizard_step_of">الخطوة %1$d من %2$d</string>
+    <string name="wizard_back">رجوع</string>
+    <string name="wizard_next">التالي</string>
+    <string name="wizard_skip">تخطي</string>
+    <string name="wizard_dest_title">إلى أين تذهب؟</string>
+    <string name="wizard_dest_hint">اختر مكانًا محفوظًا — أو اختر مكانًا جديدًا من الخريطة.</string>
+    <string name="wizard_dest_map">اختر من الخريطة</string>
+    <string name="wizard_need_place">اختر وجهة أولًا</string>
+    <string name="wizard_lead_label">نبهني قبل الوصول بـ %1$d دقائق</string>
+    <string name="wizard_review_title">مراجعة رحلتك</string>
+    <string name="wizard_review_dest">الوجهة</string>
+    <string name="wizard_review_vehicle">الوسيلة</string>
+    <string name="wizard_review_alarm">المنبه</string>
     <!-- MyPlaces delete confirm — one language per locale. Mirrored in values. -->
     <string name="myplaces_delete_title">حذف المكان؟</string>
     <string name="myplaces_delete_msg">سيتم حذف “%1$s” نهائيًا ولا يمكن استعادته.</string>

@@ -294,6 +294,15 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.FORCE_OFFLINE] = enabled }
     }
 
+    // Home first-run wizard (mini scope): false until the user finishes
+    // or skips it — then Home shows the classic welcome screen.
+    val isWizardSeen: Flow<Boolean> =
+        dataStore.data.map { it[Keys.WIZARD_SEEN] ?: false }
+
+    suspend fun setWizardSeen(seen: Boolean) {
+        dataStore.edit { it[Keys.WIZARD_SEEN] = seen }
+    }
+
     /** Canonical map-engine values (legacy — app is 100% MapLibre). */
     object MapEngines {
         const val OSM = "OSM"
@@ -393,6 +402,7 @@ class SettingsDataStore @Inject constructor(
         val APP_LANGUAGE_CODE = stringPreferencesKey("app_language_code")
         val ROUTES_API_KEY = stringPreferencesKey("routes_api_key")
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")
+        val WIZARD_SEEN = booleanPreferencesKey("wizard_seen")
         val GRADUAL_ALARM_ENABLED = booleanPreferencesKey("gradual_alarm_enabled")
         val GRADUAL_VIBRATION_SEC = intPreferencesKey("gradual_vibration_sec")
         val GRADUAL_RAMP_SEC = intPreferencesKey("gradual_ramp_sec")

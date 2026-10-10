@@ -4,6 +4,21 @@
     <!-- Phase 9: main UI strings -->
     <string name="home_title">Wasalna?</string>
     <string name="home_current_trip">%1$s Current trip: %2$s</string>
+    <!-- Home first-run wizard (mini scope) — one language per locale. Mirrored in values-ar. -->
+    <string name="wizard_title">First trip setup</string>
+    <string name="wizard_step_of">Step %1$d of %2$d</string>
+    <string name="wizard_back">Back</string>
+    <string name="wizard_next">Next</string>
+    <string name="wizard_skip">Skip</string>
+    <string name="wizard_dest_title">Where are you going?</string>
+    <string name="wizard_dest_hint">Pick a saved place — or choose a new one on the map.</string>
+    <string name="wizard_dest_map">Choose on map</string>
+    <string name="wizard_need_place">Pick a destination first</string>
+    <string name="wizard_lead_label">Warn me %1$d min before arrival</string>
+    <string name="wizard_review_title">Review your trip</string>
+    <string name="wizard_review_dest">Destination</string>
+    <string name="wizard_review_vehicle">Vehicle</string>
+    <string name="wizard_review_alarm">Alarm</string>
     <!-- MyPlaces delete confirm — one language per locale. Mirrored in values-ar. -->
     <string name="myplaces_delete_title">Delete place?</string>
     <string name="myplaces_delete_msg">“%1$s” will be deleted permanently and cannot be restored.</string>

@@ -90,6 +90,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isForceOffline: Flow<Boolean>
         get() = settingsDataStore.isForceOffline
 
+    override val isWizardSeen: Flow<Boolean>
+        get() = settingsDataStore.isWizardSeen
+
     override val isGradualAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isGradualAlarmEnabled
     override val gradualVibrationSec: Flow<Int>
@@ -187,6 +190,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setForceOffline(enabled: Boolean) {
         settingsDataStore.setForceOffline(enabled)
+    }
+
+    override suspend fun setWizardSeen(seen: Boolean) {
+        settingsDataStore.setWizardSeen(seen)
     }
 
     override suspend fun setGradualAlarmEnabled(enabled: Boolean) {

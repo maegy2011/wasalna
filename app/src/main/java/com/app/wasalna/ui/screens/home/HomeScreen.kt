@@ -70,6 +70,10 @@ fun HomeScreen(
     val activeTrip by viewModel.activeTrip.collectAsState()
     // True offline mode: same StateFlow the Map header writes (two-way synced).
     val isOfflineMode by viewModel.isOfflineMode.collectAsState()
+    // First-run wizard: only while unseen AND no saved places yet AND no
+    // live trip — everyone else keeps the classic welcome screen.
+    val isWizardSeen by viewModel.isWizardSeen.collectAsState()
+    val showWizard = !isWizardSeen && locations.isEmpty() && activeTrip == null
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -137,6 +141,13 @@ fun HomeScreen(
             }
         },
     ) { padding ->
+        if (showWizard) {
+            HomeWizard(
+                viewModel = viewModel,
+                onPickOnMap = { onOpenMap(null) },
+                modifier = Modifier.padding(padding),
+            )
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -216,6 +227,7 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
+        }
         }
     }
 }

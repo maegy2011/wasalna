@@ -41,6 +41,8 @@ interface SettingsRepository {
 
     val isForceOffline: Flow<Boolean>
 
+    val isWizardSeen: Flow<Boolean>
+
     val isGradualAlarmEnabled: Flow<Boolean>
     val gradualVibrationSec: Flow<Int>
     val gradualRampSec: Flow<Int>
@@ -107,6 +109,8 @@ interface SettingsRepository {
     suspend fun setWork(lat: Double?, lng: Double?, address: String)
 
     suspend fun setForceOffline(enabled: Boolean)
+
+    suspend fun setWizardSeen(seen: Boolean)
 
     suspend fun setGradualAlarmEnabled(enabled: Boolean)
     suspend fun setGradualVibrationSec(seconds: Int)
