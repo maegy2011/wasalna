@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -199,12 +200,18 @@ fun MapScreen(
         }
     }
 
+    // Proposal (أ): trip panel lives in a bottom sheet — the map keeps
+    // the full stage. Opened on explicit user picks (tap/search/quick/
+    // live-trip), never on auto-center; dismiss keeps the selection.
+    var tripSheetOpen by remember { mutableStateOf(false) }
+    val tripSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // Phase 10.4.3.1: live-trip entry — consumed once per navigation.
     val tripConsumed = remember(tripLat, tripLng) { mutableStateOf(false) }
     LaunchedEffect(tripLat, tripLng) {
         if (!tripConsumed.value && tripLat != null && tripLng != null) {
             tripConsumed.value = true
             viewModel.showTrip(tripName ?: "Active trip", tripLat, tripLng, tripMode)
+            tripSheetOpen = true
         }
     }
 
@@ -221,6 +228,7 @@ fun MapScreen(
     var editTarget by remember { mutableStateOf<String?>(null) }
     // Phase 10.11: dynamic destination share sheet (re-queries on open).
     var showDestinationShare by remember { mutableStateOf(false) }
+
     // Map Home/Work from-map-point: long-press (or tap on the
     // live-location/address pin card) opens a bottom sheet with two BIG
     // elderly-friendly buttons. Null = sheet hidden. No new permissions.
@@ -234,6 +242,7 @@ fun MapScreen(
         fun select() {
             if (viewModel.selectQuickPlace(lat, lng, address)) {
                 searchActive = false
+                tripSheetOpen = true
             }
         }
         if (!isPremium) {
@@ -406,6 +415,7 @@ fun MapScreen(
                                     viewModel.fetchPlaceDetails(result)
                                     searchActive = false
                                     keyboardController?.hide()
+                                    tripSheetOpen = true
                                 }
                                 .heightIn(min = 64.dp),
                         )
@@ -413,248 +423,8 @@ fun MapScreen(
                 }
             }
             if (!searchActive) {
-                addressLine?.let { line ->
-                    Text(
-                        text = line,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-                searchError?.let { err ->
-                    Text(
-                        text = err,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-                selectedName?.let { name ->
-                    Text(
-                        text = stringResource(R.string.map_selected, addressLine ?: name),
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-                // Phase 10.4.0: Vela-style multimodal ETA selector. Changing
-                // the mode recomputes route + ETA in the ViewModel.
-                if (selectedLatLng != null) {
-                    // Road vehicles (segmented, max 4) + transit systems
-                    // (chips row below) — 8 modes total (Oct 2026).
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                    ) {
-                        val roadOptions = TransportMode.roadEntries
-                        roadOptions.forEachIndexed { index, mode ->
-                            SegmentedButton(
-                                selected = transportMode == mode,
-                                onClick = { viewModel.setTransportMode(mode) },
-                                shape = SegmentedButtonDefaults.itemShape(
-                                    index = index,
-                                    count = roadOptions.size,
-                                ),
-                                label = {
-                                    Text(
-                                        when (mode) {
-                                            TransportMode.WALK -> stringResource(R.string.transport_walk)
-                                            TransportMode.CAR -> stringResource(R.string.transport_car)
-                                            TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
-                                            TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
-                                            TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
-                                            TransportMode.METRO -> stringResource(R.string.vehicle_metro)
-                                            TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
-                                            TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                    }
-                    // Transit systems row (Oct 2026): generic live/approx
-                    // TRANSIT + static-data METRO / MONORAIL / LRT train.
-                    // Horizontal scroll keeps 48dp+ targets (RTL-safe).
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        TransportMode.transitEntries.forEach { mode ->
-                            FilterChip(
-                                selected = transportMode == mode,
-                                onClick = { viewModel.setTransportMode(mode) },
-                                label = {
-                                    Text(
-                                        when (mode) {
-                                            TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
-                                            TransportMode.METRO -> stringResource(R.string.vehicle_metro)
-                                            TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
-                                            TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
-                                            else -> stringResource(R.string.vehicle_title)
-                                        },
-                                    )
-                                },
-                                modifier = Modifier.heightIn(min = 48.dp),
-                            )
-                        }
-                    }
-                    // Static transit preview card (METRO/MONORAIL/TRAIN):
-                    // planner summary + honesty label (ViewModel text).
-                    if (transportMode in TransportMode.staticTransitEntries) {
-                        val staticText by viewModel.staticTransitText.collectAsState()
-                        staticText?.let { summary ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
-                                ),
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    Text(
-                                        text = summary,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    )
-                                    TransitApproxNote()
-                                }
-                            }
-                        }
-                    }
-                    // TRANSIT planning surface (Oct 2026): live v2 plan
-                    // when the BYOK key delivered one; otherwise the
-                    // APPROXIMATE alighting hint near the destination +
-                    // honesty label (origin = live fix, unknown here).
-                    if (transportMode == TransportMode.TRANSIT && selectedLatLng != null) {
-                        val livePlan by viewModel.transitPlan.collectAsState()
-                        val live = livePlan
-                        if (live != null) {
-                            TransitLiveCard(
-                                plan = live,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            )
-                        } else {
-                            val dest = selectedLatLng
-                            if (dest != null) {
-                                val near = remember(dest) {
-                                    CairoTransitStations.nearest(dest.latitude, dest.longitude)
-                                }
-                                TransitGuideCard(
-                                    boardingText = null,
-                                    alightingText = stringResource(
-                                        R.string.transit_alight_at,
-                                        near.station.displayName(),
-                                    ) + " " + stringResource(
-                                        R.string.transit_walk_leg,
-                                        walkKm(near.distanceM),
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                                )
-                            }
-                        }
-                    }
-                    etaMinutes?.let { mins ->
-                        // REDESIGN: prominent ETA hero chip (resource-based,
-                        // no hardcoded literals) + readable traffic state.
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.trips_eta, mins),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            )
-                        }
-                    }
-                    // Phase 10.11: share the picked destination to the
-                    // user's own installed maps / ride apps (dynamic list).
-                    OutlinedButton(
-                        onClick = { showDestinationShare = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                    ) {
-                        Text(stringResource(R.string.share_destination))
-                    }
-                    // TRIP SIMULATION (وضع محاكاة للرحلة للتجربة):
-                    // destination reused from the existing selection state.
-                    selectedLatLng?.let { point ->
-                        TripSimulationPanel(
-                            destLat = point.latitude,
-                            destLng = point.longitude,
-                            destName = addressLine ?: selectedName ?: "",
-                            mode = transportMode,
-                            routeGeoJson = routeGeoJson,
-                            originProvider = { viewModel.peekCurrentFix() },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        )
-                    }
-                }
-                // Phase 10.8.0g (traffic): Vela live-traffic raster (Google
-                // keyless `/maps/vt` tiles as a MapLibre RasterSource — see
-                // TrafficOverlay.kt). Default OFF; Arabic disclosure below.
-                // Never invent fake data: overlay only, no parsed segments.
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = isTrafficEnabled,
-                            onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
-                            label = { Text(stringResource(R.string.traffic_congestion)) },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Traffic, contentDescription = null)
-                            },
-                        )
-                        if (isTrafficEnabled) {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                ),
-                            ) {
-                                Text(
-                                    text = when (trafficOverlayState) {
-                                        is TrafficOverlayState.Live -> stringResource(R.string.traffic_live)
-                                        is TrafficOverlayState.Stale -> stringResource(R.string.traffic_stale)
-                                        is TrafficOverlayState.Checking -> stringResource(R.string.traffic_checking)
-                                        else -> stringResource(R.string.traffic_unavailable)
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                )
-                            }
-                        }
-                    }
-                    Text(
-                        text = stringResource(R.string.map_traffic_notice),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
                     MapLibreMapView(
                         selectedLatLng = selectedLatLng,
@@ -670,11 +440,13 @@ fun MapScreen(
                         },
                         onMapClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                            tripSheetOpen = true
                         },
                         // Long-press: select the point (reverse-geocode for the
                         // address line) + open the Home/Work bottom sheet.
                         onMapLongClick = { latLng ->
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                            tripSheetOpen = false
                             homeWorkSheetPoint = latLng
                         },
                     )
@@ -711,7 +483,7 @@ fun MapScreen(
                         addressLine?.let { line ->
                             Card(
                                 onClick = {
-                                    selectedLatLng?.let { homeWorkSheetPoint = it }
+                                    tripSheetOpen = true
                                 },
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
@@ -800,6 +572,261 @@ fun MapScreen(
         // SettingsRepository.setHome/setWork storage as the search path —
         // additional path, not a replacement. Snackbar confirms + the
         // HomeWorkQuickRow StateFlows update immediately.
+        // Proposal (أ): trip panel bottom sheet (destination header +
+        // modes + transit + ETA + share + simulation + traffic).
+        if (!searchActive && selectedLatLng != null && tripSheetOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { tripSheetOpen = false },
+                sheetState = tripSheetState,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 0.dp, vertical = 8.dp),
+                ) {
+            addressLine?.let { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            searchError?.let { err ->
+                Text(
+                    text = err,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            selectedName?.let { name ->
+                Text(
+                    text = stringResource(R.string.map_selected, addressLine ?: name),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            // Phase 10.4.0: Vela-style multimodal ETA selector. Changing
+            // the mode recomputes route + ETA in the ViewModel.
+            if (selectedLatLng != null) {
+                // Road vehicles (segmented, max 4) + transit systems
+                // (chips row below) — 8 modes total (Oct 2026).
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    val roadOptions = TransportMode.roadEntries
+                    roadOptions.forEachIndexed { index, mode ->
+                        SegmentedButton(
+                            selected = transportMode == mode,
+                            onClick = { viewModel.setTransportMode(mode) },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = roadOptions.size,
+                            ),
+                            label = {
+                                Text(
+                                    when (mode) {
+                                        TransportMode.WALK -> stringResource(R.string.transport_walk)
+                                        TransportMode.CAR -> stringResource(R.string.transport_car)
+                                        TransportMode.MOTORCYCLE -> stringResource(R.string.vehicle_motorcycle)
+                                        TransportMode.BICYCLE -> stringResource(R.string.vehicle_bicycle)
+                                        TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
+                                        TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+                                        TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+                                        TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
+                // Transit systems row (Oct 2026): generic live/approx
+                // TRANSIT + static-data METRO / MONORAIL / LRT train.
+                // Horizontal scroll keeps 48dp+ targets (RTL-safe).
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TransportMode.transitEntries.forEach { mode ->
+                        FilterChip(
+                            selected = transportMode == mode,
+                            onClick = { viewModel.setTransportMode(mode) },
+                            label = {
+                                Text(
+                                    when (mode) {
+                                        TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
+                                        TransportMode.METRO -> stringResource(R.string.vehicle_metro)
+                                        TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
+                                        TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
+                                        else -> stringResource(R.string.vehicle_title)
+                                    },
+                                )
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        )
+                    }
+                }
+                // Static transit preview card (METRO/MONORAIL/TRAIN):
+                // planner summary + honesty label (ViewModel text).
+                if (transportMode in TransportMode.staticTransitEntries) {
+                    val staticText by viewModel.staticTransitText.collectAsState()
+                    staticText?.let { summary ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+                            ),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = summary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                                TransitApproxNote()
+                            }
+                        }
+                    }
+                }
+                // TRANSIT planning surface (Oct 2026): live v2 plan
+                // when the BYOK key delivered one; otherwise the
+                // APPROXIMATE alighting hint near the destination +
+                // honesty label (origin = live fix, unknown here).
+                if (transportMode == TransportMode.TRANSIT && selectedLatLng != null) {
+                    val livePlan by viewModel.transitPlan.collectAsState()
+                    val live = livePlan
+                    if (live != null) {
+                        TransitLiveCard(
+                            plan = live,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    } else {
+                        val dest = selectedLatLng
+                        if (dest != null) {
+                            val near = remember(dest) {
+                                CairoTransitStations.nearest(dest.latitude, dest.longitude)
+                            }
+                            TransitGuideCard(
+                                boardingText = null,
+                                alightingText = stringResource(
+                                    R.string.transit_alight_at,
+                                    near.station.displayName(),
+                                ) + " " + stringResource(
+                                    R.string.transit_walk_leg,
+                                    walkKm(near.distanceM),
+                                ),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                }
+                etaMinutes?.let { mins ->
+                    // REDESIGN: prominent ETA hero chip (resource-based,
+                    // no hardcoded literals) + readable traffic state.
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.trips_eta, mins),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+                // Phase 10.11: share the picked destination to the
+                // user's own installed maps / ride apps (dynamic list).
+                OutlinedButton(
+                    onClick = { showDestinationShare = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Text(stringResource(R.string.share_destination))
+                }
+                // TRIP SIMULATION (وضع محاكاة للرحلة للتجربة):
+                // destination reused from the existing selection state.
+                selectedLatLng?.let { point ->
+                    TripSimulationPanel(
+                        destLat = point.latitude,
+                        destLng = point.longitude,
+                        destName = addressLine ?: selectedName ?: "",
+                        mode = transportMode,
+                        routeGeoJson = routeGeoJson,
+                        originProvider = { viewModel.peekCurrentFix() },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            // Phase 10.8.0g (traffic): Vela live-traffic raster (Google
+            // keyless `/maps/vt` tiles as a MapLibre RasterSource — see
+            // TrafficOverlay.kt). Default OFF; Arabic disclosure below.
+            // Never invent fake data: overlay only, no parsed segments.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = isTrafficEnabled,
+                        onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
+                        label = { Text(stringResource(R.string.traffic_congestion)) },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Traffic, contentDescription = null)
+                        },
+                    )
+                    if (isTrafficEnabled) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            ),
+                        ) {
+                            Text(
+                                text = when (trafficOverlayState) {
+                                    is TrafficOverlayState.Live -> stringResource(R.string.traffic_live)
+                                    is TrafficOverlayState.Stale -> stringResource(R.string.traffic_stale)
+                                    is TrafficOverlayState.Checking -> stringResource(R.string.traffic_checking)
+                                    else -> stringResource(R.string.traffic_unavailable)
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.map_traffic_notice),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
         homeWorkSheetPoint?.let { point ->
             ModalBottomSheet(
                 onDismissRequest = { homeWorkSheetPoint = null },
