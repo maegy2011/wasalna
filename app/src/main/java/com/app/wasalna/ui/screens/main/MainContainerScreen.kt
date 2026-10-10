@@ -2,11 +2,18 @@ package com.app.wasalna.ui.screens.main
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
@@ -41,9 +48,15 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.app.wasalna.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -171,17 +184,74 @@ fun MainContainerScreen() {
     // drawer opens ONLY via explicit UI (no hamburger lives on Map, back
     // navigates away), so edge swipe is disabled there.
     val isOnMapRoute = currentHierarchy?.any { it.route?.startsWith(Screen.Map.route) == true } == true
-    ModalNavigationDrawer(
-        gesturesEnabled = !isOnMapRoute,
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "🚏 Wasalna",
-                        style = MaterialTheme.typography.headlineSmall,
+    // Drawer-below-header-and-above-navbar layout: the outer Scaffold owns
+    // the bottom NavigationBar OUTSIDE the ModalNavigationDrawer, so the
+    // navbar stays visible + tappable while the drawer is open. The drawer
+    // (scrim + sheet) lives only in the Scaffold content area, and the
+    // sheet is inset by one M3 Small TopAppBar height (64dp) so its top
+    // edge sits BELOW the per-screen TopAppBar instead of covering it.
+    // (Per-screen headers live inside the NavHost content, so the scrim
+    // still dims them while open — tap there closes the drawer per M3.)
+    Scaffold(
+        bottomBar = {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = isSelected(Screen.Home.route),
+                        onClick = { navigateTab(Screen.Home.route) },
+                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                        label = { Text("Home") },
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    NavigationBarItem(
+                        selected = isSelected(Screen.MyPlaces.route),
+                        onClick = { navigateTab(Screen.MyPlaces.route) },
+                        icon = { Icon(Icons.Filled.Place, contentDescription = null) },
+                        label = { Text("My Places") },
+                    )
+                    NavigationBarItem(
+                        selected = isSelected(Screen.Paywall.route),
+                        onClick = { navigateTab(Screen.Paywall.route) },
+                        icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
+                        label = { Text("First Class") },
+                    )
+                    NavigationBarItem(
+                        selected = isSelected(Screen.TripsHistory.route),
+                        onClick = { navigateTab(Screen.TripsHistory.route) },
+                        icon = {
+                            Icon(
+                                Icons.Filled.History,
+                                contentDescription = "فتح سجل الرحلات",
+                            )
+                        },
+                        label = { Text("رحلاتي") },
+                    )
+                    // Drawer entry from the bottom bar (works on every tab,
+                    // incl. Map where edge-swipe is locked). Opens the drawer
+                    // via the existing scope — no navigation, no state change.
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { openDrawer() },
+                        icon = {
+                            Icon(
+                                Icons.Filled.Menu,
+                                contentDescription = "فتح القائمة الجانبية",
+                            )
+                        },
+                        label = { Text("القائمة") },
+                    )
+                }
+        },
+    ) { scaffoldPadding ->
+        ModalNavigationDrawer(
+            gesturesEnabled = !isOnMapRoute,
+            drawerState = drawerState,
+            drawerContent = {
+            ModalDrawerSheet(
+                // 64dp = M3 Small TopAppBar height: sheet top edge sits
+                // just below the per-screen header.
+                modifier = Modifier.padding(top = 64.dp),
+            ) {
+                DrawerBrandHeader()
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
                         text = planLabel(planPremium, planTrialEnd, planNow),
                         style = MaterialTheme.typography.bodyMedium,
@@ -273,62 +343,13 @@ fun MainContainerScreen() {
                 )
             }
         },
-    ) {
-        Scaffold(
-            bottomBar = {
-                    NavigationBar {
-                        NavigationBarItem(
-                            selected = isSelected(Screen.Home.route),
-                            onClick = { navigateTab(Screen.Home.route) },
-                            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                            label = { Text("Home") },
-                        )
-                        NavigationBarItem(
-                            selected = isSelected(Screen.MyPlaces.route),
-                            onClick = { navigateTab(Screen.MyPlaces.route) },
-                            icon = { Icon(Icons.Filled.Place, contentDescription = null) },
-                            label = { Text("My Places") },
-                        )
-                        NavigationBarItem(
-                            selected = isSelected(Screen.Paywall.route),
-                            onClick = { navigateTab(Screen.Paywall.route) },
-                            icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
-                            label = { Text("First Class") },
-                        )
-                        NavigationBarItem(
-                            selected = isSelected(Screen.TripsHistory.route),
-                            onClick = { navigateTab(Screen.TripsHistory.route) },
-                            icon = {
-                                Icon(
-                                    Icons.Filled.History,
-                                    contentDescription = "فتح سجل الرحلات",
-                                )
-                            },
-                            label = { Text("رحلاتي") },
-                        )
-                        // Drawer entry from the bottom bar (works on every tab,
-                        // incl. Map where edge-swipe is locked). Opens the drawer
-                        // via the existing scope — no navigation, no state change.
-                        NavigationBarItem(
-                            selected = false,
-                            onClick = { openDrawer() },
-                            icon = {
-                                Icon(
-                                    Icons.Filled.Menu,
-                                    contentDescription = "فتح القائمة الجانبية",
-                                )
-                            },
-                            label = { Text("القائمة") },
-                        )
-                    }
-            },
-        ) { padding ->
+        ) {
             NavHost(
                 navController = innerNav,
                 startDestination = Screen.Home.route,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(scaffoldPadding),
             ) {
                 composable(Screen.Home.route) {
                     HomeScreen(
@@ -417,5 +438,50 @@ fun MainContainerScreen() {
                 }
             }
         }
+    }
+}
+
+/**
+ * Drawer brand header — ONE row: reused launcher artwork + app name on the
+ * same line, app version (BuildConfig.VERSION_NAME) on the next line
+ * beneath. Row + start-padding are RTL-aware (mirrors in Arabic locale);
+ * the name comes from strings.xml so the Arabic locale shows the Arabic
+ * name. No new assets: the launcher foreground vector is shown on the
+ * launcher background color inside a 48dp (8dp-grid, 48dp-min) badge.
+ */
+@Composable
+private fun DrawerBrandHeader() {
+    val appName = stringResource(id = R.string.app_name)
+    val versionName = com.app.wasalna.BuildConfig.VERSION_NAME
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colorResource(id = R.color.ic_launcher_background)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = appName,
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "v$versionName",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // Aligned under the app name (badge 48dp + gap 8dp); start =
+            // RTL-aware, mirrors automatically in Arabic.
+            modifier = Modifier.padding(start = 56.dp),
+        )
     }
 }
