@@ -267,6 +267,20 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.APP_LANGUAGE_CODE] = normalized }
     }
 
+    // TRANSIT BYOK (user order Oct 2026): the user's OWN Google Routes
+    // API v2 key, stored app-private on this device only. "" = none →
+    // APPROXIMATE guidance. Never embedded in code/resources/BuildConfig.
+    val routesApiKey: Flow<String> =
+        dataStore.data.map { it[Keys.ROUTES_API_KEY] ?: "" }
+
+    suspend fun setRoutesApiKey(key: String) {
+        val normalized = key.trim().take(256)
+        dataStore.edit {
+            if (normalized.isEmpty()) it.remove(Keys.ROUTES_API_KEY)
+            else it[Keys.ROUTES_API_KEY] = normalized
+        }
+    }
+
     // True offline mode (GPS-chip only) — user-facing flag, single source
     // of truth for the header cloud button + Settings toggle (two-way
     // synced, same key). When true, TrackingService + MapViewModel bypass
@@ -377,6 +391,7 @@ class SettingsDataStore @Inject constructor(
         val WORK_ADDRESS = stringPreferencesKey("work_address")
         val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
         val APP_LANGUAGE_CODE = stringPreferencesKey("app_language_code")
+        val ROUTES_API_KEY = stringPreferencesKey("routes_api_key")
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")
         val GRADUAL_ALARM_ENABLED = booleanPreferencesKey("gradual_alarm_enabled")
         val GRADUAL_VIBRATION_SEC = intPreferencesKey("gradual_vibration_sec")

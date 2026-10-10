@@ -1,6 +1,7 @@
 package com.app.wasalna.ui.screens.settings
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.data.wear.WatchAlertSender
@@ -263,6 +264,21 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // TRANSIT BYOK: user's own Routes API v2 key ("" = none → approximate).
+    val routesApiKey: StateFlow<String> =
+        settingsRepository.routesApiKey.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    fun setRoutesApiKey(key: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setRoutesApiKey(key) }
+                .onFailure { Log.e(TAG, "routes key save failed: ${it.message}") }
+        }
+    }
+
     // Phase 10.10: watch-only destination alert (PREMIUM-gated) — the
     // phone stays silent and only the paired watch vibrates/rings.
     val watchOnlyAlert: StateFlow<Boolean> =
@@ -391,5 +407,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { settingsRepository.setAlarmTimeMinutes(minutes) }
         }
+    }
+
+    companion object {
+        private const val TAG = "SettingsVM"
     }
 }

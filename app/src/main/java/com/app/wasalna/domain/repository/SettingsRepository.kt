@@ -57,6 +57,9 @@ interface SettingsRepository {
 
     val appLanguageCode: Flow<String>
 
+    // TRANSIT BYOK: user's own Google Routes API v2 key ("" = none).
+    val routesApiKey: Flow<String>
+
     // Silent-mode (DND) bypass choice — persisted, default RESPECT (safe).
     val dndChoice: Flow<String>
 
@@ -112,6 +115,8 @@ interface SettingsRepository {
     suspend fun setGradualRingtoneUri(uri: String)
 
     suspend fun setTrafficEnabled(enabled: Boolean)
+
+    suspend fun setRoutesApiKey(key: String)
 
     suspend fun setAppLanguageCode(code: String)
 

@@ -31,6 +31,9 @@ package com.app.wasalna.domain.model
  *   «إرشاد تقريبي — تحقق من المواعيد» label plus nearest
  *   boarding/alighting stations from the hand-authored Cairo table
  *   (walk → station → ride → station → walk). NEVER a timetable route.
+ *   With the user's own Routes API v2 key (Settings → BYOK, DataStore
+ *   `routes_api_key`), Map shows a LIVE plan instead (see
+ *   TransitRoutesRepository + TransitPlan); without it, approximate.
  *
  * [simSpeedMps] is the typical cruise speed per vehicle, honored by the
  * trip-simulation controller so virtual GPS advances realistically.

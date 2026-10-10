@@ -426,6 +426,22 @@
     <string name="transit_board_at">🚇 اركب من محطة: %1$s</string>
     <string name="transit_alight_at">🚇 انزل عند محطة: %1$s</string>
     <string name="transit_walk_leg">≈ %1$s كم مشيًا</string>
+    <!-- مسار النقل المباشر (Routes API v2، أكتوبر 2026 — مطابق لقيم values). -->
+    <string name="transit_live_title">🚇 مسار نقل عام مباشر</string>
+    <string name="transit_ride_step">🚇 %1$s: %2$s إلى %3$s</string>
+    <string name="transit_ride_meta">%1$s - %2$s • %3$d محطات</string>
+    <string name="transit_walk_step">🚶 %1$s</string>
+    <string name="transit_walk_leg_m">≈ %1$s م مشيًا</string>
+    <string name="transit_fetch_failed">تعذر تحميل مسار النقل المباشر — يُعرض الإرشاد التقريبي.</string>
+    <string name="settings_routes_title">مفتاح مسارات النقل (اختياري)</string>
+    <string name="settings_routes_sub">مفتاح Google Routes API الخاص بك يفعّل مسارات النقل المباشرة (مشي + ركوب + تحويلات). يُحفظ على هذا الجهاز فقط، ولا يُضمَّن في الكود أبدًا.</string>
+    <string name="settings_routes_hint">الصق مفتاح API</string>
+    <string name="settings_routes_save">حفظ</string>
+    <string name="settings_routes_clear">مسح</string>
+    <string name="settings_routes_saved">تم حفظ المفتاح</string>
+    <string name="settings_routes_cleared">تم مسح المفتاح</string>
+    <string name="settings_routes_show">إظهار المفتاح</string>
+    <string name="settings_routes_hide">إخفاء المفتاح</string>
     <!-- شريط أزرار المحاكاة الصريحة (نفس صياغة المستخدم — مطابق لقيم values). -->
     <string name="sim_explicit_start">▶ تشغيل المحاكاة</string>
     <string name="sim_explicit_pause">⏸ إيقاف مؤقت</string>

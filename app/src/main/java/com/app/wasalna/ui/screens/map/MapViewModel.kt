@@ -11,6 +11,8 @@ import com.app.wasalna.R
 import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.data.repository.OSRMRepository
 import com.app.wasalna.data.repository.OsrmRoute
+import com.app.wasalna.data.repository.TransitRoutesRepository
+import com.app.wasalna.domain.model.TransitPlan
 import com.app.wasalna.data.repository.VelaSearchRepository
 import com.app.wasalna.data.traffic.TrafficOverlayState
 import com.app.wasalna.data.traffic.TrafficRepository
@@ -56,6 +58,7 @@ class MapViewModel @Inject constructor(
     private val nominatim: NominatimRepository,
     private val vela: VelaSearchRepository,
     private val osrm: OSRMRepository,
+    private val transit: TransitRoutesRepository,
     private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
     private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
     private val traffic: TrafficRepository,
@@ -86,6 +89,12 @@ class MapViewModel @Inject constructor(
     // live minutes estimate. Null = not computed yet.
     private val _transportMode = MutableStateFlow(TransportMode.CAR)
     val transportMode: StateFlow<TransportMode> = _transportMode.asStateFlow()
+
+    // TRANSIT BYOK (Oct 2026): live Routes-API-v2 plan when the user
+    // supplied a key. Null = no key / fetch failed → the OSRM reference
+    // corridor below + APPROXIMATE guide stay (never a faked route).
+    private val _transitPlan = MutableStateFlow<TransitPlan?>(null)
+    val transitPlan: StateFlow<TransitPlan?> = _transitPlan.asStateFlow()
 
     // Map UX fixes: camera zoom level (3..19) bound to the MapLibre camera.
     private val _cameraZoom = MutableStateFlow(15f)
@@ -486,9 +495,43 @@ class MapViewModel @Inject constructor(
         val start = currentFix() ?: return
         // ── OFFLINE BOUNDARY: offline mode bypasses OSRM entirely — local
         // GraphHopper engine + GPS straight-line fallback only, no network.
+        // Transit Routes API is NEVER called offline (stays local-only).
         if (isOfflineMode.value) {
+            _transitPlan.value = null
             refreshOfflineRoute(start.latitude, start.longitude, destLat, destLng)
             return
+        }
+        // TRANSIT BYOK: with a user key, try the live v2 plan first
+        // (Dispatchers.IO + 15 s timeouts inside the repository). No key
+        // or any failure → corridor fallback below + Arabic notice.
+        if (_transportMode.value == TransportMode.TRANSIT) {
+            val key = runCatching { settingsRepository.routesApiKey.first() }
+                .getOrDefault("").trim()
+            if (key.isNotEmpty()) {
+                val plan = runCatching {
+                    transit.fetchPlan(
+                        key,
+                        start.latitude, start.longitude,
+                        destLat, destLng,
+                    )
+                }.onFailure {
+                    Log.e(TAG, "live transit failed: ${it.message}")
+                }.getOrNull()
+                if (plan != null) {
+                    _transitPlan.value = plan
+                    _routeGeoJson.value = plan.toGeoJson()
+                    _etaMinutes.value = plan.durationSec
+                        .takeIf { it >= 0 }
+                        ?.let { kotlin.math.round(it / 60.0).toInt().coerceAtLeast(1) }
+                    return
+                }
+                _transitPlan.value = null
+                _events.emit(appContext.getString(R.string.transit_fetch_failed))
+            } else {
+                _transitPlan.value = null
+            }
+        } else {
+            _transitPlan.value = null
         }
         val profile = _transportMode.value.osrmProfile
         val route: OsrmRoute? = runCatching {
@@ -644,6 +687,7 @@ class MapViewModel @Inject constructor(
         _selectedLatLng.value = null
         _routeGeoJson.value = null
         _etaMinutes.value = null
+        _transitPlan.value = null
     }
 
     /**

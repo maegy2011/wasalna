@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryAlert
@@ -27,7 +28,11 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.app.wasalna.utils.AppLocaleHelper
 import com.app.wasalna.utils.AutoStartUtils
 import androidx.compose.ui.unit.dp
@@ -98,6 +105,7 @@ fun SettingsScreen(
     val gradualStrength by viewModel.gradualStrength.collectAsState()
     val gradualRingtoneUri by viewModel.gradualRingtoneUri.collectAsState()
     val dndChoice by viewModel.dndChoice.collectAsState()
+    val routesApiKey by viewModel.routesApiKey.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -919,6 +927,86 @@ fun SettingsScreen(
                     checked = isTrafficEnabled,
                     onCheckedChange = viewModel::setTrafficEnabled,
                 )
+            }
+        }
+
+        // TRANSIT BYOK (user order Oct 2026): the user's OWN Google
+        // Routes API v2 key. Optional — empty keeps APPROXIMATE guidance.
+        // Stored app-private on this device only; never in code/resources.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_routes_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.settings_routes_sub),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                var keyDraft by remember(routesApiKey) { mutableStateOf(routesApiKey) }
+                var keyVisible by remember { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = keyDraft,
+                    onValueChange = { keyDraft = it.take(256) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.settings_routes_hint)) },
+                    singleLine = true,
+                    visualTransformation = if (keyVisible) VisualTransformation.None
+                        else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = { keyVisible = !keyVisible },
+                            modifier = Modifier.size(48.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (keyVisible) Icons.Filled.VisibilityOff
+                                    else Icons.Filled.Visibility,
+                                contentDescription = stringResource(
+                                    if (keyVisible) R.string.settings_routes_hide
+                                    else R.string.settings_routes_show,
+                                ),
+                            )
+                        }
+                    },
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.setRoutesApiKey(keyDraft)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.settings_routes_saved),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.settings_routes_save))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            keyDraft = ""
+                            viewModel.setRoutesApiKey("")
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.settings_routes_cleared),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.settings_routes_clear))
+                    }
+                }
             }
         }
 

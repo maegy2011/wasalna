@@ -13,6 +13,79 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.wasalna.R
+import com.app.wasalna.domain.model.TransitPlan
+
+/**
+ * Live transit plan card (BYOK key present): walk + ride steps with
+ * lines/stops/times straight from the Routes API v2 response.
+ * Arabic-first, RTL-safe, 8dp grid, 48dp+ rows implied by padding.
+ */
+@Composable
+fun TransitLiveCard(
+    plan: TransitPlan,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.transit_live_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            plan.steps.forEach { step ->
+                if (step.isRide) {
+                    val line = step.lineLabel().ifBlank { "—" }
+                    Text(
+                        text = stringResource(
+                            R.string.transit_ride_step,
+                            line,
+                            step.departStop ?: "—",
+                            step.arriveStop ?: "—",
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.transit_ride_meta,
+                            step.departTime ?: "—",
+                            step.arriveTime ?: "—",
+                            step.stopCount ?: 0,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                } else if (step.distanceM > 1.0) {
+                    val leg = if (step.distanceM >= 1000.0) {
+                        stringResource(
+                            R.string.transit_walk_leg,
+                            String.format(java.util.Locale.US, "%.1f", step.distanceM / 1000.0),
+                        )
+                    } else {
+                        stringResource(
+                            R.string.transit_walk_leg_m,
+                            step.distanceM.toInt().toString(),
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.transit_walk_step, leg),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+    }
+}
 
 /**
  * TRANSIT honesty UI (Oct 2026, outcome b APPROXIMATE): every transit

@@ -217,6 +217,13 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDataStore.setAppLanguageCode(code)
     }
 
+    override val routesApiKey: Flow<String>
+        get() = settingsDataStore.routesApiKey
+
+    override suspend fun setRoutesApiKey(key: String) {
+        settingsDataStore.setRoutesApiKey(key)
+    }
+
     override suspend fun setGoogleAccount(displayName: String, email: String) {
         settingsDataStore.setGoogleAccount(displayName, email)
     }

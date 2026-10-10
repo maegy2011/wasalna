@@ -436,6 +436,22 @@
     <string name="transit_board_at">🚇 Board near: %1$s</string>
     <string name="transit_alight_at">🚇 Alight near: %1$s</string>
     <string name="transit_walk_leg">≈ %1$s km on foot</string>
+    <!-- TRANSIT BYOK live route (Routes API v2, Oct 2026 — mirrored in values-ar). -->
+    <string name="transit_live_title">🚇 Live transit route</string>
+    <string name="transit_ride_step">🚇 %1$s: %2$s to %3$s</string>
+    <string name="transit_ride_meta">%1$s - %2$s • %3$d stops</string>
+    <string name="transit_walk_step">🚶 %1$s</string>
+    <string name="transit_walk_leg_m">≈ %1$s m on foot</string>
+    <string name="transit_fetch_failed">Couldn\'t load the live transit route — showing approximate guidance.</string>
+    <string name="settings_routes_title">Transit routes key (optional)</string>
+    <string name="settings_routes_sub">Your own Google Routes API key enables live transit routes (walk + ride + transfers). Stored only on this device, never in the code.</string>
+    <string name="settings_routes_hint">Paste API key</string>
+    <string name="settings_routes_save">Save</string>
+    <string name="settings_routes_clear">Clear</string>
+    <string name="settings_routes_saved">Routes key saved</string>
+    <string name="settings_routes_cleared">Routes key cleared</string>
+    <string name="settings_routes_show">Show key</string>
+    <string name="settings_routes_hide">Hide key</string>
     <!-- Explicit simulation action bar (user-ordered wording). Mirrored in values-ar. -->
     <string name="sim_explicit_start">▶ Start simulation</string>
     <string name="sim_explicit_pause">⏸ Pause</string>

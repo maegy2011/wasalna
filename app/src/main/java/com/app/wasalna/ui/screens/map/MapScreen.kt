@@ -76,8 +76,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.app.wasalna.data.simulation.TripSimulationController
+import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
+import com.app.wasalna.ui.components.TransitGuideCard
+import com.app.wasalna.ui.components.TransitLiveCard
 import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.OfflineModeBanner
 import com.app.wasalna.ui.components.OfflineModeButton
@@ -461,6 +464,38 @@ fun MapScreen(
                                     )
                                 },
                             )
+                        }
+                    }
+                    // TRANSIT planning surface (Oct 2026): live v2 plan
+                    // when the BYOK key delivered one; otherwise the
+                    // APPROXIMATE alighting hint near the destination +
+                    // honesty label (origin = live fix, unknown here).
+                    if (transportMode == TransportMode.TRANSIT && selectedLatLng != null) {
+                        val livePlan by viewModel.transitPlan.collectAsState()
+                        val live = livePlan
+                        if (live != null) {
+                            TransitLiveCard(
+                                plan = live,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            )
+                        } else {
+                            val dest = selectedLatLng
+                            if (dest != null) {
+                                val near = remember(dest) {
+                                    CairoTransitStations.nearest(dest.latitude, dest.longitude)
+                                }
+                                TransitGuideCard(
+                                    boardingText = null,
+                                    alightingText = stringResource(
+                                        R.string.transit_alight_at,
+                                        near.station.displayName(),
+                                    ) + " " + stringResource(
+                                        R.string.transit_walk_leg,
+                                        walkKm(near.distanceM),
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                )
+                            }
                         }
                     }
                     etaMinutes?.let { mins ->
@@ -1023,6 +1058,10 @@ private fun enableLocationComponent(
 }
 
 /** Phase 10.4.0: human-friendly ETA — minutes under 2h, else H h M min. */
+/** Straight-line meters → "1.2" km string (US locale, caller adds the unit resource). */
+private fun walkKm(distanceM: Float): String =
+    String.format(java.util.Locale.US, "%.1f", distanceM / 1000f)
+
 private fun formatEta(mins: Int): String {
     if (mins < 120) return "$mins min${if (mins == 1) "" else "s"}"
     val h = mins / 60
