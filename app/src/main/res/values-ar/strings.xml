@@ -330,4 +330,26 @@
     <string name="nudge_title">اقتربنا 🎒</string>
     <string name="nudge_body">اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.</string>
     <string name="nudge_body_alt">We are close — gather your papers and prepare the trip fare.</string>
+    <!-- REDESIGN 10 Oct 2026: trip progress hero + share-as-image + alarm calm wake. Mirrored in values. -->
+    <string name="trip_hero_remaining_time">باقي %1$s دقيقة</string>
+    <string name="trip_hero_remaining_dist">باقي %1$s كم</string>
+    <string name="trip_hero_arrived">وصلت 🎉</string>
+    <string name="trip_hero_progress_desc">تقدم الرحلة</string>
+    <string name="trip_failsafe_offline">أوفلاين — الاعتماد على خط GPS المباشر</string>
+    <string name="trip_end">إنهاء الرحلة</string>
+    <string name="trip_share_image">🖼️ مشاركة كصورة</string>
+    <string name="trip_share_image_failed">تعذر إنشاء الصورة — حاول مجددًا</string>
+    <string name="trip_card_app_name">وصلنا — لا تفوّت محطتك أبدًا</string>
+    <string name="trip_card_date_label">التاريخ</string>
+    <string name="search_loading">جارٍ البحث…</string>
+    <string name="search_empty">لا نتائج — جرّب اسمًا آخر</string>
+    <string name="search_shortcuts_title">أماكن سريعة</string>
+    <string name="alarm_snooze">غفوة ٥ دقائق</string>
+    <string name="alarm_dismiss">إيقاف</string>
+    <string name="alarm_phase_vibration">اهتزاز لطيف…</string>
+    <string name="alarm_phase_ramp">استيقاظ تدريجي…</string>
+    <string name="alarm_phase_full">استيقاظ كامل</string>
+    <string name="alarm_phase_instant">منبه كامل</string>
+    <string name="trip_card_distance_km">%1$s كم</string>
+    <string name="trip_card_duration_min">%1$s دقيقة</string>
 </resources>

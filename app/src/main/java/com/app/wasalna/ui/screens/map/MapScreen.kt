@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -133,6 +134,8 @@ fun MapScreen(
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
+    // REDESIGN 10 Oct 2026: search loading state (clear loading UX).
+    val isSearching by viewModel.isSearching.collectAsState()
     val routeGeoJson by viewModel.routeGeoJson.collectAsState()
     val selectedName by viewModel.selectedName.collectAsState()
     val selectedAddress by viewModel.selectedAddress.collectAsState()
@@ -308,9 +311,15 @@ fun MapScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                // Map UX fixes: Home & Work quick buttons below the search
-                // box — visible ONLY in search mode (and My Places), never
-                // on the plain Map view.
+                // REDESIGN 10 Oct 2026: search mode — recent + Home/Work
+                // shortcuts on top, big touch targets, clear
+                // loading/empty/error states in Arabic. Logic untouched.
+                Text(
+                    text = stringResource(R.string.search_shortcuts_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
                 HomeWorkQuickRow(
                     homeAddress = homeAddress,
                     workAddress = workAddress,
@@ -323,9 +332,32 @@ fun MapScreen(
                 searchError?.let { err ->
                     Text(
                         text = err,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+                if (isSearching) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.search_loading),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                } else if (predictions.isEmpty() && query.trim().length >= 2 && searchError == null) {
+                    Text(
+                        text = stringResource(R.string.search_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
                     )
                 }
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -334,17 +366,24 @@ fun MapScreen(
                         key = { "${it.name}|${it.lat}|${it.lng}" },
                     ) { result ->
                         ListItem(
-                            headlineContent = { Text(result.name) },
+                            headlineContent = {
+                                Text(
+                                    result.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            },
                             supportingContent = {
                                 if (result.lat != null && result.lng != null) {
                                     Text("${result.lat}, ${result.lng}")
                                 }
                             },
-                            modifier = Modifier.clickable {
-                                viewModel.fetchPlaceDetails(result)
-                                searchActive = false
-                                keyboardController?.hide()
-                            },
+                            modifier = Modifier
+                                .clickable {
+                                    viewModel.fetchPlaceDetails(result)
+                                    searchActive = false
+                                    keyboardController?.hide()
+                                }
+                                .heightIn(min = 64.dp),
                         )
                     }
                 }
@@ -402,12 +441,23 @@ fun MapScreen(
                         }
                     }
                     etaMinutes?.let { mins ->
-                        Text(
-                            text = "ETA: ~${formatEta(mins)} (${transportMode.name.lowercase().replaceFirstChar { it.uppercase() }})",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        )
+                        // REDESIGN: prominent ETA hero chip (resource-based,
+                        // no hardcoded literals) + readable traffic state.
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.trips_eta, mins),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                        }
                     }
                     // Phase 10.11: share the picked destination to the
                     // user's own installed maps / ride apps (dynamic list).
@@ -443,16 +493,23 @@ fun MapScreen(
                             },
                         )
                         if (isTrafficEnabled) {
-                            Text(
-                                text = when (trafficOverlayState) {
-                                    is TrafficOverlayState.Live -> stringResource(R.string.traffic_live)
-                                    is TrafficOverlayState.Stale -> stringResource(R.string.traffic_stale)
-                                    is TrafficOverlayState.Checking -> stringResource(R.string.traffic_checking)
-                                    else -> stringResource(R.string.traffic_unavailable)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                ),
+                            ) {
+                                Text(
+                                    text = when (trafficOverlayState) {
+                                        is TrafficOverlayState.Live -> stringResource(R.string.traffic_live)
+                                        is TrafficOverlayState.Stale -> stringResource(R.string.traffic_stale)
+                                        is TrafficOverlayState.Checking -> stringResource(R.string.traffic_checking)
+                                        else -> stringResource(R.string.traffic_unavailable)
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
                         }
                     }
                     Text(
@@ -507,28 +564,32 @@ fun MapScreen(
                     ) {
                         Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.map_my_location))
                     }
-                    // Map action FABs (bottom-end, stacked vertically with
-                    // 8dp+ spacing): traffic toggle (small, icon-only, two-way
-                    // synced with the Settings switch via the same StateFlow)
-                    // + Add Destination (icon-only, same save behavior).
+                    // REDESIGN: map takes the full stage; FABs grouped
+                    // bottom-end with 8dp spacing; restyled address card
+                    // (elevated, headline, tappable → Home/Work sheet).
                     // My Location stays bottom-start — no overlap.
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(16.dp),
                         horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         addressLine?.let { line ->
                             Card(
                                 onClick = {
                                     selectedLatLng?.let { homeWorkSheetPoint = it }
                                 },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                             ) {
                                 Text(
                                     text = line,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 )
                             }
                         }
@@ -617,9 +678,11 @@ fun MapScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    // REDESIGN: restyled sheet header (larger, bolder).
                     Text(
                         text = addressLine ?: selectedName ?: stringResource(R.string.map_selected_point),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     Button(

@@ -3,22 +3,30 @@ package com.app.wasalna.ui.screens.trips
 import androidx.compose.ui.res.stringResource
 import com.app.wasalna.R
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -29,7 +37,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.launch
 import com.app.wasalna.ui.components.DestinationShareSheet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +92,10 @@ fun TripRouteScreen(
     var cameraFitted by remember { mutableStateOf(false) }
     // Phase 10.11: dynamic destination share sheet (re-queries on open).
     var showDestinationShare by remember { mutableStateOf(false) }
+    // REDESIGN 10 Oct 2026: snackbar for share-as-image failures.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val shareImageFailed = stringResource(R.string.trip_share_image_failed)
 
     // Reactive redraw: every breadcrumb emission rebuilds the LineString.
     LaunchedEffect(points, styleRef) {
@@ -119,6 +134,7 @@ fun TripRouteScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Box(
             modifier = Modifier
@@ -180,36 +196,146 @@ fun TripRouteScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // Header overlay: name + status + ETA + breadcrumb count.
+            // REDESIGN 10 Oct 2026: live progress hero (top) — big
+            // remaining time/distance + progress bar + mode/failsafe line.
+            // Map keeps the full stage; hero + actions are overlays.
+            // Kept: destination name, status, ETA, breadcrumb count,
+            // dynamic destination share sheet entry point.
             trip?.let { t ->
+                val lastPoint = points.lastOrNull()
+                val travelledKm = points.zipWithNext { a, b ->
+                    haversineKm(a.lat, a.lng, b.lat, b.lng)
+                }.sum()
+                val remainingKm = if (lastPoint != null) {
+                    haversineKm(lastPoint.lat, lastPoint.lng, t.destLat, t.destLng)
+                } else {
+                    null
+                }
+                val totalKm = travelledKm + (remainingKm ?: 0.0)
+                val progress = if (totalKm > 0.01) {
+                    (travelledKm / totalKm).toFloat().coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                         .align(Alignment.TopCenter),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                     ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Text(
                             text = "${t.transportMode.icon} ${t.locationName}",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                        ) {
+                            Text(
+                                text = t.etaMinutes?.let {
+                                    stringResource(R.string.trip_hero_remaining_time, it)
+                                } ?: stringResource(R.string.trip_hero_arrived),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = remainingKm?.let {
+                                    stringResource(
+                                        R.string.trip_hero_remaining_dist,
+                                        String.format(java.util.Locale.US, "%.1f", it),
+                                    )
+                                } ?: "—",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp),
+                        )
+                        // Mode + failsafe status line (read-only).
                         Text(
-                            text = "${t.status} • " +
-                                (t.etaMinutes?.let { "~$it mins" } ?: "ETA --") +
-                                " • ${points.size} points",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = if (points.size < 2) {
+                                "${t.status} • ${stringResource(R.string.trip_failsafe_offline)}"
+                            } else {
+                                "${t.status} • ${t.transportMode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${points.size} pts"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         // Phase 10.11: share the trip destination to the
                         // user's own installed maps / ride apps (dynamic).
                         TextButton(
                             onClick = { showDestinationShare = true },
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text(stringResource(R.string.share_destination))
                         }
+                    }
+                }
+                // Bottom action bar: ONE primary (end trip) + share image.
+                // 56dp targets, 8dp spacing, elderly-friendly.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .align(Alignment.BottomCenter),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = { viewModel.finishTrip(onBack) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.trip_end),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                val distText = context.getString(
+                                    R.string.trip_card_distance_km,
+                                    String.format(java.util.Locale.US, "%.1f", totalKm),
+                                )
+                                val durText = t.etaMinutes?.let {
+                                    context.getString(R.string.trip_card_duration_min, "$it")
+                                } ?: tripCardDate(t.startTime)
+                                val ok = captureAndShareTripImage(
+                                    context = context,
+                                    destination = t.locationName,
+                                    distanceKm = distText,
+                                    durationMin = durText,
+                                    dateText = tripCardDate(
+                                        t.endTime ?: System.currentTimeMillis(),
+                                    ),
+                                )
+                                if (!ok) snackbarHostState.showSnackbar(shareImageFailed)
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.trip_share_image),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
                     }
                 }
             }

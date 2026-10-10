@@ -340,4 +340,26 @@
     <string name="nudge_title">We\'re close 🎒</string>
     <string name="nudge_body">We\'re close — gather your papers and prepare the trip fare.</string>
     <string name="nudge_body_alt">اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.</string>
+    <!-- REDESIGN 10 Oct 2026: trip progress hero + share-as-image + alarm calm wake. Mirrored in values-ar. -->
+    <string name="trip_hero_remaining_time">%1$s min left</string>
+    <string name="trip_hero_remaining_dist">%1$s km to go</string>
+    <string name="trip_hero_arrived">Arrived 🎉</string>
+    <string name="trip_hero_progress_desc">Trip progress</string>
+    <string name="trip_failsafe_offline">Offline — GPS straight-line fallback</string>
+    <string name="trip_end">End trip</string>
+    <string name="trip_share_image">🖼️ Share as image</string>
+    <string name="trip_share_image_failed">Couldn\'t create the image — try again</string>
+    <string name="trip_card_app_name">Wasalna — never miss your stop</string>
+    <string name="trip_card_date_label">Date</string>
+    <string name="search_loading">Searching…</string>
+    <string name="search_empty">No results — try another name</string>
+    <string name="search_shortcuts_title">Quick places</string>
+    <string name="alarm_snooze">Snooze 5 min</string>
+    <string name="alarm_dismiss">Dismiss</string>
+    <string name="alarm_phase_vibration">Gentle vibration…</string>
+    <string name="alarm_phase_ramp">Waking up gently…</string>
+    <string name="alarm_phase_full">Fully awake</string>
+    <string name="alarm_phase_instant">Full alarm</string>
+    <string name="trip_card_distance_km">%1$s km</string>
+    <string name="trip_card_duration_min">%1$s min</string>
 </resources>

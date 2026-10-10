@@ -44,4 +44,19 @@ class TripRouteViewModel @Inject constructor(
                 .getOrNull()
         }
     }
+
+    /**
+     * REDESIGN 10 Oct 2026: prominent end-trip action — reuses the
+     * existing TripRepository.finishTrip storage (same as the tracking
+     * service path). Clears local state, then navigates back via [onDone].
+     * No `!!`, no new permissions.
+     */
+    fun finishTrip(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            runCatching { tripRepository.finishTrip(tripId) }
+            _trip.value = runCatching { tripRepository.tripById(tripId) }
+                .getOrNull()
+            onDone()
+        }
+    }
 }

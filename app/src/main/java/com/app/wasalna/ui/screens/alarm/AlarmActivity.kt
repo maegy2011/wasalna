@@ -28,19 +28,30 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -239,13 +250,20 @@ class AlarmActivity : ComponentActivity() {
         // Phase 10.4.3.3: wrist-reachable alarm (Wear OS mirrors actions).
         postAlarmNotification()
 
+        // REDESIGN 10 Oct 2026: calm wake screen — phase indicator +
+        // huge dismiss + snooze. All audio/mode flags above untouched.
+        val phaseFlow = gradualController?.phase
         setContent {
             AlarmScreen(
                 silentMode = silentMode || headphoneActive,
                 watchOnly = watchOnlyMode,
                 watchFallback = watchFallback,
                 alarmModeName = alarmModeName,
+                gradualActive = phaseFlow != null,
+                phaseFlow = phaseFlow,
                 onLongPressStop = { stopAlarm() },
+                onDismiss = { stopAlarm() },
+                onSnooze = { snoozeAlarm() },
             )
         }
     }
@@ -671,6 +689,54 @@ class AlarmActivity : ComponentActivity() {
         notifyWatchDismissed()
     }
 
+    /**
+     * REDESIGN 10 Oct 2026: snooze — quiets everything now (same full
+     * stop as dismiss: sound + vibration + notification + watch), then
+     * re-fires this same screen in 5 minutes via AlarmManager with the
+     * IDENTICAL mode extras (silent/premium/headphone/watch/mode copied
+     * read-only from the firing intent). No flag is reinterpreted.
+     */
+    private fun snoozeAlarm() {
+        if (stopped) return
+        stopped = true
+        Log.i(TAG, "snoozeAlarm: quiet now, refire in 5 min")
+        cancelAlarmNotification()
+        notifyWatchDismissed()
+        gradualController?.release()
+        gradualController = null
+        releasePlayer()
+        try {
+            vibrator?.cancel()
+        } catch (e: Exception) {
+            Log.w(TAG, "snooze vibrate cancel: ${e.message}")
+        } finally {
+            vibrator = null
+        }
+        restoreVolume()
+        runCatching {
+            val am = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+            val refire = android.content.Intent(this, AlarmActivity::class.java).apply {
+                action = null
+                intent?.extras?.let { putExtras(it) }
+            }
+            val pending = android.app.PendingIntent.getActivity(
+                this,
+                REQ_SNOOZE,
+                refire,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                    android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            am?.setExactAndAllowWhileIdle(
+                android.app.AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + SNOOZE_MS,
+                pending,
+            )
+        }.onFailure {
+            Log.w(TAG, "snooze schedule failed: ${it.message}")
+        }
+        finish()
+    }
+
     private fun stopAlarm() {
         if (stopped) return
         stopped = true
@@ -761,6 +827,8 @@ class AlarmActivity : ComponentActivity() {
         private const val REQ_WEAR_STOP = 21
         private const val REQ_WEAR_SILENCE = 22
         private const val REQ_WEAR_CONTENT = 23
+        private const val REQ_SNOOZE = 24
+        private const val SNOOZE_MS = 5 * 60 * 1000L
 
         /**
          * Phase 10.4.3.3: violent repeating waveform — 1.2 s buzz /
@@ -770,18 +838,34 @@ class AlarmActivity : ComponentActivity() {
     }
 }
 
+/**
+ * REDESIGN 10 Oct 2026: calm wake screen matching the gradual alarm —
+ * soft dawn palette, phase indicator (vibration → ramp → full),
+ * HUGE dismiss (72dp) + snooze (56dp), one primary action.
+ *
+ * Kept: long-press anywhere stops, silent/watch subtitles, alarm-mode
+ * line, DND/headphone/watch-only flags respected READ-ONLY (badges
+ * display only — no behaviour change, no new permissions).
+ */
 @Composable
 private fun AlarmScreen(
     silentMode: Boolean,
     watchOnly: Boolean = false,
     watchFallback: Boolean = false,
     alarmModeName: String = "DISTANCE",
+    gradualActive: Boolean = false,
+    phaseFlow: kotlinx.coroutines.flow.StateFlow<GradualPhase>? = null,
     onLongPressStop: () -> Unit,
+    onDismiss: () -> Unit = onLongPressStop,
+    onSnooze: () -> Unit = {},
 ) {
+    val currentPhase by (phaseFlow?.collectAsState() ?: remember {
+        mutableStateOf(GradualPhase.FULL)
+    })
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A0505))
+            .background(Color(0xFF101828))
             .pointerInput(Unit) {
                 detectTapGestures(onLongPress = { onLongPressStop() })
             },
@@ -789,13 +873,31 @@ private fun AlarmScreen(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(24.dp),
         ) {
+            // Phase indicator: vibration → ramp → full (gradual path) or
+            // a single full-alarm state (legacy instant path).
+            if (gradualActive) {
+                PhaseIndicator(currentPhase = currentPhase)
+            } else {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFD54F).copy(alpha = 0.16f),
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.alarm_phase_instant),
+                        color = Color(0xFFFFD54F),
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
             Box(
                 modifier = Modifier
                     .size(120.dp)
-                    .background(Color(0xFFD32F2F), shape = CircleShape),
+                    .background(Color(0xFFF2A007), shape = CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -805,15 +907,14 @@ private fun AlarmScreen(
                     modifier = Modifier.size(64.dp),
                 )
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.alarm_title),
-                color = Color(0xFFFF5252),
+                color = Color(0xFFFFD54F),
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = when {
                     watchOnly -> stringResource(R.string.alarm_subtitle_watch)
@@ -827,7 +928,6 @@ private fun AlarmScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.headlineSmall,
             )
-            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = if (alarmModeName == "TIME") {
                     stringResource(R.string.alarm_mode_time_short)
@@ -838,12 +938,90 @@ private fun AlarmScreen(
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            // ONE primary action: huge dismiss (72dp, full width).
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.alarm_dismiss),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            OutlinedButton(
+                onClick = onSnooze,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.alarm_snooze),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             Text(
                 text = stringResource(R.string.alarm_dismiss_hint),
                 color = Color(0xFFB0B0B0),
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/** Three-dot gradual phase indicator — filled = reached, calm colors. */
+@Composable
+private fun PhaseIndicator(currentPhase: GradualPhase) {
+    val steps = listOf(
+        GradualPhase.VIBRATION_ONLY to stringResource(R.string.alarm_phase_vibration),
+        GradualPhase.RAMPING to stringResource(R.string.alarm_phase_ramp),
+        GradualPhase.FULL to stringResource(R.string.alarm_phase_full),
+    )
+    val order = listOf(
+        GradualPhase.VIBRATION_ONLY,
+        GradualPhase.RAMPING,
+        GradualPhase.FULL,
+    )
+    val currentIndex = order.indexOf(currentPhase).coerceAtLeast(0)
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                steps.forEachIndexed { index, _ ->
+                    Box(
+                        modifier = Modifier
+                            .size(if (index == currentIndex) 16.dp else 12.dp)
+                            .background(
+                                color = if (index <= currentIndex) {
+                                    Color(0xFFFFD54F)
+                                } else {
+                                    Color.White.copy(alpha = 0.30f)
+                                },
+                                shape = CircleShape,
+                            ),
+                    )
+                }
+            }
+            Text(
+                text = steps[currentIndex.coerceIn(steps.indices)].second,
+                color = Color.White,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.heightIn(min = 24.dp),
             )
         }
     }

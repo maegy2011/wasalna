@@ -71,6 +71,11 @@ class MapViewModel @Inject constructor(
     private val _predictions = MutableStateFlow<List<SearchResult>>(emptyList())
     val predictions: StateFlow<List<SearchResult>> = _predictions.asStateFlow()
 
+    // REDESIGN 10 Oct 2026: search loading state for the clear
+    // loading/empty/error search UX. Set around the debounced fetch.
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
     // OSRM route GeoJSON (FeatureCollection string) from the user's GPS
     // position to the confirmed destination. Null = none yet.
     private val _routeGeoJson = MutableStateFlow<String?>(null)
@@ -405,12 +410,14 @@ class MapViewModel @Inject constructor(
         if (query.isBlank()) {
             _predictions.value = emptyList()
             _searchError.value = null
+            _isSearching.value = false
             return
         }
         if (query.trim().length < 2) {
             _predictions.value = emptyList()
             return
         }
+        _isSearching.value = true
         searchJob = viewModelScope.launch {
             delay(300) // debounce
             searchPlaces(query)
@@ -429,6 +436,7 @@ class MapViewModel @Inject constructor(
             if (isOfflineMode.value) {
                 _predictions.value = emptyList()
                 _searchError.value = MSG_OFFLINE_SEARCH
+                _isSearching.value = false
                 return@launch
             }
             val fix = currentFix()
@@ -447,6 +455,7 @@ class MapViewModel @Inject constructor(
                 _predictions.value = emptyList()
                 _searchError.value = "Search failed: check your connection"
             }
+            _isSearching.value = false
         }
     }
 
@@ -561,6 +570,7 @@ class MapViewModel @Inject constructor(
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
         _searchError.value = null
+        _isSearching.value = false
         _searchQuery.value = result.name
         // Phase 10.4.1: route follows reactively via
         // LaunchedEffect(selectedLatLng, transportMode) in MapScreen.
