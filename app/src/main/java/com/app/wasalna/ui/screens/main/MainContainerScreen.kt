@@ -487,19 +487,19 @@ private fun DrawerBrandHeader() {
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = appName,
-                style = MaterialTheme.typography.headlineSmall,
-            )
+            // App name + version on ONE line (user order Oct 2026).
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = appName,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "v$versionName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "v$versionName",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            // Aligned under the app name (badge 48dp + gap 8dp); start =
-            // RTL-aware, mirrors automatically in Arabic.
-            modifier = Modifier.padding(start = 56.dp),
-        )
     }
 }
