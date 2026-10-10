@@ -38,6 +38,8 @@ interface SettingsRepository {
     val workAddress: Flow<String>
     val isTrafficEnabled: Flow<Boolean>
 
+    val appLanguageCode: Flow<String>
+
     suspend fun setOnboardingCompleted(completed: Boolean)
 
     suspend fun setElderlyMode(enabled: Boolean)
@@ -69,6 +71,8 @@ interface SettingsRepository {
     suspend fun setForceOffline(enabled: Boolean)
 
     suspend fun setTrafficEnabled(enabled: Boolean)
+
+    suspend fun setAppLanguageCode(code: String)
 
     suspend fun setPreferredMapEngine(engine: String)
 }

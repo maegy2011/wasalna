@@ -189,6 +189,16 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.TRAFFIC_ENABLED] = enabled }
     }
 
+    // In-app language code ("" = follow device, "ar", "en"). Default ""
+    // follows the device language automatically — no first-run write needed.
+    val appLanguageCode: Flow<String> =
+        dataStore.data.map { it[Keys.APP_LANGUAGE_CODE] ?: "" }
+
+    suspend fun setAppLanguageCode(code: String) {
+        val normalized = if (code == "ar" || code == "en") code else ""
+        dataStore.edit { it[Keys.APP_LANGUAGE_CODE] = normalized }
+    }
+
     // Phase 10.5.x Step 4: developer test-mode — force offline routing.
     // When true, TrackingService + MapViewModel bypass OSRM and force
     // GraphHopperRouteEngine (with GPS straight-line fallback).
@@ -225,6 +235,7 @@ class SettingsDataStore @Inject constructor(
         val WORK_LNG = doublePreferencesKey("work_lng")
         val WORK_ADDRESS = stringPreferencesKey("work_address")
         val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
+        val APP_LANGUAGE_CODE = stringPreferencesKey("app_language_code")
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")
     }
 }

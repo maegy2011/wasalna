@@ -62,6 +62,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isTrafficEnabled: Flow<Boolean>
         get() = settingsDataStore.isTrafficEnabled
 
+    override val appLanguageCode: Flow<String>
+        get() = settingsDataStore.appLanguageCode
+
     override val isForceOffline: Flow<Boolean>
         get() = settingsDataStore.isForceOffline
 
@@ -131,5 +134,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTrafficEnabled(enabled: Boolean) {
         settingsDataStore.setTrafficEnabled(enabled)
+    }
+
+    override suspend fun setAppLanguageCode(code: String) {
+        settingsDataStore.setAppLanguageCode(code)
     }
 }

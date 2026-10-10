@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Wasalna</string>
+    <string name="app_name">Wasalna?</string>
 
     <!-- Phase 9: main UI strings -->
     <string name="home_title">Wasalna</string>
@@ -33,6 +33,13 @@
     <string name="settings_silent_title">Silent Alarm (Premium)</string>
     <string name="settings_silent_sub">Earphones only, vibrate if unplugged</string>
     <string name="settings_silent_locked">Premium only</string>
+
+    <!-- In-app language (Arabic/English/System). Mirrored in values-ar. -->
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_sub">App language</string>
+    <string name="settings_language_auto">System default</string>
+    <string name="settings_language_arabic">العربية</string>
+    <string name="settings_language_english">English</string>
 
     <!-- Tracking notification -->
     <string name="tracking_title">Wasalna alarm active</string>

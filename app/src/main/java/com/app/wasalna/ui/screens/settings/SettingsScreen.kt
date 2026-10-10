@@ -32,6 +32,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.app.wasalna.utils.AppLocaleHelper
 import com.app.wasalna.utils.AutoStartUtils
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,6 +79,7 @@ fun SettingsScreen(
     val proactiveAlert by viewModel.proactiveAlert.collectAsState()
     val forceOffline by viewModel.forceOffline.collectAsState()
     val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
+    val appLanguage by viewModel.appLanguage.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -161,6 +165,63 @@ fun SettingsScreen(
                     checked = elderlyMode,
                     onCheckedChange = viewModel::setElderlyMode,
                 )
+            }
+        }
+
+        // In-app language: System default + العربية + English.
+        // Persisted in the existing SettingsDataStore (app_language_code).
+        // API 33+: LocaleManager recreates activities automatically;
+        // API 26–32: recreate manually so the new locale takes effect.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_language_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_language_sub),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val languageOptions = listOf(
+                    "" to stringResource(R.string.settings_language_auto),
+                    "ar" to stringResource(R.string.settings_language_arabic),
+                    "en" to stringResource(R.string.settings_language_english),
+                )
+                languageOptions.forEach { (code, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable {
+                                viewModel.setAppLanguage(code)
+                                AppLocaleHelper.apply(context, code)
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                    (context as? Activity)?.recreate()
+                                }
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = appLanguage == code,
+                            onClick = {
+                                viewModel.setAppLanguage(code)
+                                AppLocaleHelper.apply(context, code)
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                    (context as? Activity)?.recreate()
+                                }
+                            },
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
             }
         }
 

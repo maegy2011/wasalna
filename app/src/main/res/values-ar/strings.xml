@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">وصلنا؟</string>
+
+    <!-- لغة التطبيق (مطابقة لقيم values). -->
+    <string name="settings_language_title">اللغة</string>
+    <string name="settings_language_sub">لغة التطبيق</string>
+    <string name="settings_language_auto">لغة الجهاز</string>
+    <string name="settings_language_arabic">العربية</string>
+    <string name="settings_language_english">English</string>
+</resources>

@@ -122,6 +122,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // In-app language ("" = system, "ar", "en") — DataStore-backed.
+    val appLanguage: StateFlow<String> =
+        settingsRepository.appLanguageCode.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    fun setAppLanguage(code: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAppLanguageCode(code) }
+        }
+    }
+
     // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
     val proactiveAlert: StateFlow<Boolean> =
         settingsRepository.isProactiveAlertEnabled.stateIn(
