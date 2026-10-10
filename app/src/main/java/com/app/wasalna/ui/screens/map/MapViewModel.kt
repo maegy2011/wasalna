@@ -146,7 +146,7 @@ class MapViewModel @Inject constructor(
         // restores on reconnect) — probes + raster rendering stay gated
         // by isOfflineMode, so enabling here only takes effect online.
         if (enabled && isOfflineMode.value) {
-            viewModelScope.launch { _events.emit(MSG_TRAFFIC_OFFLINE) }
+            viewModelScope.launch { _events.emit(msg(R.string.map_traffic_offline)) }
         }
         _isTrafficEnabled.value = enabled
         traffic.setEnabled(enabled)
@@ -264,10 +264,10 @@ class MapViewModel @Inject constructor(
                     ?: fallbackName(lat, lng)
             }
             runCatching { settingsRepository.setHome(lat, lng, address) }
-                .onSuccess { _events.emit(MSG_HOME_SAVED) }
+                .onSuccess { _events.emit(msg(R.string.map_home_saved)) }
                 .onFailure {
                     Log.e(TAG, "save home from map failed: ${it.message}")
-                    _events.emit(MSG_SAVE_FAILED)
+                    _events.emit(msg(R.string.map_save_failed))
                 }
         }
     }
@@ -284,10 +284,10 @@ class MapViewModel @Inject constructor(
                     ?: fallbackName(lat, lng)
             }
             runCatching { settingsRepository.setWork(lat, lng, address) }
-                .onSuccess { _events.emit(MSG_WORK_SAVED) }
+                .onSuccess { _events.emit(msg(R.string.map_work_saved)) }
                 .onFailure {
                     Log.e(TAG, "save work from map failed: ${it.message}")
-                    _events.emit(MSG_SAVE_FAILED)
+                    _events.emit(msg(R.string.map_save_failed))
                 }
         }
     }
@@ -453,7 +453,7 @@ class MapViewModel @Inject constructor(
             // offline, keep the map usable and say so in Arabic.
             if (isOfflineMode.value) {
                 _predictions.value = emptyList()
-                _searchError.value = MSG_OFFLINE_SEARCH
+                _searchError.value = msg(R.string.map_offline_search)
                 _isSearching.value = false
                 return@launch
             }
@@ -846,7 +846,7 @@ class MapViewModel @Inject constructor(
             }.getOrDefault(false)
             if (duplicate) {
                 _isSaving.value = false
-                _events.emit(MSG_ALREADY_SAVED)
+                _events.emit(msg(R.string.map_already_saved))
                 return@launch
             }
             runCatching {
@@ -865,6 +865,9 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /** Resolves a user-facing message in the selected app language. */
+    private fun msg(resId: Int): String = appContext.getString(resId)
+
     companion object {
         private const val TAG = "MapViewModel"
         private const val TRAFFIC_SETTLE_DEBOUNCE_MS = 1_000L
@@ -872,17 +875,10 @@ class MapViewModel @Inject constructor(
         private const val LOC_TIMEOUT_MS = 8_000L
         const val MIN_ZOOM = 3f
         const val MAX_ZOOM = 19f
-        const val MSG_ALREADY_SAVED = "This place is already saved!"
-        const val MSG_HOME_SAVED = "تم حفظ Home ✅"
-        const val MSG_WORK_SAVED = "تم حفظ Work ✅"
-        const val MSG_SAVE_FAILED = "تعذر الحفظ — تحقق من الاتصال وحاول مجددًا"
-        const val FALLBACK_MSG = "Offline Routing failed, using GPS straight-line"
-        /** Upgrade (Oct 2026): route spans unstored areas — names the graph to download. */
-        const val SPAN_WITH_SUGGESTION = "Route is outside stored offline maps — download %1\$s for road routing 🛰️"
-        const val MSG_OFFLINE_SEARCH =
-            "وضع أوفلاين: البحث يحتاج اتصال — اعتمد على الأماكن المحفوظة 🛰️"
-        const val MSG_TRAFFIC_OFFLINE =
-            "وضع أوفلاين: طبقة الازدحام متوقفة — تعود مع الاتصال 🛰️"
+        // User messages are resolved from resources (one language per the
+        // selected app locale) via msg() — never hardcoded here.
+        // (Removed Oct 2026: hardcoded EN/AR MSG_* constants + unused
+        // FALLBACK_MSG / SPAN_WITH_SUGGESTION.)
     }
 }
 

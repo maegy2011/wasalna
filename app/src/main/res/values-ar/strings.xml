@@ -38,7 +38,7 @@
     <string name="settings_watch_refresh">تحديث حالة الساعة</string>
     <string name="settings_watch_checking">جارٍ البحث عن ساعتك…</string>
     <string name="settings_watch_connected">الساعة متصلة ✓ — تم العثور على تطبيق الساعة</string>
-    <string name="settings_watch_app_missing">الساعة مقترنة لكن تطبيق وصلنا للساعة غير مثبت — ثبّته من متجر بلاي على ساعتك</string>
+    <string name="settings_watch_app_missing">الساعة مقترنة لكن تطبيق وصلنا؟ للساعة غير مثبت — ثبّته من متجر بلاي على ساعتك</string>
     <string name="settings_watch_no_watch">لا توجد ساعة مقترنة — اقترن ساعة Wear OS بهذا الهاتف أولًا</string>
     <string name="settings_watch_unknown">تعذر فحص الساعة — افتح خدمات جوجل بلاي / البلوتوث وحاول مجددًا</string>
     <string name="settings_watch_test">إرسال اهتزاز تجريبي</string>
@@ -106,7 +106,12 @@
     <string name="home_heading">إلى أين نذهب اليوم؟</string>
     <string name="home_location_required">إذن الموقع مطلوب — امنحه من شاشة الأذونات</string>
     <string name="home_open_menu">فتح القائمة</string>
-    <string name="home_title">وصلنا</string>
+    <string name="home_title">وصلنا؟</string>
+    <string name="home_current_trip">%1$s الرحلة الحالية: %2$s</string>
+    <!-- MyPlaces delete confirm — one language per locale. Mirrored in values. -->
+    <string name="myplaces_delete_title">حذف المكان؟</string>
+    <string name="myplaces_delete_msg">سيتم حذف “%1$s” نهائيًا ولا يمكن استعادته.</string>
+    <string name="myplaces_delete_confirm">احذف</string>
     <string name="home_tracking_started">بدأ التتبع: %1$s</string>
     <string name="home_tracking_started_toast">بدأ التتبع</string>
     <string name="settings_elderly_sub">نص أكبر وأهداف لمس أكبر</string>
@@ -124,7 +129,7 @@
     <string name="tracking_silent">صامت</string>
     <string name="tracking_stop">إيقاف</string>
     <string name="tracking_text">المنبه نشط... نم قرير العين!</string>
-    <string name="tracking_title">منبه وصلنا نشط</string>
+    <string name="tracking_title">منبه وصلنا؟ نشط</string>
 
     <!-- Phase 10.12: full AR+EN coverage keys (MSA). -->
     <string name="common_save">حفظ</string>
@@ -162,7 +167,7 @@
     <string name="confirm_desc">تأكيد: %1$s</string>
     <string name="dismiss_desc">تراجع عن: %1$s</string>
     <string name="paywall_title">الدرجة الأولى</string>
-    <string name="paywall_header">وصلنا للدرجة الأولى</string>
+    <string name="paywall_header">وصلنا؟ للدرجة الأولى</string>
     <string name="paywall_sub">لا تفوّت محطتك أبدًا — بأناقة</string>
     <string name="paywall_active_sub">أنت مسافر على الدرجة الأولى ✦</string>
     <string name="paywall_trial_remaining">التجربة — %1$s</string>
@@ -177,23 +182,54 @@
     <string name="paywall_cta_active">الدرجة الأولى مفعّلة ✦</string>
     <string name="paywall_mock_note">دفع تجريبي — بلا رسوم حقيقية. الدفع الحقيقي عبر Play عند الإصدار.</string>
     <string name="paywall_welcome_toast">أهلًا بك في الدرجة الأولى! (بدأت التجربة المجانية لثلاثة أيام)</string>
-    <string name="home_welcome">أهلًا بك في وصلنا! 🚏</string>
+    <string name="home_welcome">أهلًا بك في وصلنا؟ 🚏</string>
     <string name="home_empty_hint">لا توجد وجهات بعد — أضف محطتك الأولى ولا تفوّتها أبدًا.</string>
     <string name="home_sub_count">لديك %1$d أماكن محفوظة. أضف آخر أو أدرها من أماكني.</string>
     <string name="home_add_cta">إضافة وجهة جديدة</string>
     <string name="home_empty_desc">لا توجد وجهات بعد</string>
     <string name="restrictions_title">إصلاح التتبع في الخلفية</string>
-    <string name="restrictions_body">جهازك (%1$s) يغلق تطبيقات الخلفية بقوة. لضمان أن يوقظك وصلنا، فعّل التشغيل التلقائي وأزل قيود الخلفية.</string>
+    <string name="restrictions_body">جهازك (%1$s) يغلق تطبيقات الخلفية بقوة. لضمان أن يوقظك وصلنا؟، فعّل التشغيل التلقائي وأزل قيود الخلفية.</string>
     <string name="restrictions_open">فتح إعدادات الجهاز</string>
     <string name="restrictions_done">فعلت ذلك</string>
     <string name="restrictions_settings_toast">تعذر فتح إعدادات الجهاز — افتحها يدويًا من فضلك</string>
-    <string name="perm_title">فعّل ما يحتاجه وصلنا</string>
-    <string name="perm_start">Start Journey — بدء الرحلة</string>
-    <string name="perm_continue">Continue without permissions — متابعة بدون الأذونات</string>
-    <string name="perm_open_settings">Open settings — فتح الإعدادات</string>
+    <string name="perm_title">فعّل ما يحتاجه وصلنا؟</string>
+    <string name="perm_start">بدء الرحلة</string>
+    <string name="perm_continue">متابعة بدون الأذونات</string>
+    <string name="perm_open_settings">فتح الإعدادات</string>
     <string name="perm_granted_desc">ممنوح</string>
     <string name="perm_pending_desc">معلق</string>
+    <!-- Permissions body — one language per locale (no mixed EN+AR). Mirrored in values. -->
+    <string name="perm_intro">نحتاج تتبّع الموقع والعمل في الخلفية لإيقاظك قبل محطتك حتى والشاشة مغلقة.</string>
+    <string name="perm_loc_title">الموقع (مطلوب)</string>
+    <string name="perm_loc_desc">يُستخدم لتتبّع رحلتك وتشغيل المنبّه قرب وجهتك. اختر «أثناء استخدام التطبيق» وفعّل «الموقع الدقيق».</string>
+    <string name="perm_loc_grant">منح الموقع</string>
+    <string name="perm_granted">تم</string>
+    <string name="perm_loc_never">تم الرفض نهائيًا — افتح الإعدادات وامنح الموقع يدويًا: الإعدادات ← التطبيقات ← وصلنا؟ ← الأذونات.</string>
+    <string name="perm_loc_denied">تم رفض الموقع — يمكنك منحه من: الإعدادات ← التطبيقات ← وصلنا؟ ← الأذونات.</string>
+    <string name="perm_bg_title">موقع الخلفية (مستحسن)</string>
+    <string name="perm_bg_desc">يسمح باستمرار المنبّه والتتبّع عندما يكون التطبيق في الخلفية. يشترط أندرويد منح موقع المقدّمة أولًا ثم طلب الخلفية بشكل منفصل.</string>
+    <string name="perm_bg_grant">منح الخلفية</string>
+    <string name="perm_bg_disabled">امنح موقع المقدّمة أولًا ثم اطلب موقع الخلفية.</string>
+    <string name="perm_bg_settings">تعذّر المنح من هنا — افتح إعدادات التطبيق واختر «السماح طوال الوقت» للموقع: الإعدادات ← التطبيقات ← وصلنا؟ ← الأذونات ← الموقع.</string>
+    <string name="perm_battery_title">تجاهل تحسين البطارية (مطلوب)</string>
+    <string name="perm_battery_desc">يمنع النظام من قتل التطبيق أثناء الرحلة — ضروري لمنبّه الاستيقاظ والشاشة مغلقة. سيُفتح إعداد النظام — اختر «سماح» لتطبيق وصلنا؟.</string>
+    <string name="perm_allow">سماح</string>
+    <string name="perm_allowed">تم</string>
+    <string name="perm_overlay_title">الظهور فوق التطبيقات (اختياري)</string>
+    <string name="perm_overlay_desc">يعرض شاشة المنبّه كاملة حتى لو كان تطبيق آخر مفتوحًا.</string>
+    <string name="perm_notif_title">الإشعارات (مستحسن)</string>
+    <string name="perm_notif_desc">يعرض حالة الرحلة وإشعارات المنبّه.</string>
+    <string name="perm_notif_settings">تم رفض الإشعارات نهائيًا — فعّلها من: الإعدادات ← التطبيقات ← وصلنا؟ ← الإشعارات.</string>
+    <string name="perm_require_hint">امنح الموقع وتجاهل تحسين البطارية للمتابعة.</string>
+    <string name="perm_degraded">يمكنك استخدام التطبيق بدون أذونات، لكن منبّه الاستيقاظ يحتاج الموقع وتجاهل تحسين البطارية ليعمل.</string>
     <string name="trip_share_title">مسار الرحلة</string>
+    <!-- Shared trip text (sent to recipients) — one language per locale. Mirrored in values. -->
+    <string name="trip_share_text_header">🚕 رحلة مباشرة عبر وصلنا؟</string>
+    <string name="trip_share_text_heading">متجه إلى: %1$s</string>
+    <string name="trip_share_text_eta">الوصول خلال ~%1$d دقيقة</string>
+    <string name="trip_share_text_live">التتبع مباشر…</string>
+    <string name="trip_share_text_dest">الوجهة:</string>
+    <string name="trip_share_text_note">تتحدث الحالة مباشرة مع تقدم الرحلة — اطلب من المرسل مشاركة جديدة.</string>
     <string name="trips_title">سجل الرحلات</string>
     <string name="trips_tab_current">الحالية</string>
     <string name="trips_tab_future">القادمة</string>
@@ -209,7 +245,22 @@
     <string name="share_destination">📤 مشاركة الوجهة</string>
     <string name="share_empty">لا توجد تطبيقات خرائط أو توصيل مثبتة على جهازك — ثبّت خرائط جوجل أو أوبر أو دي دي أو إن درايف ثم أعد المحاولة 🗺️</string>
     <string name="share_open_failed">تعذر فتح %1$s — تأكد أنه مثبت وحاول مجددًا</string>
-    <string name="alarm_notif_title">⏰ وصلنا — تم الوصول إلى الوجهة!</string>
+    <!-- Share-target labels — one language per locale. Mirrored in values. -->
+    <string name="share_target_geo">🗺️ خرائط النظام (الافتراضية)</string>
+    <string name="share_target_geo_hint">يفتح تطبيق الخرائط الافتراضي</string>
+    <string name="share_target_gmaps">🗺️ خرائط جوجل</string>
+    <string name="share_nav_direct">ملاحة مباشرة إلى الوجهة</string>
+    <string name="share_target_osmand">🧭 OsmAnd</string>
+    <string name="share_target_mapsme">🧭 MAPS.ME</string>
+    <string name="share_nav_offline">ملاحة أوفلاين إلى الوجهة</string>
+    <string name="share_target_uber">🚕 أوبر</string>
+    <string name="share_target_didi">🚕 دي دي</string>
+    <string name="share_target_indrive">🚕 إن درايف</string>
+    <string name="share_ride_hint">طلب مشوار إلى الوجهة</string>
+    <string name="share_dest_default">وجهة وصلنا؟</string>
+    <string name="share_dest_note">الوجهة من تطبيق وصلنا؟: %1$s (%2$s، %3$s) — الصقها كنقطة وصول</string>
+    <string name="share_coords">%1$s، %2$s</string>
+    <string name="alarm_notif_title">⏰ وصلنا؟ — تم الوصول إلى الوجهة!</string>
     <string name="alarm_notif_open_hint">انقر للفتح أو أوقف من ساعتك</string>
     <string name="map_pick_title">اختيار الوجهة</string>
     <string name="map_search_hint">ابحث عن وجهة</string>
@@ -224,6 +275,14 @@
     <string name="map_set_work">تعيين كـ العمل 🏢</string>
     <string name="map_offline_on">تم تفعيل وضع أوفلاين — الاعتماد على GPS فقط 🛰️</string>
     <string name="map_offline_off">تم إيقاف وضع أوفلاين — عودة إلى الاتصال 🌐</string>
+    <!-- Map save/notice messages — one language per locale. Mirrored in values. -->
+    <string name="map_traffic_notice">طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.</string>
+    <string name="map_already_saved">هذا المكان محفوظ بالفعل!</string>
+    <string name="map_home_saved">تم حفظ البيت ✅</string>
+    <string name="map_work_saved">تم حفظ العمل ✅</string>
+    <string name="map_save_failed">تعذر الحفظ — تحقق من الاتصال وحاول مجددًا</string>
+    <string name="map_offline_search">وضع أوفلاين: البحث يحتاج اتصال — اعتمد على الأماكن المحفوظة 🛰️</string>
+    <string name="map_traffic_offline">وضع أوفلاين: طبقة الازدحام متوقفة — تعود مع الاتصال 🛰️</string>
     <string name="map_traffic_on">الازدحام ظاهر — انقر للإخفاء</string>
     <string name="map_traffic_off">الازدحام مخفي — انقر للعرض</string>
     <string name="map_add_desc">إضافة وجهة</string>
@@ -342,15 +401,28 @@
     <string name="drawer_impact">أثرك</string>
     <string name="drawer_rate">قيّم</string>
     <string name="drawer_contact">اتصل بنا</string>
-    <string name="drawer_share_title">مشاركة وصلنا</string>
-    <string name="drawer_share_text">جرّب وصلنا — لا تفوّت محطتك أبدًا! %1$s</string>
+    <string name="drawer_share_title">مشاركة وصلنا؟</string>
+    <string name="drawer_share_text">جرّب وصلنا؟ — لا تفوّت محطتك أبدًا! %1$s</string>
     <string name="drawer_rate_toast">قيّمنا على جوجل بلاي — قريبًا!</string>
     <string name="impact_trips">راحة البال: %1$d رحلات</string>
     <string name="impact_hours">الوقت الموفّر: %1$s ساعات</string>
-    <string name="splash_logo_desc">شعار وصلنا</string>
+    <string name="splash_logo_desc">شعار وصلنا؟</string>
     <string name="splash_tagline">لا تفوّت محطتك أبدًا</string>
     <!-- Splash footer: %1$s = localized app name (with ؟), %2$s = version. Mirrored in values. -->
     <string name="splash_footer">© 2026 %1$s • v%2$s</string>
+    <!-- Settings traffic layer + version (one language per locale). Mirrored in values. -->
+    <string name="settings_traffic_title">الازدحام</string>
+    <string name="settings_traffic_sub">طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.</string>
+    <string name="settings_app_version">%1$s v%2$s</string>
+    <!-- Account errors + ringtone fallbacks + routing delete — one language per locale. Mirrored in values. -->
+    <string name="account_error_signin">فشل تسجيل الدخول — تحقق من الإنترنت وحاول مجددًا</string>
+    <string name="account_error_save">تعذّر حفظ الحساب — حاول مجددًا</string>
+    <string name="account_error_profile">تعذّر قراءة بيانات الحساب — حاول مجددًا</string>
+    <string name="ringtone_fallback_default">نغمة النظام الافتراضية</string>
+    <string name="ringtone_fallback_quiet">نغمة إشعار هادئة</string>
+    <string name="routing_region_fallback">المنطقة</string>
+    <string name="routing_delete_title">حذف جراف التوجيه؟</string>
+    <string name="routing_delete_msg">سيتم حذف جراف “%1$s” وستحتاج لتنزيله من جديد للملاحة دون إنترنت.</string>
     <string name="tracking_paused_title">متوقف مؤقتًا — %1$s</string>
     <string name="tracking_heading_title">متجه إلى: %1$s</string>
     <string name="tracking_paused_body">الرحلة متوقفة — انقر استئناف للمتابعة</string>
@@ -367,7 +439,7 @@
     <string name="trip_end">إنهاء الرحلة</string>
     <string name="trip_share_image">🖼️ مشاركة كصورة</string>
     <string name="trip_share_image_failed">تعذر إنشاء الصورة — حاول مجددًا</string>
-    <string name="trip_card_app_name">وصلنا — لا تفوّت محطتك أبدًا</string>
+    <string name="trip_card_app_name">وصلنا؟ — لا تفوّت محطتك أبدًا</string>
     <string name="trip_card_date_label">التاريخ</string>
     <string name="search_loading">جارٍ البحث…</string>
     <string name="search_empty">لا نتائج — جرّب اسمًا آخر</string>

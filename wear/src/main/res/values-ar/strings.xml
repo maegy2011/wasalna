@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ساعة وصلنا؟</string>
+    <!-- Watch alarm — one language per locale. Mirrored in values. -->
+    <string name="watch_arrived">وصلت وجهتك</string>
+    <string name="watch_dismiss">إيقاف المنبه</string>
+</resources>

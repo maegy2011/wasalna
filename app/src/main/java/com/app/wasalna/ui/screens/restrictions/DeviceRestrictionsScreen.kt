@@ -99,14 +99,6 @@ fun DeviceRestrictionsScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "جهازك ($maker) يغلق تطبيقات الخلفية بقوة. لضمان أن " +
-                    "يوقظك وصلنا، فعّل التشغيل التلقائي وأزل قيود الخلفية.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = { openDeviceSettings() },

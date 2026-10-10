@@ -916,11 +916,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "الازدحام — Traffic",
+                        text = stringResource(R.string.settings_traffic_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.",
+                        text = stringResource(R.string.settings_traffic_sub),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -1065,7 +1065,11 @@ fun SettingsScreen(
 
         // App version — tap 5x to reveal hidden developer options.
         Text(
-            text = "Wasalna v${com.app.wasalna.BuildConfig.VERSION_NAME}",
+            text = stringResource(
+                R.string.settings_app_version,
+                stringResource(R.string.app_name),
+                com.app.wasalna.BuildConfig.VERSION_NAME,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier

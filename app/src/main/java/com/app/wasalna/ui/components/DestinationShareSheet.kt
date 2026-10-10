@@ -99,7 +99,7 @@ fun DestinationShareSheet(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = label.ifBlank { "$lat، $lng" },
+                text = label.ifBlank { stringResource(R.string.share_coords, lat.toString(), lng.toString()) },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -135,7 +135,7 @@ fun DestinationShareSheet(
                     LazyColumn {
                         items(targets, key = { it.id }) { target ->
                             ListItem(
-                                headlineContent = { Text(target.arabicLabel) },
+                                headlineContent = { Text(target.label) },
                                 supportingContent = { Text(target.hint) },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -149,7 +149,7 @@ fun DestinationShareSheet(
                                         } else {
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(
-                                                    context.getString(R.string.share_open_failed, target.arabicLabel),
+                                                    context.getString(R.string.share_open_failed, target.label),
                                                 )
                                             }
                                         }

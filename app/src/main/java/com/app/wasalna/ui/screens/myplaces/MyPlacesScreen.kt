@@ -420,9 +420,9 @@ fun MyPlacesScreen(
     // رسالة تأكيد قبل حذف المكان المحفوظ — التراجع = لا يحدث شيء.
     pendingDelete?.let { target ->
         ConfirmDialog(
-            title = "حذف المكان؟",
-            message = "سيتم حذف \"${target.name}\" نهائيًا ولا يمكن استعادته.",
-            confirmLabel = "احذف",
+            title = stringResource(R.string.myplaces_delete_title),
+            message = stringResource(R.string.myplaces_delete_msg, target.name),
+            confirmLabel = stringResource(R.string.myplaces_delete_confirm),
             isDestructive = true,
             onConfirm = {
                 viewModel.deleteLocation(target)

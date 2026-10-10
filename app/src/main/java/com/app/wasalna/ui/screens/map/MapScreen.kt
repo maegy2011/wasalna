@@ -646,7 +646,7 @@ fun MapScreen(
                         }
                     }
                     Text(
-                        text = "طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.",
+                        text = stringResource(R.string.map_traffic_notice),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

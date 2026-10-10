@@ -110,11 +110,11 @@ fun OfflineRoutingScreen(
     }
     pendingGraphDelete?.let { regionId ->
         val regionName = viewModel.regions.firstOrNull { it.id == regionId }?.name
-            ?: "المنطقة"
+            ?: stringResource(R.string.routing_region_fallback)
         ConfirmDialog(
-            title = "حذف جراف التوجيه؟",
-            message = "سيتم حذف جراف \"$regionName\" وستحتاج لتنزيله من جديد للملاحة دون إنترنت.",
-            confirmLabel = "احذف",
+            title = stringResource(R.string.routing_delete_title),
+            message = stringResource(R.string.routing_delete_msg, regionName),
+            confirmLabel = stringResource(R.string.myplaces_delete_confirm),
             isDestructive = true,
             onConfirm = {
                 viewModel.delete(regionId)

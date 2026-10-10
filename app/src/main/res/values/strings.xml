@@ -2,7 +2,12 @@
     <string name="app_name">Wasalna?</string>
 
     <!-- Phase 9: main UI strings -->
-    <string name="home_title">Wasalna</string>
+    <string name="home_title">Wasalna?</string>
+    <string name="home_current_trip">%1$s Current trip: %2$s</string>
+    <!-- MyPlaces delete confirm — one language per locale. Mirrored in values-ar. -->
+    <string name="myplaces_delete_title">Delete place?</string>
+    <string name="myplaces_delete_msg">“%1$s” will be deleted permanently and cannot be restored.</string>
+    <string name="myplaces_delete_confirm">Delete</string>
     <string name="home_heading">Where are we going today?</string>
     <string name="home_empty">No places saved yet. Let\'s add one!</string>
     <string name="home_tracking_started">Tracking started: %1$s</string>
@@ -70,7 +75,7 @@
     <string name="settings_watch_refresh">Refresh watch status</string>
     <string name="settings_watch_checking">Checking for your watch…</string>
     <string name="settings_watch_connected">Watch connected ✓ — companion app found</string>
-    <string name="settings_watch_app_missing">Watch paired but the Wasalna watch app is missing — install it from the Play Store on your watch</string>
+    <string name="settings_watch_app_missing">Watch paired but the Wasalna? watch app is missing — install it from the Play Store on your watch</string>
     <string name="settings_watch_no_watch">No watch paired — pair a Wear OS watch with this phone first</string>
     <string name="settings_watch_unknown">Could not check the watch — open Google Play Services / Bluetooth and retry</string>
     <string name="settings_watch_test">Send test vibration</string>
@@ -108,7 +113,7 @@
     <string name="settings_gradual_ringtone_set">Custom tone set ✓</string>
 
     <!-- Tracking notification -->
-    <string name="tracking_title">Wasalna alarm active</string>
+    <string name="tracking_title">Wasalna? alarm active</string>
     <string name="tracking_text">Alarm is active... Sleep tight!</string>
     <string name="tracking_stop">Stop</string>
     <!-- Phase 10.4.2: rich notification actions -->
@@ -172,7 +177,7 @@
     <string name="confirm_desc">Confirm: %1$s</string>
     <string name="dismiss_desc">Dismiss: %1$s</string>
     <string name="paywall_title">First Class</string>
-    <string name="paywall_header">Wasalna First Class</string>
+    <string name="paywall_header">Wasalna? First Class</string>
     <string name="paywall_sub">Never miss your stop — in style</string>
     <string name="paywall_active_sub">You\'re riding First Class ✦</string>
     <string name="paywall_trial_remaining">Trial — %1$s</string>
@@ -187,23 +192,54 @@
     <string name="paywall_cta_active">First Class Active ✦</string>
     <string name="paywall_mock_note">Mock checkout — no real charge. Real Play Billing on release.</string>
     <string name="paywall_welcome_toast">Welcome to First Class! (3-day free trial started)</string>
-    <string name="home_welcome">Welcome to Wasalna! 🚏</string>
+    <string name="home_welcome">Welcome to Wasalna? 🚏</string>
     <string name="home_empty_hint">No destinations yet — add your first stop and never miss it again.</string>
     <string name="home_sub_count">You have %1$d saved place(s). Add another or manage them in My Places.</string>
     <string name="home_add_cta">Add New Destination</string>
     <string name="home_empty_desc">No destinations yet</string>
     <string name="restrictions_title">Fix Background Tracking</string>
-    <string name="restrictions_body">Your device (%1$s) aggressively closes background apps. To ensure Wasalna wakes you up, you must enable AutoStart and remove background restrictions.</string>
+    <string name="restrictions_body">Your device (%1$s) aggressively closes background apps. To ensure Wasalna? wakes you up, you must enable AutoStart and remove background restrictions.</string>
     <string name="restrictions_open">Open Device Settings</string>
     <string name="restrictions_done">I\'ve Done This</string>
     <string name="restrictions_settings_toast">Couldn\'t open device settings — please open them manually</string>
-    <string name="perm_title">Enable what Wasalna needs</string>
-    <string name="perm_start">Start Journey — بدء الرحلة</string>
-    <string name="perm_continue">Continue without permissions — متابعة بدون الأذونات</string>
-    <string name="perm_open_settings">Open settings — فتح الإعدادات</string>
+    <string name="perm_title">Enable what Wasalna? needs</string>
+    <string name="perm_start">Start Journey</string>
+    <string name="perm_continue">Continue without permissions</string>
+    <string name="perm_open_settings">Open settings</string>
     <string name="perm_granted_desc">Granted</string>
     <string name="perm_pending_desc">Pending</string>
+    <!-- Permissions body — one language per locale (no mixed EN+AR). Mirrored in values-ar. -->
+    <string name="perm_intro">Location tracking and uninterrupted background alarms are required so we can wake you before your stop — even with the screen off.</string>
+    <string name="perm_loc_title">Location (required)</string>
+    <string name="perm_loc_desc">Used to track your trip and trigger the alarm near your destination. Please choose “While using the app” and enable “Precise location”.</string>
+    <string name="perm_loc_grant">Grant location</string>
+    <string name="perm_granted">Granted</string>
+    <string name="perm_loc_never">Permanently denied — open Settings and grant location manually: Settings → Apps → Wasalna? → Permissions.</string>
+    <string name="perm_loc_denied">Location denied — you can grant it from: Settings → Apps → Wasalna? → Permissions.</string>
+    <string name="perm_bg_title">Background location (recommended)</string>
+    <string name="perm_bg_desc">Keeps the alarm and tracking working when the app is in the background. Android requires foreground location first, then a separate background request.</string>
+    <string name="perm_bg_grant">Grant background</string>
+    <string name="perm_bg_disabled">Grant foreground location first, then request background location.</string>
+    <string name="perm_bg_settings">Can’t grant from here — open the app settings and choose “Allow all the time” for location: Settings → Apps → Wasalna? → Permissions → Location.</string>
+    <string name="perm_battery_title">Ignore battery optimizations (required)</string>
+    <string name="perm_battery_desc">Prevents the system from killing Wasalna? mid-trip. Opens system settings — choose “Allow” for Wasalna?. Critical for the wake-up alarm with the screen off.</string>
+    <string name="perm_allow">Allow</string>
+    <string name="perm_allowed">Allowed</string>
+    <string name="perm_overlay_title">Display over other apps (optional)</string>
+    <string name="perm_overlay_desc">Shows a full-screen alarm even when another app is open.</string>
+    <string name="perm_notif_title">Notifications (recommended)</string>
+    <string name="perm_notif_desc">Shows trip status and alarm notifications.</string>
+    <string name="perm_notif_settings">Notifications permanently denied — enable them from: Settings → Apps → Wasalna? → Notifications.</string>
+    <string name="perm_require_hint">Grant location access and allow ignoring battery optimizations to continue.</string>
+    <string name="perm_degraded">You can use the app without permissions, but the wake-up alarm needs location + battery exemption to work.</string>
     <string name="trip_share_title">Trip route</string>
+    <!-- Shared trip text (sent to recipients) — one language per locale. Mirrored in values-ar. -->
+    <string name="trip_share_text_header">🚕 Live trip via Wasalna?</string>
+    <string name="trip_share_text_heading">Heading to: %1$s</string>
+    <string name="trip_share_text_eta">ETA: ~%1$d mins</string>
+    <string name="trip_share_text_live">Tracking live…</string>
+    <string name="trip_share_text_dest">Destination:</string>
+    <string name="trip_share_text_note">Live status updates as the trip progresses — ask the sender for a fresh share.</string>
     <string name="trips_title">Trip History</string>
     <string name="trips_tab_current">Current</string>
     <string name="trips_tab_future">Future</string>
@@ -219,7 +255,22 @@
     <string name="share_destination">📤 Share destination</string>
     <string name="share_empty">No maps or ride apps installed — install Google Maps, Uber, DiDi or inDrive and retry 🗺️</string>
     <string name="share_open_failed">Couldn\'t open %1$s — check it\'s installed and retry</string>
-    <string name="alarm_notif_title">⏰ Wasalna — destination reached!</string>
+    <!-- Share-target labels — one language per locale. Mirrored in values-ar. -->
+    <string name="share_target_geo">🗺️ System maps (default)</string>
+    <string name="share_target_geo_hint">Opens your default maps app</string>
+    <string name="share_target_gmaps">🗺️ Google Maps</string>
+    <string name="share_nav_direct">Direct navigation to the destination</string>
+    <string name="share_target_osmand">🧭 OsmAnd</string>
+    <string name="share_target_mapsme">🧭 MAPS.ME</string>
+    <string name="share_nav_offline">Offline navigation to the destination</string>
+    <string name="share_target_uber">🚕 Uber</string>
+    <string name="share_target_didi">🚕 DiDi</string>
+    <string name="share_target_indrive">🚕 inDrive</string>
+    <string name="share_ride_hint">Request a ride to the destination</string>
+    <string name="share_dest_default">Wasalna? destination</string>
+    <string name="share_dest_note">Destination from Wasalna?: %1$s (%2$s, %3$s) — paste it as the drop-off point</string>
+    <string name="share_coords">%1$s, %2$s</string>
+    <string name="alarm_notif_title">⏰ Wasalna? — destination reached!</string>
     <string name="alarm_notif_open_hint">Tap to open, or stop from your watch</string>
     <string name="map_pick_title">Pick Destination</string>
     <string name="map_search_hint">Search destination</string>
@@ -232,6 +283,14 @@
     <string name="map_empty_hint">Search above or tap the map to pick a destination</string>
     <string name="map_set_home">Set as Home 🏠</string>
     <string name="map_set_work">Set as Work 🏢</string>
+    <!-- Map save/notice messages — one language per locale. Mirrored in values-ar. -->
+    <string name="map_traffic_notice">Google traffic layer — showing the map sends the area location to Google. Off by default.</string>
+    <string name="map_already_saved">This place is already saved!</string>
+    <string name="map_home_saved">Home saved ✅</string>
+    <string name="map_work_saved">Work saved ✅</string>
+    <string name="map_save_failed">Could not save — check connection and retry</string>
+    <string name="map_offline_search">Offline mode: search needs connection — use saved places 🛰️</string>
+    <string name="map_traffic_offline">Offline mode: traffic layer paused — back with connection 🛰️</string>
     <string name="map_offline_on">Offline mode on — GPS only 🛰️</string>
     <string name="map_offline_off">Offline mode off — back online 🌐</string>
     <string name="map_traffic_on">Traffic on — tap to hide</string>
@@ -352,15 +411,28 @@
     <string name="drawer_impact">Your Impact</string>
     <string name="drawer_rate">Rate</string>
     <string name="drawer_contact">Contact</string>
-    <string name="drawer_share_title">Share Wasalna</string>
-    <string name="drawer_share_text">Try Wasalna — never miss your stop! %1$s</string>
+    <string name="drawer_share_title">Share Wasalna?</string>
+    <string name="drawer_share_text">Try Wasalna? — never miss your stop! %1$s</string>
     <string name="drawer_rate_toast">Rate us on Google Play — coming soon!</string>
     <string name="impact_trips">Peace of mind: %1$d trips</string>
     <string name="impact_hours">Time saved: %1$s hrs</string>
-    <string name="splash_logo_desc">Wasalna logo</string>
+    <string name="splash_logo_desc">Wasalna? logo</string>
     <string name="splash_tagline">Never miss your stop</string>
     <!-- Splash footer: %1$s = localized app name (with ?), %2$s = version. Mirrored in values-ar. -->
     <string name="splash_footer">© 2026 %1$s • v%2$s</string>
+    <!-- Settings traffic layer + version (one language per locale). Mirrored in values-ar. -->
+    <string name="settings_traffic_title">Traffic</string>
+    <string name="settings_traffic_sub">Google traffic layer — showing the map sends the area location to Google. Off by default.</string>
+    <string name="settings_app_version">%1$s v%2$s</string>
+    <!-- Account errors + ringtone fallbacks + routing delete — one language per locale. Mirrored in values-ar. -->
+    <string name="account_error_signin">Sign-in failed — check the internet and retry</string>
+    <string name="account_error_save">Could not save the account — retry</string>
+    <string name="account_error_profile">Could not read the account data — retry</string>
+    <string name="ringtone_fallback_default">System default tone</string>
+    <string name="ringtone_fallback_quiet">Quiet notification tone</string>
+    <string name="routing_region_fallback">Region</string>
+    <string name="routing_delete_title">Delete routing graph?</string>
+    <string name="routing_delete_msg">The “%1$s” graph will be deleted — download it again for offline navigation.</string>
     <string name="tracking_paused_title">Paused — %1$s</string>
     <string name="tracking_heading_title">Heading to: %1$s</string>
     <string name="tracking_paused_body">Trip paused — tap Resume to continue</string>
@@ -377,7 +449,7 @@
     <string name="trip_end">End trip</string>
     <string name="trip_share_image">🖼️ Share as image</string>
     <string name="trip_share_image_failed">Couldn\'t create the image — try again</string>
-    <string name="trip_card_app_name">Wasalna — never miss your stop</string>
+    <string name="trip_card_app_name">Wasalna? — never miss your stop</string>
     <string name="trip_card_date_label">Date</string>
     <string name="search_loading">Searching…</string>
     <string name="search_empty">No results — try another name</string>

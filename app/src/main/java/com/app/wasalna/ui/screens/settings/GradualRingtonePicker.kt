@@ -195,11 +195,11 @@ private suspend fun loadAlarmTones(context: Context): List<ToneOption> =
             // Bundled calm fallbacks so the picker never opens empty.
             val fallbackDefault = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             if (fallbackDefault != null) {
-                found.add(ToneOption(title = "نغمة النظام الافتراضية", uri = fallbackDefault))
+                found.add(ToneOption(title = context.getString(R.string.ringtone_fallback_default), uri = fallbackDefault))
             }
             val fallbackNotif = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             if (fallbackNotif != null && fallbackNotif != fallbackDefault) {
-                found.add(ToneOption(title = "نغمة إشعار هادئة", uri = fallbackNotif))
+                found.add(ToneOption(title = context.getString(R.string.ringtone_fallback_quiet), uri = fallbackNotif))
             }
         }
         found

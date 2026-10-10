@@ -1,10 +1,12 @@
 package com.app.wasalna.ui.screens.settings
 
+import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.data.auth.GoogleAccountHelper
 import com.app.wasalna.domain.repository.SettingsRepository
+import com.app.wasalna.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 /**
  * Phase 10.13-exp: Google account sign-in — EXPERIMENTAL ONLY.
@@ -23,6 +26,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AccountViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val settingsRepository: SettingsRepository,
     private val accountHelper: GoogleAccountHelper,
 ) : ViewModel() {
@@ -52,7 +56,7 @@ class AccountViewModel @Inject constructor(
     fun signInIntent(): Intent? =
         runCatching { accountHelper.signInIntent() }
             .getOrElse {
-                _error.value = "فشل تسجيل الدخول — تحقق من الإنترنت وحاول مجددًا"
+                _error.value = appContext.getString(R.string.account_error_signin)
                 null
             }
 
@@ -66,7 +70,7 @@ class AccountViewModel @Inject constructor(
                             outcome.displayName,
                             outcome.email,
                         )
-                    }.onFailure { _error.value = "تعذّر حفظ الحساب — حاول مجددًا" }
+                    }.onFailure { _error.value = appContext.getString(R.string.account_error_save) }
                 }
             }
             is GoogleAccountHelper.SignInOutcome.Error -> {

@@ -2,6 +2,7 @@ package com.app.wasalna.utils
 
 import android.content.Context
 import android.content.Intent
+import com.app.wasalna.R
 import com.app.wasalna.domain.model.TripHistory
 
 /**
@@ -12,22 +13,23 @@ import com.app.wasalna.domain.model.TripHistory
  */
 object TripShare {
 
-    fun buildText(trip: TripHistory): String = buildString {
-        appendLine("🚕 Live trip via Wasalna")
-        appendLine("Heading to: ${trip.locationName}")
-        trip.etaMinutes?.let { appendLine("ETA: ~$it mins") } ?: appendLine("Tracking live…")
+    fun buildText(context: Context, trip: TripHistory): String = buildString {
+        appendLine(context.getString(R.string.trip_share_text_header))
+        appendLine(context.getString(R.string.trip_share_text_heading, trip.locationName))
+        trip.etaMinutes?.let { appendLine(context.getString(R.string.trip_share_text_eta, it)) }
+            ?: appendLine(context.getString(R.string.trip_share_text_live))
         appendLine(
-            "Destination: https://www.openstreetmap.org/" +
+            context.getString(R.string.trip_share_text_dest) + " https://www.openstreetmap.org/" +
                 "?mlat=${trip.destLat}&mlon=${trip.destLng}#map=16/${trip.destLat}/${trip.destLng}",
         )
         appendLine()
-        appendLine("Live status updates as the trip progresses — ask the sender for a fresh share.")
+        appendLine(context.getString(R.string.trip_share_text_note))
     }
 
     fun share(context: Context, trip: TripHistory) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, buildText(trip))
+            putExtra(Intent.EXTRA_TEXT, buildText(context, trip))
             putExtra(Intent.EXTRA_SUBJECT, "Live trip: ${trip.locationName}")
         }
         context.startActivity(Intent.createChooser(intent, "Share live trip"))

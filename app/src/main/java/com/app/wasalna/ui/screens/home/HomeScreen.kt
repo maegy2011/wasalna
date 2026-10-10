@@ -158,7 +158,11 @@ fun HomeScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "${trip.transportMode.icon} Current Trip: ${trip.locationName}",
+                            text = stringResource(
+                                R.string.home_current_trip,
+                                trip.transportMode.icon,
+                                trip.locationName,
+                            ),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Spacer(modifier = Modifier.height(4.dp))

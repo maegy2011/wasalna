@@ -65,7 +65,7 @@ class GoogleAccountHelper @Inject constructor(
             val email = account?.email.orEmpty().trim()
             if (name.isEmpty() && email.isEmpty()) {
                 Log.w(TAG, "handleResult: empty profile")
-                SignInOutcome.Error("تعذّر قراءة بيانات الحساب — حاول مجددًا")
+                SignInOutcome.Error(appContext.getString(R.string.account_error_profile))
             } else {
                 Log.i(TAG, "handleResult: signed in ok")
                 SignInOutcome.Success(
@@ -79,7 +79,7 @@ class GoogleAccountHelper @Inject constructor(
                 SignInOutcome.Cancelled
             } else {
                 Log.e(TAG, "handleResult failed: ${e.message}")
-                SignInOutcome.Error("فشل تسجيل الدخول — تحقق من الإنترنت وحاول مجددًا")
+                SignInOutcome.Error(appContext.getString(R.string.account_error_signin))
             }
         }
     }

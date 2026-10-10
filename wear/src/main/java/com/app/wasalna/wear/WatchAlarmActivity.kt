@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.wear.R
 import androidx.core.content.ContextCompat
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.MessageClient
@@ -228,7 +230,7 @@ private fun WatchAlarmScreen(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "وصلت وجهتك",
+            text = stringResource(R.string.watch_arrived),
             color = Color.White,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -252,7 +254,7 @@ private fun WatchAlarmScreen(
                 .fillMaxWidth()
                 .heightIn(min = 48.dp),
         ) {
-            Text(text = "إيقاف المنبه")
+            Text(text = stringResource(R.string.watch_dismiss))
         }
     }
 }

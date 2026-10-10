@@ -255,10 +255,7 @@ fun PermissionsScreen(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "فعّل ما يحتاجه وصلنا — Location tracking and uninterrupted " +
-                "background alarms are required so we can wake you before " +
-                "your stop — even with the screen off. " +
-                "نحتاج تتبّع الموقع والعمل في الخلفية لإيقاظك قبل محطتك حتى والشاشة مغلقة.",
+            text = stringResource(R.string.perm_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -266,13 +263,10 @@ fun PermissionsScreen(
         // (1) Foreground location — required.
         PermissionCard(
             icon = Icons.Filled.LocationOn,
-            title = "Location — الموقع (required — مطلوب)",
-            description = "Used to track your trip and trigger the alarm near " +
-                "your destination. Please choose “While using the app” or “Precise”.",
-            arabicDescription = "يُستخدم لتتبّع رحلتك وتشغيل المنبّه قرب وجهتك. " +
-                "اختر «أثناء استخدام التطبيق» وفعّل «الموقع الدقيق».",
+            title = stringResource(R.string.perm_loc_title),
+            description = stringResource(R.string.perm_loc_desc),
             granted = locationGranted,
-            actionLabel = if (locationGranted) "Granted — تم" else "Grant location — منح الموقع",
+            actionLabel = if (locationGranted) stringResource(R.string.perm_granted) else stringResource(R.string.perm_loc_grant),
             onAction = {
                 locationLauncher.launch(
                     arrayOf(
@@ -284,11 +278,9 @@ fun PermissionsScreen(
             },
             showSettings = locationNeverAsk || (locationAttempted && !locationGranted),
             settingsHint = if (locationNeverAsk) {
-                "تم الرفض نهائيًا — افتح الإعدادات وامنح الموقع يدويًا: " +
-                    "Settings → Apps → Wasalna → Permissions."
+                stringResource(R.string.perm_loc_never)
             } else {
-                "تم رفض الموقع — يمكنك منحه من: " +
-                    "الإعدادات ← التطبيقات ← وصلنا ← الأذونات."
+                stringResource(R.string.perm_loc_denied)
             },
             onOpenSettings = { openAppSettings() },
         )
@@ -297,20 +289,16 @@ fun PermissionsScreen(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             PermissionCard(
                 icon = Icons.Filled.LocationOn,
-                title = "Background location — موقع الخلفية (recommended — مستحسن)",
-                description = "Allows alarms to keep working when the app is in " +
-                    "the background. Android requires this to be granted " +
-                    "separately — grant foreground location first, then tap below.",
-                arabicDescription = "يسمح باستمرار المنبّه والتتبّع عندما يكون التطبيق في الخلفية. " +
-                    "يشترط أندرويد منح موقع المقدّمة أولًا ثم طلب الخلفية بشكل منفصل.",
+                title = stringResource(R.string.perm_bg_title),
+                description = stringResource(R.string.perm_bg_desc),
                 granted = backgroundLocationGranted,
                 actionLabel = if (backgroundLocationGranted) {
-                    "Granted — تم"
+                    stringResource(R.string.perm_granted)
                 } else {
-                    "Grant background — منح الخلفية"
+                    stringResource(R.string.perm_bg_grant)
                 },
                 actionEnabled = locationGranted,
-                disabledHint = "امنح موقع المقدّمة أولًا ثم اطلب موقع الخلفية.",
+                disabledHint = stringResource(R.string.perm_bg_disabled),
                 onAction = {
                     backgroundLocationLauncher.launch(
                         Manifest.permission.ACCESS_BACKGROUND_LOCATION,
@@ -319,8 +307,7 @@ fun PermissionsScreen(
                 },
                 showSettings = backgroundNeverAsk ||
                     (backgroundAttempted && !backgroundLocationGranted),
-                settingsHint = "تعذّر المنح من هنا — افتح إعدادات التطبيق واختر " +
-                    "«السماح طوال الوقت» للموقع: Settings → Apps → Wasalna → Permissions → Location.",
+                settingsHint = stringResource(R.string.perm_bg_settings),
                 onOpenSettings = { openAppSettings() },
             )
         }
@@ -328,14 +315,10 @@ fun PermissionsScreen(
         // (3) Battery optimization exemption — required for the wake-up alarm.
         PermissionCard(
             icon = Icons.Filled.BatteryChargingFull,
-            title = "Ignore battery optimizations — تجاهل تحسين البطارية (required — مطلوب)",
-            description = "Prevents the system from killing Wasalna mid-trip. " +
-                "Opens system settings — choose “Allow” for Wasalna. " +
-                "Critical for the wake-up alarm with the screen off.",
-            arabicDescription = "يمنع النظام من قتل التطبيق أثناء الرحلة — ضروري لمنبّه الاستيقاظ " +
-                "والشاشة مغلقة. سيُفتح إعداد النظام — اختر «سماح» لتطبيق وصلنا.",
+            title = stringResource(R.string.perm_battery_title),
+            description = stringResource(R.string.perm_battery_desc),
             granted = batteryIgnored,
-            actionLabel = if (batteryIgnored) "Allowed — تم" else "Allow — سماح",
+            actionLabel = if (batteryIgnored) stringResource(R.string.perm_allowed) else stringResource(R.string.perm_allow),
             onAction = { launchBattery() },
             showSettings = false,
             onOpenSettings = { openBatterySettings() },
@@ -344,11 +327,10 @@ fun PermissionsScreen(
         // (4) Overlay — optional.
         PermissionCard(
             icon = Icons.AutoMirrored.Filled.OpenInNew,
-            title = "Display over other apps — الظهور فوق التطبيقات (optional — اختياري)",
-            description = "Shows a full-screen alarm even when another app is open.",
-            arabicDescription = "يعرض شاشة المنبّه كاملة حتى لو كان تطبيق آخر مفتوحًا.",
+            title = stringResource(R.string.perm_overlay_title),
+            description = stringResource(R.string.perm_overlay_desc),
             granted = overlayGranted,
-            actionLabel = if (overlayGranted) "Allowed — تم" else "Allow — سماح",
+            actionLabel = if (overlayGranted) stringResource(R.string.perm_allowed) else stringResource(R.string.perm_allow),
             onAction = { launchOverlay() },
             showSettings = false,
             onOpenSettings = { openOverlaySettings() },
@@ -358,18 +340,16 @@ fun PermissionsScreen(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             PermissionCard(
                 icon = Icons.Filled.Notifications,
-                title = "Notifications — الإشعارات (recommended — مستحسن)",
-                description = "Shows trip status and alarm notifications.",
-                arabicDescription = "يعرض حالة الرحلة وإشعارات المنبّه.",
+                title = stringResource(R.string.perm_notif_title),
+                description = stringResource(R.string.perm_notif_desc),
                 granted = notificationsGranted,
-                actionLabel = if (notificationsGranted) "Granted — تم" else "Allow — سماح",
+                actionLabel = if (notificationsGranted) stringResource(R.string.perm_granted) else stringResource(R.string.perm_allow),
                 onAction = {
                     notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     notificationsAttempted = true
                 },
                 showSettings = notificationsNeverAsk,
-                settingsHint = "تم رفض الإشعارات نهائيًا — فعّلها من: " +
-                    "الإعدادات ← التطبيقات ← وصلنا ← الإشعارات.",
+                settingsHint = stringResource(R.string.perm_notif_settings),
                 onOpenSettings = { openAppSettings() },
             )
         }
@@ -386,9 +366,7 @@ fun PermissionsScreen(
         }
         if (!canStartJourney) {
             Text(
-                text = "Grant location access and allow ignoring battery " +
-                    "optimizations to continue. " +
-                    "امنح الموقع وتجاهل تحسين البطارية للمتابعة.",
+                text = stringResource(R.string.perm_require_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -403,10 +381,7 @@ fun PermissionsScreen(
             Text(stringResource(R.string.perm_continue))
         }
         Text(
-            text = "You can use the app without permissions, but the wake-up alarm " +
-                "needs location + battery exemption to work. " +
-                "يمكنك استخدام التطبيق بدون أذونات، لكن منبّه الاستيقاظ يحتاج " +
-                "الموقع وتجاهل تحسين البطارية ليعمل.",
+            text = stringResource(R.string.perm_degraded),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -423,7 +398,6 @@ private fun PermissionCard(
     actionLabel: String,
     onAction: () -> Unit,
     modifier: Modifier = Modifier,
-    arabicDescription: String = "",
     actionEnabled: Boolean = true,
     disabledHint: String = "",
     showSettings: Boolean = false,
@@ -484,14 +458,6 @@ private fun PermissionCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (arabicDescription.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = arabicDescription,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 Spacer(modifier = Modifier.height(8.dp))
                 if (granted) {
                     Text(

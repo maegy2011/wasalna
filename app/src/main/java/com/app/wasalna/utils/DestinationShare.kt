@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.app.wasalna.R
 
 /**
  * Phase 10.11: dynamic destination share — "مشاركة الوجهة".
@@ -26,10 +27,10 @@ import android.util.Log
  */
 object DestinationShare {
 
-    /** One share row in the bottom sheet. */
+    /** One share row in the bottom sheet (label/hint already localized). */
     data class Target(
         val id: String,
-        val arabicLabel: String,
+        val label: String,
         val packageName: String?,
         val hint: String,
     )
@@ -90,28 +91,58 @@ object DestinationShare {
         if (isGeoAvailable(pm, lat, lng, label)) {
             out += Target(
                 id = "geo_default",
-                arabicLabel = "🗺️ خرائط النظام (الافتراضية)",
+                label = context.getString(R.string.share_target_geo),
                 packageName = null,
-                hint = "يفتح تطبيق الخرائط الافتراضي",
+                hint = context.getString(R.string.share_target_geo_hint),
             )
         }
         firstInstalled(pm, GoogleMapsPkgs)?.let { pkg ->
-            out += Target("gmaps", "🗺️ خرائط جوجل", pkg, "ملاحة مباشرة إلى الوجهة")
+            out += Target(
+                "gmaps",
+                context.getString(R.string.share_target_gmaps),
+                pkg,
+                context.getString(R.string.share_nav_direct),
+            )
         }
         firstInstalled(pm, OsmAndPkgs)?.let { pkg ->
-            out += Target("osmand", "🧭 OsmAnd", pkg, "ملاحة أوفلاين إلى الوجهة")
+            out += Target(
+                "osmand",
+                context.getString(R.string.share_target_osmand),
+                pkg,
+                context.getString(R.string.share_nav_offline),
+            )
         }
         firstInstalled(pm, MapsMePkgs)?.let { pkg ->
-            out += Target("mapsme", "🧭 MAPS.ME", pkg, "ملاحة أوفلاين إلى الوجهة")
+            out += Target(
+                "mapsme",
+                context.getString(R.string.share_target_mapsme),
+                pkg,
+                context.getString(R.string.share_nav_offline),
+            )
         }
         firstInstalled(pm, UberPkgs)?.let { pkg ->
-            out += Target("uber", "🚕 أوبر (Uber)", pkg, "طلب مشوار إلى الوجهة")
+            out += Target(
+                "uber",
+                context.getString(R.string.share_target_uber),
+                pkg,
+                context.getString(R.string.share_ride_hint),
+            )
         }
         firstInstalled(pm, DidiPkgs)?.let { pkg ->
-            out += Target("didi", "🚕 دي دي (DiDi)", pkg, "طلب مشوار إلى الوجهة")
+            out += Target(
+                "didi",
+                context.getString(R.string.share_target_didi),
+                pkg,
+                context.getString(R.string.share_ride_hint),
+            )
         }
         firstInstalled(pm, InDrivePkgs)?.let { pkg ->
-            out += Target("indrive", "🚕 إن درايف (inDrive)", pkg, "طلب مشوار إلى الوجهة")
+            out += Target(
+                "indrive",
+                context.getString(R.string.share_target_indrive),
+                pkg,
+                context.getString(R.string.share_ride_hint),
+            )
         }
         return out
     }
@@ -137,7 +168,13 @@ object DestinationShare {
                 "osmand", "mapsme" -> geoIntent(lat, lng, label).apply {
                     target.packageName?.let { setPackage(it) }
                 }
-                "uber" -> uberIntent(target.packageName, lat, lng, label)
+                "uber" -> uberIntent(
+                    context.getString(R.string.share_dest_default),
+                    target.packageName,
+                    lat,
+                    lng,
+                    label,
+                )
                     ?: mainActivityFallback(context, target, lat, lng, label)
                     ?: return false
                 "didi", "indrive" ->
@@ -167,8 +204,14 @@ object DestinationShare {
      * Uber: public m.uber.com deep link (handled by the Uber app via App
      * Links when installed). Package-pinned when verified installed.
      */
-    private fun uberIntent(pkg: String?, lat: Double, lng: Double, label: String): Intent? {
-        val encoded = Uri.encode(label.ifBlank { "Wasalna destination" })
+    private fun uberIntent(
+        defaultLabel: String,
+        pkg: String?,
+        lat: Double,
+        lng: Double,
+        label: String,
+    ): Intent? {
+        val encoded = Uri.encode(label.ifBlank { defaultLabel })
         return runCatching {
             Intent(
                 Intent.ACTION_VIEW,
@@ -199,10 +242,10 @@ object DestinationShare {
             context.packageManager.getLaunchIntentForPackage(pkg)?.apply {
                 putExtra("dest_lat", lat)
                 putExtra("dest_lng", lng)
-                putExtra("dest_label", label.ifBlank { "وجهة وصلنا" })
+                putExtra("dest_label", label.ifBlank { context.getString(R.string.share_dest_default) })
                 putExtra(
                     "note",
-                    "الوجهة من تطبيق وصلنا: $label ($lat، $lng) — الصقها كنقطة وصول",
+                    context.getString(R.string.share_dest_note, label, lat.toString(), lng.toString()),
                 )
             }
         }.getOrNull()
