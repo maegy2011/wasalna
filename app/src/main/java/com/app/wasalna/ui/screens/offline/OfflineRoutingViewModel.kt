@@ -45,7 +45,7 @@ class OfflineRoutingViewModel @Inject constructor(
             val ok = graphManager.download(region)
             if (ok) {
                 runCatching {
-                    routeEngine.ensureLoaded(graphManager.graphDir(region.id))
+                    routeEngine.ensureLoadedFor(region.id, graphManager.graphDir(region.id))
                 }
             }
         }

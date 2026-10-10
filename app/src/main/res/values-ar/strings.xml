@@ -322,6 +322,12 @@
     <string name="routing_extracting">جارٍ فك الضغط…</string>
     <string name="routing_ready">جاهز — التوجيه على الجهاز متاح ✓</string>
     <string name="routing_error">خطأ: %1$s</string>
+    <!-- ترقية أكتوبر 2026: التوجيه دون إنترنت متعدد المناطق (مطابق لقيم values). -->
+    <string name="routing_span_unstored">المسار خارج الخرائط المخزنة دون إنترنت — عرض خط مباشر 🛰️</string>
+    <string name="routing_span_suggest">المسار خارج الخرائط المخزنة — نزّل %1$s للتوجيه البري 🛰️</string>
+    <string name="routing_auto_graph">مسار دون إنترنت عبر %1$s ✓</string>
+    <string name="offline_graph_for_area">جراف التوجيه لهذه المنطقة: %1$s</string>
+    <string name="offline_graph_suggest">نزّل جراف %1$s (~%2$d م.ب) للتوجيه دون إنترنت</string>
     <string name="nav_home">الرئيسية</string>
     <string name="nav_trips">رحلاتي</string>
     <string name="nav_menu">القائمة</string>

@@ -138,6 +138,61 @@ class OfflineMapsViewModel @Inject constructor(
         _graphInstalled.value = graphManager.isInstalled(
             com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id,
         )
+        // Upgrade: all-region installed ids (IO inside manager is cheap
+        // file checks; refresh on the caller thread is safe — no network).
+        // ── OFFLINE BOUNDARY: file checks only, zero network. ──
+        _installedGraphIds.value = runCatching { graphManager.installedRegionIds() }
+            .getOrDefault(emptyList())
+    }
+
+    /** Which known graph overlaps this tile bbox (null = uncharted area). */
+    fun graphForBounds(bounds: LatLngBounds): com.app.wasalna.data.routing.RoutingRegion? =
+        graphManager.graphForTileBounds(
+            south = bounds.latitudeSouth,
+            west = bounds.longitudeWest,
+            north = bounds.latitudeNorth,
+            east = bounds.longitudeEast,
+        )
+
+    /**
+     * Upgrade: download-or-ensure the graph alongside tiles. Called
+     * after a tile pack verifies: when the overlapping graph is missing
+     * it downloads in the background with progress in the existing
+     * graph card ([graphProgress]/[graphDownloadingId]); when present
+     * it preloads the engine region-aware. Never throws, no `!!`.
+     */
+    fun ensureGraphForBounds(bounds: LatLngBounds) {
+        val region = graphForBounds(bounds) ?: return
+        if (graphManager.isInstalled(region.id)) {
+            viewModelScope.launch {
+                runCatching {
+                    routeEngine.ensureLoadedFor(region.id, graphManager.graphDir(region.id))
+                }
+                refreshGraphState()
+            }
+            return
+        }
+        downloadRegionById(region.id)
+    }
+
+    /** Download any region by id (tile-flow entry; progress in graph card). */
+    fun downloadRegionById(regionId: String) {
+        val region = com.app.wasalna.data.routing.RoutingGraphManager.REGIONS
+            .firstOrNull { it.id == regionId } ?: return
+        if (_graphBusy.value) return
+        _graphBusy.value = true
+        viewModelScope.launch {
+            val ok = graphManager.download(region)
+            if (ok) {
+                runCatching {
+                    routeEngine.ensureLoadedFor(region.id, graphManager.graphDir(region.id))
+                }
+            } else {
+                _error.value = "Routing data download failed — check connection."
+            }
+            _graphBusy.value = false
+            refreshGraphState()
+        }
     }
 
     fun downloadGraph() {
@@ -151,7 +206,9 @@ class OfflineMapsViewModel @Inject constructor(
                 val dir = graphManager.graphDir(
                     com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id,
                 )
-                routeEngine.ensureLoaded(dir)
+                routeEngine.ensureLoadedFor(
+                    com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id, dir,
+                )
             } else {
                 _error.value = "Routing data download failed — check connection."
             }
@@ -208,6 +265,9 @@ class OfflineMapsViewModel @Inject constructor(
         if (_downloadProgress.value != null) return
         val cleanName = name.ifBlank { appContext.getString(R.string.offline_default_city) }
         lastRequest = cleanName to bounds
+        // Upgrade: remember the tile bbox so the verified completion can
+        // fetch the overlapping routing graph alongside the tiles.
+        lastTileBounds = bounds
         // Pre-download estimate — refuse before spending bytes (Vela).
         val tiles = OfflineTileEstimate.countTiles(
             south = bounds.latitudeSouth,
@@ -439,6 +499,11 @@ class OfflineMapsViewModel @Inject constructor(
                         } else {
                             lastRequest = null
                             _canRetry.value = false
+                            // Upgrade: tiles verified → ensure the overlapping
+                            // routing graph downloads alongside (progress in
+                            // the existing graph card; silent when uncharted).
+                            lastTileBounds?.let { bounds -> ensureGraphForBounds(bounds) }
+                            lastTileBounds = null
                         }
                         refreshRegions()
                     }

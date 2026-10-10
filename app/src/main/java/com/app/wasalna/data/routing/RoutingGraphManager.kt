@@ -114,6 +114,59 @@ class RoutingGraphManager @Inject constructor(
             ?.firstOrNull { it.isDirectory && File(it, "properties").exists() }
     }
 
+    /**
+     * Upgrade (Oct 2026): ALL installed region ids (every downloaded
+     * graph counts — not just the first). IO-safe: pure file checks.
+     */
+    fun installedRegionIds(): List<String> =
+        REGIONS.map { it.id }.filter { isInstalled(it) }
+
+    /** Installed region id → its graph dir (new store preferred). */
+    fun installedRegionDirs(): Map<String, File> =
+        installedRegionIds().associateWith { regionId ->
+            val fresh = File(graphDir(regionId), "properties")
+            if (fresh.exists()) graphDir(regionId)
+            else File(File(legacyRoot(), regionId), "properties").let { File(legacyRoot(), regionId) }
+        }
+
+    /**
+     * Upgrade: the INSTALLED graph covering origin→destination (both
+     * endpoints inside one bbox). Null = no single stored graph covers
+     * the route → caller shows a straight-line fallback + Arabic notice
+     * (never a faked route). Pure check, no network — OFFLINE BOUNDARY safe.
+     */
+    fun coveringRegionFor(
+        sLat: Double,
+        sLng: Double,
+        dLat: Double,
+        dLng: Double,
+    ): RoutingRegion? = REGIONS.firstOrNull { region ->
+        region.coversRoute(sLat, sLng, dLat, dLng) && isInstalled(region.id)
+    }
+
+    /**
+     * Upgrade: which KNOWN graph (installed or not) covers the route —
+     * used to suggest the missing download. Null = truly uncharted area.
+     */
+    fun knownRegionFor(
+        sLat: Double,
+        sLng: Double,
+        dLat: Double,
+        dLng: Double,
+    ): RoutingRegion? = REGIONS.firstOrNull { it.coversRoute(sLat, sLng, dLat, dLng) }
+
+    /**
+     * Upgrade: graph to fetch alongside a tile download — the known
+     * region overlapping the tile bbox (first match; EGYPT_FULL overlaps
+     * all so it stays LAST in REGIONS). Null = no known graph there.
+     */
+    fun graphForTileBounds(
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+    ): RoutingRegion? = REGIONS.firstOrNull { it.intersects(south, west, north, east) }
+
     // ---- Legacy global progress mirrors ----
 
     private val _downloadProgress = MutableStateFlow<Int?>(null)
@@ -274,23 +327,116 @@ class RoutingGraphManager @Inject constructor(
             name = "Cairo + Giza (Egypt)",
             url = "${AppLinks.GRAPH_BASE_URL}/cairo-giza.ghz",
             sizeMb = 42,
+            minLat = 29.60,
+            maxLat = 30.85,
+            minLng = 30.80,
+            maxLng = 31.80,
         )
 
         /**
-         * Region list — list-designed for future regions.
-         * Cairo+Giza is the production Egypt graph. Add more RoutingRegion
-         * entries here (e.g. Alexandria, Luxor) — UI renders the list as-is.
+         * Upgrade (Oct 2026): EVERY stored map region gets a routable
+         * graph — one entry per Egypt metro. Cairo+Giza is the live
+         * production graph; siblings follow the SAME `${id}.ghz` server
+         * convention so they light up the moment the backend publishes
+         * them (404 → clean Error state, never a crash). Order matters:
+         * specific metros first, EGYPT_FULL catch-all LAST (it
+         * intersects every tile bbox, so first-match must prefer detail).
+         * GraphHopper loads ONE graph at a time → per-region routing
+         * with auto-select (no multi-graph merge in the engine).
+         */
+        val ALEXANDRIA = RoutingRegion(
+            id = "alexandria",
+            name = "Alexandria (Egypt)",
+            url = "${AppLinks.GRAPH_BASE_URL}/alexandria.ghz",
+            sizeMb = 28,
+            minLat = 30.90,
+            maxLat = 31.35,
+            minLng = 29.60,
+            maxLng = 30.25,
+        )
+        val DELTA = RoutingRegion(
+            id = "delta",
+            name = "Nile Delta (Egypt)",
+            url = "${AppLinks.GRAPH_BASE_URL}/delta.ghz",
+            sizeMb = 55,
+            minLat = 30.30,
+            maxLat = 31.60,
+            minLng = 30.20,
+            maxLng = 32.30,
+        )
+        val CANAL = RoutingRegion(
+            id = "canal",
+            name = "Canal + Sinai approach (Egypt)",
+            url = "${AppLinks.GRAPH_BASE_URL}/canal.ghz",
+            sizeMb = 30,
+            minLat = 29.80,
+            maxLat = 31.30,
+            minLng = 32.00,
+            maxLng = 32.60,
+        )
+        val UPPER = RoutingRegion(
+            id = "upper-egypt",
+            name = "Upper Egypt (Egypt)",
+            url = "${AppLinks.GRAPH_BASE_URL}/upper-egypt.ghz",
+            sizeMb = 48,
+            minLat = 25.50,
+            maxLat = 29.60,
+            minLng = 30.80,
+            maxLng = 32.90,
+        )
+        val EGYPT_FULL = RoutingRegion(
+            id = "egypt-full",
+            name = "Egypt — full country (Egypt)",
+            url = "${AppLinks.GRAPH_BASE_URL}/egypt-full.ghz",
+            sizeMb = 160,
+            minLat = 21.50,
+            maxLat = 31.80,
+            minLng = 24.50,
+            maxLng = 35.00,
+        )
+
+        /**
+         * Region list — every stored/downloaded tile region maps to one
+         * of these graphs via [graphForTileBounds]; UI renders as-is.
          */
         val REGIONS = listOf(
             TEST_REGION,
+            ALEXANDRIA,
+            DELTA,
+            CANAL,
+            UPPER,
+            EGYPT_FULL,
         )
     }
 }
 
-/** One downloadable routing graph (ZIP/GHZ of a CH-prepared graph). */
+/** One downloadable routing graph (ZIP/GHZ of a CH-prepared graph).
+ *
+ * Phase 10.5.x upgrade (Oct 2026): EVERY stored tile region must route
+ * offline — each graph carries its geographic bbox so routing can
+ * auto-select the graph covering origin→destination. Bboxes are
+ * approximate metro boxes (degrees); [contains] is a cheap point test
+ * run on Dispatchers.IO inside callers — never on Main.
+ */
 data class RoutingRegion(
     val id: String,
     val name: String,
     val url: String,
     val sizeMb: Int,
-)
+    val minLat: Double,
+    val maxLat: Double,
+    val minLng: Double,
+    val maxLng: Double,
+) {
+    /** True when the point lies inside this graph's bbox (inclusive). */
+    fun contains(lat: Double, lng: Double): Boolean =
+        lat in minLat..maxLat && lng in minLng..maxLng
+
+    /** True when BOTH endpoints lie inside — routable without gaps. */
+    fun coversRoute(sLat: Double, sLng: Double, dLat: Double, dLng: Double): Boolean =
+        contains(sLat, sLng) && contains(dLat, dLng)
+
+    /** True when a tile-download bbox overlaps this graph (any corner/center inside). */
+    fun intersects(south: Double, west: Double, north: Double, east: Double): Boolean =
+        south <= maxLat && north >= minLat && west <= maxLng && east >= minLng
+}

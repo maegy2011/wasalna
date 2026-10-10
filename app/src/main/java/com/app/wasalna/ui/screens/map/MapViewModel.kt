@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.wasalna.R
 import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.data.repository.OSRMRepository
 import com.app.wasalna.data.repository.OsrmRoute
@@ -504,11 +505,15 @@ class MapViewModel @Inject constructor(
     }
 
     /**
-     * Phase 10.5.x Step 5: on-device route on Dispatchers.IO (inside the
-     * engine). Success → road polyline + ETA. Failure → keep the map with
-     * no polyline + emit "Offline Routing failed, using GPS
-     * straight-line" (the alarm path always keeps its distanceTo()
-     * fallback in TrackingService, so it never breaks).
+     * Phase 10.5.x Step 5 (upgraded Oct 2026): on-device route on
+     * Dispatchers.IO (inside the engine) with per-region auto-select —
+     * the INSTALLED graph covering origin→destination is loaded
+     * (auto-switch when the route moves regions; engine holds one graph).
+     * Success → road polyline + ETA. SpansUnstored → keep the map with
+     * no polyline + emit the Arabic straight-line notice (never a faked
+     * route; the alarm path always keeps its distanceTo() fallback in
+     * TrackingService, so it never breaks).
+     * ── OFFLINE BOUNDARY: engine + files only, zero network. ──
      */
     private suspend fun refreshOfflineRoute(
         startLat: Double,
@@ -516,19 +521,25 @@ class MapViewModel @Inject constructor(
         destLat: Double,
         destLng: Double,
     ) {
-        val local = runCatching {
-            val dir = withContext(Dispatchers.IO) {
-                graphManager.installedRegion()
-            } ?: return@runCatching null
-            if (!ghEngine.ensureLoaded(dir)) return@runCatching null
-            ghEngine.calculateRoute(startLat, startLng, destLat, destLng)
+        val routed = runCatching {
+            com.app.wasalna.data.routing.routeOfflineWithAutoSelect(
+                graphManager, ghEngine, startLat, startLng, destLat, destLng,
+            )
         }.getOrNull()
+        val local = routed?.second
         if (local != null) {
             _routeGeoJson.value = local.toGeoJson()
             _etaMinutes.value = local.etaMinutes
         } else {
             _routeGeoJson.value = null
-            _events.emit(FALLBACK_MSG)
+            // ── OFFLINE BOUNDARY: string-only notice, no network. ──
+            val known = withContext(Dispatchers.IO) {
+                graphManager.knownRegionFor(startLat, startLng, destLat, destLng)
+            }
+            val notice = known?.let {
+                appContext.getString(R.string.routing_span_suggest, it.name)
+            } ?: appContext.getString(R.string.routing_span_unstored)
+            _events.emit(notice)
         }
     }
 
@@ -676,6 +687,8 @@ class MapViewModel @Inject constructor(
         const val MSG_WORK_SAVED = "تم حفظ Work ✅"
         const val MSG_SAVE_FAILED = "تعذر الحفظ — تحقق من الاتصال وحاول مجددًا"
         const val FALLBACK_MSG = "Offline Routing failed, using GPS straight-line"
+        /** Upgrade (Oct 2026): route spans unstored areas — names the graph to download. */
+        const val SPAN_WITH_SUGGESTION = "Route is outside stored offline maps — download %1$s for road routing 🛰️"
         const val MSG_OFFLINE_SEARCH =
             "وضع أوفلاين: البحث يحتاج اتصال — اعتمد على الأماكن المحفوظة 🛰️"
         const val MSG_TRAFFIC_OFFLINE =

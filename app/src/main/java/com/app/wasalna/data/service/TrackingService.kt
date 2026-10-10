@@ -395,23 +395,24 @@ class TrackingService : Service() {
     }
 
     /**
-     * Phase 10.5.x Step 5: on-device route attempt (Dispatchers.IO inside
-     * the engine). On success the road ETA wins; on ANY failure the
-     * Phase 10.4.3.7 GPS straight-line distanceTo() fallback already
-     * applied by the caller stands — the alarm never breaks — and the
-     * notification carries "Offline Routing failed, using GPS
-     * straight-line" so the user knows.
+     * Phase 10.5.x Step 5 (upgraded Oct 2026): on-device route with
+     * per-region auto-select — the INSTALLED graph covering fix→target
+     * is loaded (auto-switch across regions; engine holds one graph).
+     * On success the road ETA wins; on ANY failure the Phase 10.4.3.7
+     * GPS straight-line distanceTo() fallback already applied by the
+     * caller stands — the alarm never breaks — and the notification
+     * carries the fallback notice so the user knows.
+     * ── OFFLINE BOUNDARY: engine + files only, zero network. ──
      */
     private suspend fun runLocalRoute(fix: Location, distanceM: Float) {
-        val local = runCatching {
-            val dir = graphManager.installedRegion()
-                ?: return@runCatching null
-            if (!ghEngine.ensureLoaded(dir)) return@runCatching null
-            ghEngine.calculateRoute(
+        val routed = runCatching {
+            com.app.wasalna.data.routing.routeOfflineWithAutoSelect(
+                graphManager, ghEngine,
                 fix.latitude, fix.longitude,
                 targetLat, targetLng,
             )
         }.getOrNull()
+        val local = routed?.second
         if (local != null) {
             offlineFallbackNotice = null
             // DYNAMIC WAKE-UP: cache fresh route distance for TIME-mode ETA.

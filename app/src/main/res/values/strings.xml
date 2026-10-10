@@ -332,6 +332,12 @@
     <string name="routing_extracting">Extracting…</string>
     <string name="routing_ready">Ready — on-device routing available ✓</string>
     <string name="routing_error">Error: %1$s</string>
+    <!-- Upgrade Oct 2026: multi-region offline routing (mirrored in values-ar). -->
+    <string name="routing_span_unstored">Route is outside stored offline maps — showing straight line 🛰️</string>
+    <string name="routing_span_suggest">Route is outside stored offline maps — download %1$s for road routing 🛰️</string>
+    <string name="routing_auto_graph">Offline route via %1$s ✓</string>
+    <string name="offline_graph_for_area">Routing graph for this area: %1$s</string>
+    <string name="offline_graph_suggest">Download %1$s graph (~%2$d MB) for offline routing</string>
     <string name="nav_home">Home</string>
     <string name="nav_trips">My Trips</string>
     <string name="nav_menu">Menu</string>

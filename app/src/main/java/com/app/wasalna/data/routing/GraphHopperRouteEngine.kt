@@ -46,6 +46,11 @@ class GraphHopperRouteEngine @Inject constructor(
     @Volatile
     private var loadedDir: String? = null
 
+    /** Which region id the loaded graph belongs to (null = legacy path). */
+    @Volatile
+    var loadedRegionId: String? = null
+        private set
+
     /** True once a graph is loaded and ready to route. */
     @Volatile
     var isReady: Boolean = false
@@ -62,6 +67,7 @@ class GraphHopperRouteEngine @Inject constructor(
     /**
      * Loads [graphDir] (a prepared `filesDir/graphs/<id>` folder) once;
      * repeat calls with the same dir are no-ops. Returns readiness.
+     * ── OFFLINE BOUNDARY: pure file + memory work, zero network. ──
      */
     suspend fun ensureLoaded(graphDir: File): Boolean = withContext(Dispatchers.IO) {
         if (isReady && loadedDir == graphDir.absolutePath) return@withContext true
@@ -101,8 +107,33 @@ class GraphHopperRouteEngine @Inject constructor(
     }
 
     /**
+     * Upgrade (Oct 2026): region-aware load — the engine holds ONE
+     * graph at a time, so switching regions closes + reloads. Same-dir
+     * + same-region repeats are no-ops. Returns readiness.
+     * ── OFFLINE BOUNDARY: pure file + memory work, zero network. ──
+     */
+    suspend fun ensureLoadedFor(regionId: String, graphDir: File): Boolean =
+        withContext(Dispatchers.IO) {
+            if (isReady && loadedDir == graphDir.absolutePath &&
+                loadedRegionId == regionId
+            ) {
+                return@withContext true
+            }
+            if (isReady && loadedDir != graphDir.absolutePath) {
+                runCatching { gh.close() }
+                isReady = false
+                loadedDir = null
+                loadedRegionId = null
+            }
+            val ok = ensureLoaded(graphDir)
+            if (ok) loadedRegionId = regionId
+            ok
+        }
+
+    /**
      * On-device route, CH-accelerated. Null when no graph is loaded or the
      * query fails — never throws.
+     * ── OFFLINE BOUNDARY: pure on-device query, zero network. ──
      */
     suspend fun calculateRoute(
         startLat: Double,
@@ -161,6 +192,7 @@ class GraphHopperRouteEngine @Inject constructor(
                 .onFailure { Log.w(TAG, "close swallowed: ${it.message}") }
             isReady = false
             loadedDir = null
+            loadedRegionId = null
         }
     }
 
