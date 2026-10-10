@@ -93,6 +93,73 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Phase 10.9.x: smart gradual alarm — vibration first, then sound ramps
+    // up slowly. Disabled by default → legacy path untouched when off.
+    val gradualEnabled: StateFlow<Boolean> =
+        settingsRepository.isGradualAlarmEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    val gradualVibrationSec: StateFlow<Int> =
+        settingsRepository.gradualVibrationSec.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 10,
+        )
+
+    val gradualRampSec: StateFlow<Int> =
+        settingsRepository.gradualRampSec.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 35,
+        )
+
+    val gradualStrength: StateFlow<Int> =
+        settingsRepository.gradualVibrationStrength.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 3,
+        )
+
+    val gradualRingtoneUri: StateFlow<String> =
+        settingsRepository.gradualRingtoneUri.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    fun setGradualEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setGradualAlarmEnabled(enabled) }
+        }
+    }
+
+    fun setGradualVibrationSec(seconds: Int) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setGradualVibrationSec(seconds) }
+        }
+    }
+
+    fun setGradualRampSec(seconds: Int) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setGradualRampSec(seconds) }
+        }
+    }
+
+    fun setGradualStrength(level: Int) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setGradualVibrationStrength(level) }
+        }
+    }
+
+    fun setGradualRingtoneUri(uri: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setGradualRingtoneUri(uri) }
+        }
+    }
+
     // Phase 10.5.x Step 4: developer test-mode — force offline routing.
     val forceOffline: StateFlow<Boolean> =
         settingsRepository.isForceOffline.stateIn(

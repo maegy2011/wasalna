@@ -41,6 +41,20 @@
     <string name="settings_language_arabic">العربية</string>
     <string name="settings_language_english">English</string>
 
+    <!-- Phase 10.9.x: smart gradual alarm (mirrored in values-ar). -->
+    <string name="settings_gradual_title">Gradual Alarm</string>
+    <string name="settings_gradual_sub">Vibration first, then sound rises slowly — wake gently</string>
+    <string name="settings_gradual_strength">Vibration strength</string>
+    <string name="settings_gradual_strength_1">Medium</string>
+    <string name="settings_gradual_strength_2">Strong</string>
+    <string name="settings_gradual_strength_3">Maximum</string>
+    <string name="settings_gradual_vib_duration">Vibration-only time</string>
+    <string name="settings_gradual_ramp">Sound rise time</string>
+    <string name="settings_gradual_seconds">%1$d sec</string>
+    <string name="settings_gradual_ringtone">Alarm tone</string>
+    <string name="settings_gradual_ringtone_default">System default</string>
+    <string name="settings_gradual_ringtone_set">Custom tone set ✓</string>
+
     <!-- Tracking notification -->
     <string name="tracking_title">Wasalna alarm active</string>
     <string name="tracking_text">Alarm is active... Sleep tight!</string>

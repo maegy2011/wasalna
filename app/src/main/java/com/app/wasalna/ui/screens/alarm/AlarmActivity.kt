@@ -9,6 +9,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -60,6 +61,18 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * Extras: [EXTRA_SILENT] + [EXTRA_PREMIUM] (sent by TrackingService).
  * Silent applies only when silent && premium (premium gate).
+ *
+ * Phase 10.9.x: smart gradual alarm (enabled in Settings → المنبه
+ * التدريجي, OFF by default). When on (and NOT silent), a
+ * GradualAlarmController runs vibration-only → quiet ramp → full alarm
+ * instead of the legacy instant full-volume path.
+ *
+ * DND (documented, unchanged): the alarm uses STREAM_ALARM which obeys
+ * the system's Do-Not-Disturb alarm policy. This screen never requests
+ * ACCESS_NOTIFICATION_POLICY and never touches the interruption filter —
+ * alarms ring when DND allows alarms, stay muted otherwise. The "Force
+ * Alarm DND Override" toggle in Settings is visual-only (no DataStore
+ * field, no behaviour change).
  */
 @AndroidEntryPoint
 class AlarmActivity : ComponentActivity() {
@@ -73,6 +86,10 @@ class AlarmActivity : ComponentActivity() {
     private var silentMode = false
     // Phase 10.4.3.1: gates the custom ringtone in resolveAlarmUri().
     private var premiumMode = false
+    // Phase 10.9.x: owns player + vibrator + volume while the gradual
+    // escalation runs; null = legacy instant path. stop() halts ALL
+    // sound + vibration synchronously (no leaks, no lingering coroutine).
+    private var gradualController: GradualAlarmController? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,8 +137,16 @@ class AlarmActivity : ComponentActivity() {
                 startVibrateOnly()
             }
         } else {
-            maxAlarmVolume()
-            startAlarmSound()
+            // Phase 10.9.x: gradual escalation when enabled (OFF by
+            // default → legacy instant full-volume path unchanged).
+            val gradual = readGradualConfig()
+            if (gradual != null) {
+                Log.i(TAG, "onCreate: gradual alarm $gradual")
+                startGradualAlarm(gradual)
+            } else {
+                maxAlarmVolume()
+                startAlarmSound()
+            }
         }
 
         // Phase 10.4.3.3: wrist-reachable alarm (Wear OS mirrors actions).
@@ -243,6 +268,64 @@ class AlarmActivity : ComponentActivity() {
             startVibrateOnly()
         }
         startVibration(AGGRESSIVE_PATTERN, 0)
+    }
+
+    /**
+     * Phase 10.9.x: reads the gradual-alarm settings (Dispatchers.IO,
+     * 2 s cap). Null = feature disabled or settings unreadable → the
+     * caller falls back to the legacy instant path. Never throws.
+     */
+    private fun readGradualConfig(): GradualAlarmConfig? {
+        return runCatching {
+            runBlocking(Dispatchers.IO) {
+                withTimeoutOrNull(2_000L) {
+                    val store = SettingsDataStore(this@AlarmActivity)
+                    if (!store.isGradualAlarmEnabled.first()) {
+                        return@withTimeoutOrNull null
+                    }
+                    GradualAlarmConfig(
+                        vibrationOnlySec = store.gradualVibrationSec.first(),
+                        rampSec = store.gradualRampSec.first(),
+                        vibrationStrength = store.gradualVibrationStrength.first(),
+                    )
+                }
+            }
+        }.getOrNull()
+    }
+
+    /**
+     * Phase 10.9.x: gradual tone wins when set + readable; otherwise the
+     * existing chain applies (premium custom tone → system default).
+     */
+    private fun resolveGradualUri(): Uri? {
+        runCatching {
+            val custom = runBlocking(Dispatchers.IO) {
+                withTimeoutOrNull(2_000L) {
+                    SettingsDataStore(this@AlarmActivity).gradualRingtoneUri.first()
+                }
+            }.orEmpty()
+            if (custom.isNotBlank()) {
+                val uri = Uri.parse(custom)
+                contentResolver.openInputStream(uri)?.close()
+                return uri
+            }
+        }.onFailure {
+            Log.w(TAG, "gradual tone unreadable, falling back: ${it.message}")
+        }
+        return resolveAlarmUri(premiumMode)
+    }
+
+    private fun startGradualAlarm(config: GradualAlarmConfig) {
+        val uri = resolveGradualUri()
+        if (uri == null) {
+            Log.e(TAG, "startGradualAlarm: no ringtone, legacy fallback")
+            maxAlarmVolume()
+            startAlarmSound()
+            return
+        }
+        val controller = GradualAlarmController(this)
+        gradualController = controller
+        controller.start(uri, config)
     }
 
     private fun startVibrateOnly() {
@@ -423,6 +506,8 @@ class AlarmActivity : ComponentActivity() {
     private fun silenceAlarm() {
         if (stopped) return
         Log.i(TAG, "silenceAlarm: sound off, vibration continues")
+        // Phase 10.9.x: gradual path keeps vibrating, kills its own player.
+        gradualController?.silenceSound()
         releasePlayer()
         cancelAlarmNotification()
     }
@@ -432,6 +517,10 @@ class AlarmActivity : ComponentActivity() {
         stopped = true
         Log.i(TAG, "stopAlarm: dismissed silent=$silentMode")
         cancelAlarmNotification()
+        // Phase 10.9.x: stops ALL gradual sound + vibration immediately
+        // and releases the escalation scope (no leaks).
+        gradualController?.release()
+        gradualController = null
         releasePlayer()
         try {
             vibrator?.cancel()
@@ -474,6 +563,9 @@ class AlarmActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // Phase 10.9.x: safety net — same immediate full stop as dismiss.
+        gradualController?.release()
+        gradualController = null
         releasePlayer()
         try {
             vibrator?.cancel()

@@ -218,6 +218,49 @@ class SettingsDataStore @Inject constructor(
         const val GOOGLE = "GOOGLE"
     }
 
+    // Phase 10.9.x: smart gradual alarm — vibration first, then a quiet
+    // sound that ramps up slowly (wake without startling). Disabled by
+    // default → legacy full-volume path unchanged when off.
+    val isGradualAlarmEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.GRADUAL_ALARM_ENABLED] ?: false }
+
+    // Phase 1 duration: strong vibration only, no sound (seconds, 5..20).
+    val gradualVibrationSec: Flow<Int> =
+        dataStore.data.map { it[Keys.GRADUAL_VIBRATION_SEC]?.coerceIn(5, 20) ?: 10 }
+
+    // Phase 2 duration: ramp STREAM_ALARM from ~10% to max (seconds, 15..60).
+    val gradualRampSec: Flow<Int> =
+        dataStore.data.map { it[Keys.GRADUAL_RAMP_SEC]?.coerceIn(15, 60) ?: 35 }
+
+    // Vibration strength level: 1 = medium, 2 = strong, 3 = maximum.
+    val gradualVibrationStrength: Flow<Int> =
+        dataStore.data.map { it[Keys.GRADUAL_VIBRATION_STRENGTH]?.coerceIn(1, 3) ?: 3 }
+
+    // Gradual-alarm tone (URI string, "" = fall back to customRingtoneUri,
+    // then the system alarm tone). Set from the in-app ringtone picker.
+    val gradualRingtoneUri: Flow<String> =
+        dataStore.data.map { it[Keys.GRADUAL_RINGTONE_URI] ?: "" }
+
+    suspend fun setGradualAlarmEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.GRADUAL_ALARM_ENABLED] = enabled }
+    }
+
+    suspend fun setGradualVibrationSec(seconds: Int) {
+        dataStore.edit { it[Keys.GRADUAL_VIBRATION_SEC] = seconds.coerceIn(5, 20) }
+    }
+
+    suspend fun setGradualRampSec(seconds: Int) {
+        dataStore.edit { it[Keys.GRADUAL_RAMP_SEC] = seconds.coerceIn(15, 60) }
+    }
+
+    suspend fun setGradualVibrationStrength(level: Int) {
+        dataStore.edit { it[Keys.GRADUAL_VIBRATION_STRENGTH] = level.coerceIn(1, 3) }
+    }
+
+    suspend fun setGradualRingtoneUri(uri: String) {
+        dataStore.edit { it[Keys.GRADUAL_RINGTONE_URI] = uri }
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("is_onboarding_completed")
         val ELDERLY_MODE = booleanPreferencesKey("is_elderly_mode")
@@ -240,5 +283,10 @@ class SettingsDataStore @Inject constructor(
         val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
         val APP_LANGUAGE_CODE = stringPreferencesKey("app_language_code")
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")
+        val GRADUAL_ALARM_ENABLED = booleanPreferencesKey("gradual_alarm_enabled")
+        val GRADUAL_VIBRATION_SEC = intPreferencesKey("gradual_vibration_sec")
+        val GRADUAL_RAMP_SEC = intPreferencesKey("gradual_ramp_sec")
+        val GRADUAL_VIBRATION_STRENGTH = intPreferencesKey("gradual_vibration_strength")
+        val GRADUAL_RINGTONE_URI = stringPreferencesKey("gradual_ringtone_uri")
     }
 }

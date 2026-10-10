@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Phase 10.9.x: gradual alarm vibration (normal permission, auto-granted). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Phase 10.4.2.1: CPU Partial WakeLock so tracking survives screen-off sleep. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

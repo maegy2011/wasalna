@@ -80,6 +80,11 @@ fun SettingsScreen(
     val forceOffline by viewModel.forceOffline.collectAsState()
     val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
+    val gradualEnabled by viewModel.gradualEnabled.collectAsState()
+    val gradualVibSec by viewModel.gradualVibrationSec.collectAsState()
+    val gradualRampSec by viewModel.gradualRampSec.collectAsState()
+    val gradualStrength by viewModel.gradualStrength.collectAsState()
+    val gradualRingtoneUri by viewModel.gradualRingtoneUri.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -116,6 +121,8 @@ fun SettingsScreen(
     // Ordinary users never see Force Offline Routing.
     var devTaps by remember { mutableStateOf(0) }
     var showDev by remember { mutableStateOf(false) }
+    // Phase 10.9.x: in-app gradual-alarm tone picker dialog.
+    var showGradualPicker by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -284,6 +291,150 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setSilentAlarm,
                 )
             }
+        }
+
+        // Phase 10.9.x: smart gradual alarm (المنبه التدريجي) — vibration
+        // first, then a quiet sound that rises slowly. Disabled by default
+        // so the legacy full-volume path is untouched when off.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_gradual_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_gradual_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = gradualEnabled,
+                        onCheckedChange = viewModel::setGradualEnabled,
+                    )
+                }
+                if (gradualEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_gradual_strength),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    val strengthOptions = listOf(
+                        1 to stringResource(R.string.settings_gradual_strength_1),
+                        2 to stringResource(R.string.settings_gradual_strength_2),
+                        3 to stringResource(R.string.settings_gradual_strength_3),
+                    )
+                    strengthOptions.forEach { (level, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable { viewModel.setGradualStrength(level) },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = gradualStrength == level,
+                                onClick = { viewModel.setGradualStrength(level) },
+                            )
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_gradual_vib_duration),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_gradual_seconds, gradualVibSec),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Slider(
+                        value = gradualVibSec.toFloat(),
+                        onValueChange = { viewModel.setGradualVibrationSec(it.toInt()) },
+                        valueRange = 5f..20f,
+                        steps = 14,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_gradual_ramp),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_gradual_seconds, gradualRampSec),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Slider(
+                        value = gradualRampSec.toFloat(),
+                        onValueChange = { viewModel.setGradualRampSec(it.toInt()) },
+                        valueRange = 15f..60f,
+                        steps = 44,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { showGradualPicker = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_gradual_ringtone),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(
+                                text = if (gradualRingtoneUri.isBlank()) {
+                                    stringResource(R.string.settings_gradual_ringtone_default)
+                                } else {
+                                    stringResource(R.string.settings_gradual_ringtone_set)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Icon(
+                            Icons.Filled.MusicNote,
+                            contentDescription = stringResource(R.string.settings_gradual_ringtone),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showGradualPicker) {
+            GradualRingtonePickerDialog(
+                currentUri = gradualRingtoneUri,
+                onConfirm = { uri ->
+                    viewModel.setGradualRingtoneUri(uri)
+                    showGradualPicker = false
+                    Toast.makeText(context, "Gradual tone saved", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { showGradualPicker = false },
+            )
         }
 
         // Phase 10.4.3.1: premium custom alarm ringtone (locked → paywall).

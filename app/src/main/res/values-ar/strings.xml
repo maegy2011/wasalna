@@ -7,4 +7,17 @@
     <string name="settings_language_auto">لغة الجهاز</string>
     <string name="settings_language_arabic">العربية</string>
     <string name="settings_language_english">English</string>
+    <!-- المنبه التدريجي (مطابق لقيم values). -->
+    <string name="settings_gradual_title">المنبه التدريجي</string>
+    <string name="settings_gradual_sub">اهتزاز أولًا ثم صوت يعلو تدريجيًا — استيقاظ هادئ</string>
+    <string name="settings_gradual_strength">قوة الاهتزاز</string>
+    <string name="settings_gradual_strength_1">متوسط</string>
+    <string name="settings_gradual_strength_2">قوي</string>
+    <string name="settings_gradual_strength_3">قوي جدًا</string>
+    <string name="settings_gradual_vib_duration">مدة الاهتزاز فقط</string>
+    <string name="settings_gradual_ramp">مدة تصاعد الصوت</string>
+    <string name="settings_gradual_seconds">%1$d ثانية</string>
+    <string name="settings_gradual_ringtone">نغمة المنبه</string>
+    <string name="settings_gradual_ringtone_default">الافتراضي للنظام</string>
+    <string name="settings_gradual_ringtone_set">نغمة مخصصة ✓</string>
 </resources>

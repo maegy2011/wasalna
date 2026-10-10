@@ -68,6 +68,17 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isForceOffline: Flow<Boolean>
         get() = settingsDataStore.isForceOffline
 
+    override val isGradualAlarmEnabled: Flow<Boolean>
+        get() = settingsDataStore.isGradualAlarmEnabled
+    override val gradualVibrationSec: Flow<Int>
+        get() = settingsDataStore.gradualVibrationSec
+    override val gradualRampSec: Flow<Int>
+        get() = settingsDataStore.gradualRampSec
+    override val gradualVibrationStrength: Flow<Int>
+        get() = settingsDataStore.gradualVibrationStrength
+    override val gradualRingtoneUri: Flow<String>
+        get() = settingsDataStore.gradualRingtoneUri
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         settingsDataStore.setOnboardingCompleted(completed)
     }
@@ -130,6 +141,26 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setForceOffline(enabled: Boolean) {
         settingsDataStore.setForceOffline(enabled)
+    }
+
+    override suspend fun setGradualAlarmEnabled(enabled: Boolean) {
+        settingsDataStore.setGradualAlarmEnabled(enabled)
+    }
+
+    override suspend fun setGradualVibrationSec(seconds: Int) {
+        settingsDataStore.setGradualVibrationSec(seconds)
+    }
+
+    override suspend fun setGradualRampSec(seconds: Int) {
+        settingsDataStore.setGradualRampSec(seconds)
+    }
+
+    override suspend fun setGradualVibrationStrength(level: Int) {
+        settingsDataStore.setGradualVibrationStrength(level)
+    }
+
+    override suspend fun setGradualRingtoneUri(uri: String) {
+        settingsDataStore.setGradualRingtoneUri(uri)
     }
 
     override suspend fun setTrafficEnabled(enabled: Boolean) {

@@ -30,6 +30,12 @@ interface SettingsRepository {
 
     val isForceOffline: Flow<Boolean>
 
+    val isGradualAlarmEnabled: Flow<Boolean>
+    val gradualVibrationSec: Flow<Int>
+    val gradualRampSec: Flow<Int>
+    val gradualVibrationStrength: Flow<Int>
+    val gradualRingtoneUri: Flow<String>
+
     val homeLat: Flow<Double?>
     val homeLng: Flow<Double?>
     val homeAddress: Flow<String>
@@ -69,6 +75,12 @@ interface SettingsRepository {
     suspend fun setWork(lat: Double?, lng: Double?, address: String)
 
     suspend fun setForceOffline(enabled: Boolean)
+
+    suspend fun setGradualAlarmEnabled(enabled: Boolean)
+    suspend fun setGradualVibrationSec(seconds: Int)
+    suspend fun setGradualRampSec(seconds: Int)
+    suspend fun setGradualVibrationStrength(level: Int)
+    suspend fun setGradualRingtoneUri(uri: String)
 
     suspend fun setTrafficEnabled(enabled: Boolean)
 
