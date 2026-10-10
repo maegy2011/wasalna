@@ -283,6 +283,24 @@ class TrackingService : Service() {
         Log.i(TAG, "onFix: distance=${distanceM.toInt()}m trigger=${triggerM.toInt()}m " +
             "speed=${"%.1f".format(lastSpeedKmh)}km/h mode=$mode")
 
+        // Mid-trip switch support: refresh the cached mode on IO (never Main)
+        // on every fix, so DISTANCE→TIME also takes effect by the next fix
+        // (TIME→DISTANCE re-reads live inside evaluateTimeModeAlarm).
+        serviceScope.launch {
+            val modePrefs = SettingsDataStore(applicationContext)
+            alarmModeName = runCatching { modePrefs.alarmMode.first() }
+                .getOrDefault(alarmModeName)
+            alarmTimeMinutes = runCatching { modePrefs.alarmTimeMinutes.first() }
+                .getOrDefault(alarmTimeMinutes)
+        }
+        // SAFETY VALVE 🛡️ (بأمر محمد): regardless of mode (DISTANCE/TIME)
+        // and regardless of speed state — at <=500 m remaining (walking
+        // distance) the alarm fires IMMEDIATELY as an independent guard
+        // with top priority, before any other logic. The stop is never missed.
+        if (!hasFiredAlarm && distanceM <= SAFETY_VALVE_METERS) {
+            fireAlarm(alarmModeName)
+            return
+        }
         // DYNAMIC WAKE-UP: DISTANCE mode fires on the radius here; TIME mode
         // never fires on distance alone — evaluated below on Default.
         if (alarmModeName != AlarmMode.TIME.name && distanceM <= triggerM) {
@@ -955,6 +973,12 @@ class TrackingService : Service() {
 
         /** DYNAMIC WAKE-UP: cached route distance freshness window. */
         private const val ROUTE_REMAINING_FRESH_MS = 120_000L
+
+        /**
+         * SAFETY VALVE 🛡️: walking-distance backstop — the alarm fires
+         * here no matter the mode or speed state (never miss the stop).
+         */
+        private const val SAFETY_VALVE_METERS = 500f
 
         /** Phase 10.4.2.1: WakeLock safety ceiling — 12 hours. */
         private const val WAKELOCK_TIMEOUT_MS = 12L * 60L * 60L * 1000L

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Phase 10.10: advertises the phone↔watch Data Layer capability so
+         CapabilityClient node discovery finds this side. Must match
+         WatchAlertContract.CAPABILITY. -->
+    <string-array name="android_wear_capabilities">
+        <item>wasalna_watch_alert</item>
+    </string-array>
+</resources>

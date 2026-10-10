@@ -72,6 +72,27 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE (legacy default)
+    // vs TIME (minutes-before-arrival) — chosen in the trip-setup dialog.
+    val alarmMode: StateFlow<String> = settingsRepository.alarmMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "DISTANCE")
+    val alarmTimeMinutes: StateFlow<Int> = settingsRepository.alarmTimeMinutes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 5)
+
+    fun setAlarmMode(mode: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAlarmMode(mode) }
+                .onFailure { Log.e(TAG, "persist alarm mode failed: ${it.message}") }
+        }
+    }
+
+    fun setAlarmTimeMinutes(minutes: Int) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAlarmTimeMinutes(minutes) }
+                .onFailure { Log.e(TAG, "persist alarm minutes failed: ${it.message}") }
+        }
+    }
+
     init {
         // Revert premium if a trial expired while the app was closed.
         viewModelScope.launch {

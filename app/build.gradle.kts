@@ -87,6 +87,9 @@ dependencies {
     // coroutines-play-services (await()), ads + billing (actively used).
     // Phase 5: background location engine (FusedLocationProviderClient)
     implementation(libs.play.services.location)
+    // Phase 10.10: smartwatch-only alert — phone-side Data Layer sender
+    // (MessageClient/CapabilityClient small API, no Wear UI on the phone).
+    implementation(libs.play.services.wearable)
     // LatLng value type (MapViewModel/MapScreen) + await() — no Map SDK UI.
     implementation(libs.play.services.maps)
     implementation(libs.coroutines.play.services)

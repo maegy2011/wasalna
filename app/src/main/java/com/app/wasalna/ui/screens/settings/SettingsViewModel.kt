@@ -322,4 +322,32 @@ class SettingsViewModel @Inject constructor(
             runCatching { settingsRepository.setProactiveAlertEnabled(enabled) }
         }
     }
+
+    // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE (legacy default)
+    // vs TIME (minutes-before-arrival). Persisted, StateFlow-exposed.
+    val alarmMode: StateFlow<String> =
+        settingsRepository.alarmMode.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "DISTANCE",
+        )
+
+    val alarmTimeMinutes: StateFlow<Int> =
+        settingsRepository.alarmTimeMinutes.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 5,
+        )
+
+    fun setAlarmMode(mode: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAlarmMode(mode) }
+        }
+    }
+
+    fun setAlarmTimeMinutes(minutes: Int) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAlarmTimeMinutes(minutes) }
+        }
+    }
 }

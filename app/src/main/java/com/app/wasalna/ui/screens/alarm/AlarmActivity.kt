@@ -114,6 +114,9 @@ class AlarmActivity : ComponentActivity() {
     // the alarm notification).
     private var watchOnlyMode = false
     private var watchFallback = false
+    // DYNAMIC WAKE-UP: which mode fired (DISTANCE radius vs TIME ETA) —
+    // stated in the alarm notification so the user knows why it rang.
+    private var alarmModeName = "DISTANCE"
     private var destinationName = ""
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var dismissReceiver: BroadcastReceiver? = null
@@ -139,6 +142,7 @@ class AlarmActivity : ComponentActivity() {
         // watch actually received the alert (TrackingService guarantee).
         watchOnlyMode = intent.getBooleanExtra(EXTRA_WATCH_ONLY, false) && isPremium
         watchFallback = intent.getBooleanExtra(EXTRA_WATCH_FALLBACK, false)
+        alarmModeName = intent.getStringExtra(EXTRA_ALARM_MODE)?.takeIf { it == "TIME" } ?: "DISTANCE"
         destinationName = intent.getStringExtra(EXTRA_DESTINATION_NAME).orEmpty()
         Log.i(TAG, "onCreate: alarm firing silent=$silentMode headphoneOnly=$headphoneOnlyMode watchOnly=$watchOnlyMode fallback=$watchFallback")
         // Phase 10.10: watch-side dismissal lands here as a package-scoped
@@ -240,6 +244,7 @@ class AlarmActivity : ComponentActivity() {
                 silentMode = silentMode || headphoneActive,
                 watchOnly = watchOnlyMode,
                 watchFallback = watchFallback,
+                alarmModeName = alarmModeName,
                 onLongPressStop = { stopAlarm() },
             )
         }
@@ -603,16 +608,21 @@ class AlarmActivity : ComponentActivity() {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or
                     android.app.PendingIntent.FLAG_IMMUTABLE,
             )
+            // DYNAMIC WAKE-UP: notification states which mode fired.
+            val baseText = when {
+                watchOnlyMode -> getString(R.string.alarm_notif_watch_only)
+                watchFallback -> getString(R.string.alarm_notif_watch_fallback)
+                headphoneFallback -> getString(R.string.alarm_notif_headphone_fallback)
+                else -> "Tap to open, or stop from your watch"
+            }
+            val modeText = if (alarmModeName == "TIME") {
+                getString(R.string.alarm_notif_mode_time)
+            } else {
+                getString(R.string.alarm_notif_mode_distance)
+            }
             val notification = androidx.core.app.NotificationCompat.Builder(this, ALARM_CHANNEL_ID)
                 .setContentTitle("⏰ Wasalna — destination reached!")
-                .setContentText(
-                    when {
-                        watchOnlyMode -> getString(R.string.alarm_notif_watch_only)
-                        watchFallback -> getString(R.string.alarm_notif_watch_fallback)
-                        headphoneFallback -> getString(R.string.alarm_notif_headphone_fallback)
-                        else -> "Tap to open, or stop from your watch"
-                    },
-                )
+                .setContentText("$baseText • $modeText")
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
                 .setCategory(androidx.core.app.NotificationCompat.CATEGORY_ALARM)
@@ -740,6 +750,8 @@ class AlarmActivity : ComponentActivity() {
         const val EXTRA_WATCH_ONLY = "extra_watch_only"
         const val EXTRA_WATCH_FALLBACK = "extra_watch_fallback"
         const val EXTRA_DESTINATION_NAME = "extra_destination_name"
+        /** DYNAMIC WAKE-UP: "DISTANCE" or "TIME" — which mode fired. */
+        const val EXTRA_ALARM_MODE = "extra_alarm_mode"
 
         // Phase 10.4.3.3: wrist actions (WearableExtender targets).
         const val ACTION_DISMISS_ALARM = "com.app.wasalna.action.DISMISS_ALARM"
@@ -763,6 +775,7 @@ private fun AlarmScreen(
     silentMode: Boolean,
     watchOnly: Boolean = false,
     watchFallback: Boolean = false,
+    alarmModeName: String = "DISTANCE",
     onLongPressStop: () -> Unit,
 ) {
     Box(
@@ -814,7 +827,18 @@ private fun AlarmScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.headlineSmall,
             )
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (alarmModeName == "TIME") {
+                    stringResource(R.string.alarm_mode_time_short)
+                } else {
+                    stringResource(R.string.alarm_mode_distance_short)
+                },
+                color = Color(0xFFFFD54F),
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(32.dp))
             Text(
                 text = stringResource(R.string.alarm_dismiss_hint),
                 color = Color(0xFFB0B0B0),

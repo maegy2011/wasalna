@@ -20,3 +20,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Wasalna"
 include(":app")
+// Phase 10.10: Wear OS companion (watch-only destination alert).
+include(":wear")

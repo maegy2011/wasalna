@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -37,6 +40,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -55,9 +59,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.TransportMode
@@ -85,11 +91,17 @@ fun MyPlacesScreen(
     val isPremium by viewModel.isPremium.collectAsState()
     // Phase 10.4.2: persisted mode rides along into the tracking service.
     val transportMode by viewModel.transportMode.collectAsState()
+    // DYNAMIC WAKE-UP: persisted alarm mode + minutes (trip-setup dialog).
+    val alarmMode by viewModel.alarmMode.collectAsState()
+    val alarmTimeMinutes by viewModel.alarmTimeMinutes.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var trackingName by remember { mutableStateOf<String?>(null) }
     // Phase 10.4.2.1: battery-optimization gate dialog state.
     var showBatteryDialog by remember { mutableStateOf(false) }
+    // DYNAMIC WAKE-UP: trip-setup dialog state (pending place + visibility).
+    var pendingTrip by remember { mutableStateOf<Location?>(null) }
+    var showAlarmSetup by remember { mutableStateOf(false) }
     // Phase 10-Fix: local filter + rename dialog state (CRUD).
     var filter by remember { mutableStateOf("") }
     var renameTarget by remember { mutableStateOf<Location?>(null) }
@@ -151,6 +163,17 @@ fun MyPlacesScreen(
             }
             return
         }
+        requestTrip(
+            Location(
+                name = address.ifBlank { "Quick trip" },
+                latitude = lat,
+                longitude = lng,
+            ),
+        )
+    }
+    // DYNAMIC WAKE-UP: trip-setup gate — permission/battery checks, then the
+    // Arabic mode dialog (per-trip choice, persisted); confirm starts tracking.
+    fun requestTrip(place: Location) {
         if (!hasLocationPermission(context)) {
             Toast.makeText(
                 context,
@@ -163,15 +186,17 @@ fun MyPlacesScreen(
             showBatteryDialog = true
             return
         }
-        val place = Location(
-            name = address.ifBlank { "Quick trip" },
-            latitude = lat,
-            longitude = lng,
-        )
+        pendingTrip = place
+        showAlarmSetup = true
+    }
+    fun confirmTrip() {
+        val place = pendingTrip ?: return
         fun go() {
             startTracking(context, place, transportMode)
             trackingName = place.name
         }
+        showAlarmSetup = false
+        pendingTrip = null
         if (!isPremium) {
             InterstitialHelper.showInterstitial(context) { go() }
         } else {
@@ -304,25 +329,9 @@ fun MyPlacesScreen(
                             location = location,
                             isTracking = trackingName != null,
                             onActivate = {
-                                // Phase 10.4.2.1: OEMs kill background work unless
-                                // unrestricted — block tracking until allowed.
-                                if (!hasLocationPermission(context)) {
-                                    Toast.makeText(
-                                        context,
-                                        "Location permission required — grant it in Permissions",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                } else if (!isBatteryUnrestricted(context)) {
-                                    showBatteryDialog = true
-                                } else {
-                                    startTracking(context, location, transportMode)
-                                    trackingName = location.name
-                                    Toast.makeText(
-                                        context,
-                                        "Tracking started",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
+                                // DYNAMIC WAKE-UP: opens the Arabic mode dialog;
+                                // confirmTrip() starts tracking (gates inside).
+                                requestTrip(location)
                             },
                             onEdit = { renameTarget = location },
                             onDelete = { viewModel.deleteLocation(location) },
@@ -331,6 +340,20 @@ fun MyPlacesScreen(
                 }
             }
         }
+    }
+    // DYNAMIC WAKE-UP: Arabic trip-setup dialog (mode + minutes stepper).
+    if (showAlarmSetup) {
+        AlarmSetupDialog(
+            mode = alarmMode,
+            minutes = alarmTimeMinutes,
+            onModeChange = viewModel::setAlarmMode,
+            onMinutesChange = viewModel::setAlarmTimeMinutes,
+            onConfirm = { confirmTrip() },
+            onDismiss = {
+                showAlarmSetup = false
+                pendingTrip = null
+            },
+        )
     }
     // Phase 10.4.2.1: blocking battery gate — no unrestricted battery,
     // no background alarm (OEMs would silently kill it).
@@ -426,6 +449,148 @@ private fun BackupRow(
             modifier = Modifier.weight(1f).height(48.dp),
         ) {
             Text("Import backup")
+        }
+    }
+}
+
+/**
+ * DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام) — Arabic trip-setup dialog.
+ * Segmented DISTANCE/TIME choice + minutes stepper (TIME only) with a
+ * one-line explanation of the difference. Choices persist via HomeViewModel
+ * (StateFlow → DataStore); TrackingService honors them live, mid-trip
+ * switches included. All touch targets ≥ 48dp (Material3).
+ */
+@Composable
+private fun AlarmSetupDialog(
+    mode: String,
+    minutes: Int,
+    onModeChange: (String) -> Unit,
+    onMinutesChange: (Int) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val isTime = mode == "TIME"
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.alarm_setup_title)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AlarmModeButton(
+                        selected = !isTime,
+                        label = stringResource(R.string.alarm_mode_distance),
+                        onClick = { onModeChange("DISTANCE") },
+                    )
+                    AlarmModeButton(
+                        selected = isTime,
+                        label = stringResource(R.string.alarm_mode_time),
+                        onClick = { onModeChange("TIME") },
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(
+                        if (isTime) R.string.alarm_mode_explain_time
+                        else R.string.alarm_mode_explain_distance,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (isTime) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(3, 5, 10).forEach { preset ->
+                            if (preset == minutes) {
+                                Button(
+                                    onClick = { onMinutesChange(preset) },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                ) {
+                                    Text("$preset")
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onMinutesChange(preset) },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                ) {
+                                    Text("$preset")
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        IconButton(
+                            onClick = { onMinutesChange(minutes - 1) },
+                            modifier = Modifier.size(48.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Remove,
+                                contentDescription = "إنقاص الدقائق",
+                            )
+                        }
+                        Text(
+                            text = stringResource(
+                                R.string.alarm_time_minutes_label,
+                                minutes,
+                            ),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        )
+                        IconButton(
+                            onClick = { onMinutesChange(minutes + 1) },
+                            modifier = Modifier.size(48.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = "زيادة الدقائق",
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.alarm_setup_start))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.alarm_setup_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun RowScope.AlarmModeButton(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Text(label)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier.weight(1f).height(48.dp),
+        ) {
+            Text(label)
         }
     }
 }

@@ -13,6 +13,7 @@ activityCompose = "1.9.2"
 playServicesMaps = "18.2.0"
 coroutinesPlayServices = "1.8.1"
 playServicesLocation = "21.3.0"
+playServicesWearable = "18.1.0"
 playServicesAds = "23.0.0"
 billingKtx = "6.2.1"
 maplibre = "11.1.0"
@@ -42,6 +43,7 @@ activity-compose = { group = "androidx.activity", name = "activity-compose", ver
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
 coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
 billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billingKtx" }
 # Phase 10-1: MapLibre (free vector engine) replaces OSMDroid.

@@ -73,4 +73,17 @@
     <string name="tracking_dnd_chosen_bypass">هذه الرحلة سترن رغم الوضع الصامت</string>
     <string name="tracking_dnd_chosen_respect">هذه الرحلة تحترم الوضع الصامت</string>
     <string name="alarm_notif_dnd_bypass">تم تخطي عدم الإزعاج — منبه عالٍ</string>
+    <!-- DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام) -->
+    <string name="alarm_setup_title">وضع التنبيه</string>
+    <string name="alarm_mode_distance">حسب المسافة</string>
+    <string name="alarm_mode_time">حسب الوقت</string>
+    <string name="alarm_mode_distance_short">📍 حسب المسافة</string>
+    <string name="alarm_mode_time_short">⏱ حسب الوقت (مرتبط بالزحام)</string>
+    <string name="alarm_mode_explain_distance">يرن عند مسافة ثابتة قبل المحطة.</string>
+    <string name="alarm_mode_explain_time">يرن قبل الوصول بعدد الدقائق الذي تختاره، ويتكيف مع الزحام والسرعة.</string>
+    <string name="alarm_time_minutes_label">قبل الوصول بـ %1$d دقائق</string>
+    <string name="alarm_setup_start">بدء التتبع</string>
+    <string name="alarm_setup_cancel">إلغاء</string>
+    <string name="alarm_notif_mode_distance">وضع التنبيه: حسب المسافة</string>
+    <string name="alarm_notif_mode_time">وضع التنبيه: حسب الوقت (مرتبط بالزحام)</string>
 </resources>

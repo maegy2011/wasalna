@@ -116,4 +116,18 @@
     <string name="tracking_resume">Resume</string>
     <string name="tracking_silent">Silent</string>
     <string name="tracking_ring">Ring</string>
+
+    <!-- DYNAMIC WAKE-UP (traffic-aware alarm mode). Mirrored in values-ar. -->
+    <string name="alarm_setup_title">Alarm mode</string>
+    <string name="alarm_mode_distance">By distance</string>
+    <string name="alarm_mode_time">By time</string>
+    <string name="alarm_mode_distance_short">📍 By distance</string>
+    <string name="alarm_mode_time_short">⏱ Traffic-aware time mode</string>
+    <string name="alarm_mode_explain_distance">Rings at a fixed distance before the stop.</string>
+    <string name="alarm_mode_explain_time">Rings N minutes before arrival, adapting to traffic and speed.</string>
+    <string name="alarm_time_minutes_label">Minutes before arrival: %1$d</string>
+    <string name="alarm_setup_start">Start tracking</string>
+    <string name="alarm_setup_cancel">Cancel</string>
+    <string name="alarm_notif_mode_distance">Alarm mode: by distance</string>
+    <string name="alarm_notif_mode_time">Alarm mode: traffic-aware time</string>
 </resources>
