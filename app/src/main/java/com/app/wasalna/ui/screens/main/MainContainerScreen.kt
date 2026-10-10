@@ -14,6 +14,7 @@ import android.net.Uri
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
@@ -293,6 +294,20 @@ fun MainContainerScreen() {
                             onClick = { navigateTab(Screen.Paywall.route) },
                             icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
                             label = { Text("First Class") },
+                        )
+                        // Drawer entry from the bottom bar (works on every tab,
+                        // incl. Map where edge-swipe is locked). Opens the drawer
+                        // via the existing scope — no navigation, no state change.
+                        NavigationBarItem(
+                            selected = false,
+                            onClick = { openDrawer() },
+                            icon = {
+                                Icon(
+                                    Icons.Filled.Menu,
+                                    contentDescription = "فتح القائمة الجانبية",
+                                )
+                            },
+                            label = { Text("القائمة") },
                         )
                     }
             },
