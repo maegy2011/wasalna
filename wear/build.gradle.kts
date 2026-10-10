@@ -17,8 +17,8 @@ android {
         applicationId = "com.app.wasalna"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "10.10.0"
+        versionCode = 2
+        versionName = "10.14.0"
     }
 
     buildTypes {
