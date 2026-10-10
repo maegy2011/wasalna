@@ -226,6 +226,9 @@ fun TripSimulationPanel(
     val paused by TripSimulationController.isPaused.collectAsState()
     val speed by TripSimulationController.speedMultiplier.collectAsState()
     val progress by TripSimulationController.progress.collectAsState()
+    val noiseOn by TripSimulationController.noiseEnabled.collectAsState()
+    val profile by TripSimulationController.speedProfile.collectAsState()
+    val gap by TripSimulationController.signalGap.collectAsState()
     var starting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val noFixMessage = stringResource(R.string.sim_no_fix)
@@ -321,6 +324,84 @@ fun TripSimulationPanel(
                     }
                 }
             } else {
+                Text(
+                    text = stringResource(R.string.sim_realism_title),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = noiseOn,
+                        onClick = { TripSimulationController.setNoiseEnabled(!noiseOn) },
+                        label = { Text(stringResource(R.string.sim_noise)) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.sim_noise_sub),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.sim_profile),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = profile == TripSimulationController.SpeedProfile.CONSTANT,
+                        onClick = {
+                            TripSimulationController.setSpeedProfile(
+                                TripSimulationController.SpeedProfile.CONSTANT,
+                            )
+                        },
+                        label = { Text(stringResource(R.string.sim_profile_constant)) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                    FilterChip(
+                        selected = profile == TripSimulationController.SpeedProfile.URBAN,
+                        onClick = {
+                            TripSimulationController.setSpeedProfile(
+                                TripSimulationController.SpeedProfile.URBAN,
+                            )
+                        },
+                        label = { Text(stringResource(R.string.sim_profile_urban)) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.sim_gap),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = gap == TripSimulationController.SignalGap.OFF,
+                        onClick = {
+                            TripSimulationController.setSignalGap(
+                                TripSimulationController.SignalGap.OFF,
+                            )
+                        },
+                        label = { Text(stringResource(R.string.sim_gap_off)) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                    FilterChip(
+                        selected = gap == TripSimulationController.SignalGap.TUNNEL,
+                        onClick = {
+                            TripSimulationController.setSignalGap(
+                                TripSimulationController.SignalGap.TUNNEL,
+                            )
+                        },
+                        label = { Text(stringResource(R.string.sim_gap_tunnel)) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                }
                 Button(
                     onClick = {
                         if (starting) return@Button

@@ -72,6 +72,31 @@ object TripSimulationController {
     private val _speedMultiplier = MutableStateFlow(1)
     val speedMultiplier: StateFlow<Int> = _speedMultiplier.asStateFlow()
 
+    /** Realism pack (Oct 2026): GPS noise + speed profile + signal gaps. */
+    enum class SpeedProfile { CONSTANT, URBAN }
+    enum class SignalGap { OFF, TUNNEL }
+
+    private val _noiseEnabled = MutableStateFlow(true)
+    val noiseEnabled: StateFlow<Boolean> = _noiseEnabled.asStateFlow()
+
+    private val _speedProfile = MutableStateFlow(SpeedProfile.CONSTANT)
+    val speedProfile: StateFlow<SpeedProfile> = _speedProfile.asStateFlow()
+
+    private val _signalGap = MutableStateFlow(SignalGap.OFF)
+    val signalGap: StateFlow<SignalGap> = _signalGap.asStateFlow()
+
+    fun setNoiseEnabled(enabled: Boolean) {
+        _noiseEnabled.value = enabled
+    }
+
+    fun setSpeedProfile(profile: SpeedProfile) {
+        _speedProfile.value = profile
+    }
+
+    fun setSignalGap(gap: SignalGap) {
+        _signalGap.value = gap
+    }
+
     private val _progress = MutableStateFlow(0f)
     val progress: StateFlow<Float> = _progress.asStateFlow()
 
@@ -100,9 +125,14 @@ object TripSimulationController {
         _progress.value = 0f
         if (_speedMultiplier.value !in SPEEDS) _speedMultiplier.value = 1
         _isSimulating.value = true
+        // Snapshot realism config at launch so mid-run UI tweaks
+        // don't warp an in-flight trip.
+        val noise = _noiseEnabled.value
+        val profile = _speedProfile.value
+        val gap = _signalGap.value
         simJob = simScope.launch {
             val points = parseRoutePoints(routeGeoJson, originLat, originLng, destLat, destLng)
-            runSimulation(points, baseSpeedMps, stationStops)
+            runSimulation(points, baseSpeedMps, stationStops, noise, profile, gap)
         }
     }
 
@@ -157,10 +187,39 @@ object TripSimulationController {
      * there for DWELL_TICKS ticks (scaled down at high multipliers) —
      * like real station stops — before rolling on. Test-only.
      */
+    /** Urban speed factor by trip fraction (pull-away, cruise, traffic jam, cruise, approach). */
+    private fun urbanFactor(progress: Float): Float = when {
+        progress < 0.10f -> 0.6f
+        progress < 0.35f -> 1.0f
+        progress < 0.55f -> 0.4f
+        progress < 0.80f -> 1.0f
+        else -> 0.7f
+    }
+
+    /** True while the virtual GPS is inside a signal gap (tunnel 40–50%). */
+    private fun inGap(gap: SignalGap, progress: Float): Boolean =
+        gap == SignalGap.TUNNEL && progress in 0.40f..0.50f
+
+    /** Gaussian-ish GPS jitter (±~10 m) + realistic accuracy spread. */
+    private fun jitterMeters(): Pair<Double, Double> {
+        // Sum of 3 uniforms ≈ normal, σ≈±6 m, clamped to ±10 m.
+        fun axis(): Double {
+            val u = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5
+            return (u * 6.0).coerceIn(-10.0, 10.0)
+        }
+        return axis() to axis()
+    }
+
+    private fun noisyAccuracy(): Float =
+        if (Math.random() < 0.12) (20 + Math.random() * 15).toFloat() else SIM_ACCURACY_M
+
     private suspend fun runSimulation(
         points: List<Point>,
         baseSpeedMps: Float,
         stationStops: List<Point> = emptyList(),
+        noise: Boolean = false,
+        profile: SpeedProfile = SpeedProfile.CONSTANT,
+        gap: SignalGap = SignalGap.OFF,
     ) {
         if (points.size < 2) {
             val last = points.lastOrNull() ?: return
@@ -203,7 +262,10 @@ object TripSimulationController {
         while (_isSimulating.value && travelled < total) {
             currentCoroutineContext().ensureActive()
             if (!_isPaused.value) {
-                val speed = baseSpeedMps * _speedMultiplier.value.toFloat()
+                val progressNow = (travelled / total).coerceIn(0f, 1f)
+                val profileFactor = if (profile == SpeedProfile.URBAN) urbanFactor(progressNow) else 1f
+                val speed = baseSpeedMps * _speedMultiplier.value.toFloat() * profileFactor
+                val gapNow = inGap(gap, progressNow)
                 val nextStop = stopMarks.getOrNull(stopIdx)
                 if (nextStop != null && travelled + speed * (TICK_MS / 1000f) >= nextStop &&
                     nextStop > travelled
@@ -214,18 +276,22 @@ object TripSimulationController {
                     stopIdx += 1
                     val dwellTicks = (DWELL_TICKS / _speedMultiplier.value).coerceAtLeast(2)
                     val pos = interpolate(points, cumulative, travelled)
-                    emitFix(pos.lat, pos.lng, 0f, pos.bearing)
+                    if (!gapNow) emitFix(pos.lat, pos.lng, 0f, pos.bearing, noise)
                     _progress.value = (travelled / total).coerceIn(0f, 1f)
                     repeat(dwellTicks) {
                         currentCoroutineContext().ensureActive()
                         // Pause freezes the dwell too (no time passes).
-                        if (!_isPaused.value) emitFix(pos.lat, pos.lng, 0f, pos.bearing)
+                        if (!_isPaused.value && !gapNow) {
+                            emitFix(pos.lat, pos.lng, 0f, pos.bearing, noise)
+                        }
                         delay(TICK_MS)
                     }
                 } else {
                     travelled = (travelled + speed * (TICK_MS / 1000f)).coerceAtMost(total)
                     val pos = interpolate(points, cumulative, travelled)
-                    emitFix(pos.lat, pos.lng, speed, pos.bearing)
+                    // Signal gap: time passes and travel continues, but NO
+                    // fix is emitted — exercises the 500 m FAILSAFE + recovery.
+                    if (!gapNow) emitFix(pos.lat, pos.lng, speed, pos.bearing, noise)
                     _progress.value = (travelled / total).coerceIn(0f, 1f)
                 }
             }
@@ -240,12 +306,27 @@ object TripSimulationController {
         }
     }
 
-    private suspend fun emitFix(lat: Double, lng: Double, speedMps: Float, bearing: Float) {
+    private suspend fun emitFix(
+        lat: Double,
+        lng: Double,
+        speedMps: Float,
+        bearing: Float,
+        noise: Boolean = false,
+    ) {
+        var outLat = lat
+        var outLng = lng
+        var outAccuracy = SIM_ACCURACY_M
+        if (noise) {
+            val (dNorth, dEast) = jitterMeters()
+            outLat += dNorth / 111_320.0
+            outLng += dEast / (111_320.0 * cos(Math.toRadians(lat)).coerceAtLeast(0.2))
+            outAccuracy = noisyAccuracy()
+        }
         val fix = Location(PROVIDER).apply {
-            latitude = lat
-            longitude = lng
+            latitude = outLat
+            longitude = outLng
             speed = speedMps
-            accuracy = SIM_ACCURACY_M
+            accuracy = outAccuracy
             this.bearing = bearing
             time = System.currentTimeMillis()
             elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()

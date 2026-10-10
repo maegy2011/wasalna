@@ -546,4 +546,14 @@
     <string name="sim_explicit_start">▶ تشغيل المحاكاة</string>
     <string name="sim_explicit_pause">⏸ إيقاف مؤقت</string>
     <string name="sim_explicit_stop">⏹ إيقاف المحاكاة</string>
+    <!-- Simulation realism pack (noise + speed profile + signal gaps). Mirrored in values. -->
+    <string name="sim_realism_title">الواقعية</string>
+    <string name="sim_noise">📡 ضجيج GPS</string>
+    <string name="sim_noise_sub">إحداثيات مهتزة مثل الواقع (±10 م)</string>
+    <string name="sim_profile">ملف السرعة</string>
+    <string name="sim_profile_constant">ثابتة</string>
+    <string name="sim_profile_urban">مدينة (بطيء–سريع–زحام)</string>
+    <string name="sim_gap">فجوات الإشارة</string>
+    <string name="sim_gap_off">بلا</string>
+    <string name="sim_gap_tunnel">نفق (40–50٪)</string>
 </resources>

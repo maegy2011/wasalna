@@ -556,4 +556,14 @@
     <string name="sim_explicit_start">▶ Start simulation</string>
     <string name="sim_explicit_pause">⏸ Pause</string>
     <string name="sim_explicit_stop">⏹ Stop simulation</string>
+    <!-- Simulation realism pack (noise + speed profile + signal gaps). Mirrored in values-ar. -->
+    <string name="sim_realism_title">Realism</string>
+    <string name="sim_noise">📡 GPS noise</string>
+    <string name="sim_noise_sub">Shaky fixes like real GPS (±10 m)</string>
+    <string name="sim_profile">Speed profile</string>
+    <string name="sim_profile_constant">Constant</string>
+    <string name="sim_profile_urban">City (slow–fast–traffic)</string>
+    <string name="sim_gap">Signal gaps</string>
+    <string name="sim_gap_off">None</string>
+    <string name="sim_gap_tunnel">Tunnel (40–50%)</string>
 </resources>
