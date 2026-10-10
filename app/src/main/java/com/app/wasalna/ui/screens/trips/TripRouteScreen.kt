@@ -17,6 +17,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.app.wasalna.ui.components.DestinationShareSheet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +76,8 @@ fun TripRouteScreen(
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
     var cameraFitted by remember { mutableStateOf(false) }
+    // Phase 10.11: dynamic destination share sheet (re-queries on open).
+    var showDestinationShare by remember { mutableStateOf(false) }
 
     // Reactive redraw: every breadcrumb emission rebuilds the LineString.
     LaunchedEffect(points, styleRef) {
@@ -196,9 +200,31 @@ fun TripRouteScreen(
                                 " • ${points.size} points",
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        // Phase 10.11: share the trip destination to the
+                        // user's own installed maps / ride apps (dynamic).
+                        TextButton(
+                            onClick = { showDestinationShare = true },
+                        ) {
+                            Text("📤 مشاركة الوجهة")
+                        }
                     }
                 }
             }
+        }
+    }
+
+    // Phase 10.11: dynamic destination share (trip dest state reused).
+    if (showDestinationShare) {
+        val dest = trip
+        if (dest != null) {
+            DestinationShareSheet(
+                lat = dest.destLat,
+                lng = dest.destLng,
+                label = dest.locationName,
+                onDismiss = { showDestinationShare = false },
+            )
+        } else {
+            showDestinationShare = false
         }
     }
 

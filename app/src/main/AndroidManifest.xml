@@ -28,6 +28,39 @@
         android:name="android.hardware.location.gps"
         android:required="false" />
 
+    <!-- Phase 10.11: API 30+ package visibility for dynamic destination
+         share — PackageManager queries + geo/navigation/ride intents.
+         Only what's queried is declared; nothing else changes. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:host="m.uber.com" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="ubercab" />
+        </intent>
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="net.osmand.plus" />
+        <package android:name="net.osmand" />
+        <package android:name="com.mapswithme.maps" />
+        <package android:name="com.ubercab" />
+        <package android:name="com.didiglobal.passenger" />
+        <package android:name="com.didi.global" />
+        <package android:name="com.didapassenger" />
+        <package android:name="com.indriver.passenger" />
+        <package android:name="sinet.startup.inDriver" />
+        <package android:name="com.inDriver" />
+    </queries>
+
     <application
         android:name=".WasalnaApp"
         android:allowBackup="true"

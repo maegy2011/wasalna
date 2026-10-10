@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,6 +76,7 @@ import com.app.wasalna.ui.ads.InterstitialHelper
 import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.OfflineModeBanner
 import com.app.wasalna.ui.components.OfflineModeButton
+import com.app.wasalna.ui.components.DestinationShareSheet
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import kotlinx.coroutines.launch
 import com.google.android.gms.maps.model.LatLng
@@ -199,6 +202,8 @@ fun MapScreen(
 
     // Map UX fixes: quick-place edit dialog state (search-mode only).
     var editTarget by remember { mutableStateOf<String?>(null) }
+    // Phase 10.11: dynamic destination share sheet (re-queries on open).
+    var showDestinationShare by remember { mutableStateOf(false) }
     // Map Home/Work from-map-point: long-press (or tap on the
     // live-location/address pin card) opens a bottom sheet with two BIG
     // elderly-friendly buttons. Null = sheet hidden. No new permissions.
@@ -398,6 +403,17 @@ fun MapScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         )
+                    }
+                    // Phase 10.11: share the picked destination to the
+                    // user's own installed maps / ride apps (dynamic list).
+                    OutlinedButton(
+                        onClick = { showDestinationShare = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        Text("📤 مشاركة الوجهة")
                     }
                 }
                 // Phase 10.8.0g (traffic): Vela live-traffic raster (Google
@@ -631,6 +647,22 @@ fun MapScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
+        }
+        // Phase 10.11: dynamic destination share (MapScreen selection
+        // state reused — no duplicated storage; re-queries on every open).
+        if (showDestinationShare) {
+            val point = selectedLatLng
+            val shareLabel = addressLine ?: selectedName ?: ""
+            if (point != null) {
+                DestinationShareSheet(
+                    lat = point.latitude,
+                    lng = point.longitude,
+                    label = shareLabel,
+                    onDismiss = { showDestinationShare = false },
+                )
+            } else {
+                showDestinationShare = false
             }
         }
         // Map UX fixes: quick-place set dialog (search-mode entry point).
