@@ -78,6 +78,19 @@ class SettingsDataStore @Inject constructor(
     val isAdaptiveAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.ADAPTIVE_ALARM_ENABLED] ?: true }
 
+    // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE = legacy radius
+    // behavior (default, unchanged); TIME = fire N minutes before arrival
+    // from live ETA. New keys only — existing installs keep DISTANCE.
+    val alarmMode: Flow<String> =
+        dataStore.data.map {
+            val raw = it[Keys.ALARM_MODE] ?: AlarmModes.DISTANCE
+            if (raw == AlarmModes.TIME) AlarmModes.TIME else AlarmModes.DISTANCE
+        }
+
+    // Minutes-before-arrival for TIME mode (1..30, default 5).
+    val alarmTimeMinutes: Flow<Int> =
+        dataStore.data.map { it[Keys.ALARM_TIME_MINUTES]?.coerceIn(1, 30) ?: 5 }
+
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[Keys.ONBOARDING_COMPLETED] = completed }
     }
@@ -120,6 +133,17 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.SILENT_ALARM_ENABLED] = enabled }
     }
 
+    // Phase 10.10: watch-only destination alert (PREMIUM-gated). When true
+    // and a paired watch with the companion app is reachable, the phone
+    // stays silent and only the watch vibrates/rings. Default false →
+    // legacy phone alarm path unchanged.
+    val isWatchOnlyAlert: Flow<Boolean> =
+        dataStore.data.map { it[Keys.WATCH_ONLY_ALERT] ?: false }
+
+    suspend fun setWatchOnlyAlert(enabled: Boolean) {
+        dataStore.edit { it[Keys.WATCH_ONLY_ALERT] = enabled }
+    }
+
     suspend fun setHeadphoneOnlyEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.HEADPHONE_ONLY_ENABLED] = enabled }
     }
@@ -147,6 +171,21 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.ADAPTIVE_ALARM_ENABLED] = enabled }
+    }
+
+    suspend fun setAlarmMode(mode: String) {
+        val normalized = if (mode == AlarmModes.TIME) AlarmModes.TIME else AlarmModes.DISTANCE
+        dataStore.edit { it[Keys.ALARM_MODE] = normalized }
+    }
+
+    suspend fun setAlarmTimeMinutes(minutes: Int) {
+        dataStore.edit { it[Keys.ALARM_TIME_MINUTES] = minutes.coerceIn(1, 30) }
+    }
+
+    /** Canonical dynamic-wake-up mode values. */
+    object AlarmModes {
+        const val DISTANCE = "DISTANCE"
+        const val TIME = "TIME"
     }
 
     // Map UX fixes: Home & Work quick places (lat/lng + address, nullable = unset).
@@ -277,6 +316,7 @@ class SettingsDataStore @Inject constructor(
         val PREMIUM = booleanPreferencesKey("is_premium")
         val TRIAL_END_TIME = longPreferencesKey("trial_end_time")
         val SILENT_ALARM_ENABLED = booleanPreferencesKey("is_silent_alarm_enabled")
+        val WATCH_ONLY_ALERT = booleanPreferencesKey("watch_only_alert_enabled")
         val HEADPHONE_ONLY_ENABLED = booleanPreferencesKey("headphone_only_enabled")
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
         val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
@@ -284,6 +324,8 @@ class SettingsDataStore @Inject constructor(
         val HAS_SEEN_AUTOSTART_GUIDANCE = booleanPreferencesKey("has_seen_autostart_guidance")
         val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
         val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
+        val ALARM_MODE = stringPreferencesKey("alarm_mode")
+        val ALARM_TIME_MINUTES = intPreferencesKey("alarm_time_minutes")
         val HOME_LAT = doublePreferencesKey("home_lat")
         val HOME_LNG = doublePreferencesKey("home_lng")
         val HOME_ADDRESS = stringPreferencesKey("home_address")

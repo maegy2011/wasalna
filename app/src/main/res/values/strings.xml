@@ -25,8 +25,26 @@
     <string name="settings_title">Settings</string>
     <string name="settings_elderly_title">Elderly Mode</string>
     <string name="settings_elderly_sub">Larger text and touch targets</string>
-    <string name="settings_dnd_title">Force Alarm DND Override</string>
-    <string name="settings_dnd_sub">Ring even in Do Not Disturb (visual toggle)</string>
+    <!-- Silent-mode (DND) bypass choice (mirrored in values-ar). -->
+    <string name="settings_dnd_title">Silent-mode bypass</string>
+    <string name="settings_dnd_sub">Choose what the alarm does in Do Not Disturb</string>
+    <string name="settings_dnd_respect">Respect Do Not Disturb</string>
+    <string name="settings_dnd_respect_sub">Alarm stays quiet in silent mode (safest)</string>
+    <string name="settings_dnd_bypass">Always bypass</string>
+    <string name="settings_dnd_bypass_sub">Alarm rings even in silent mode — needs DND permission</string>
+    <string name="settings_dnd_ask">Ask every trip</string>
+    <string name="settings_dnd_ask_sub">You choose bypass or quiet when each trip starts</string>
+    <string name="settings_dnd_rationale">Bypassing silent mode needs “Do Not Disturb access”. Without it, the alarm falls back to quiet mode so you are never surprised.</string>
+    <string name="settings_dnd_grant">Grant DND access</string>
+    <string name="settings_dnd_granted">DND access granted ✓ — bypass will ring</string>
+    <string name="settings_dnd_denied">DND access denied — staying on quiet mode</string>
+    <string name="tracking_dnd_ask_title">Alarm in silent mode?</string>
+    <string name="tracking_dnd_ask_text">This trip: ring through Do Not Disturb, or stay quiet?</string>
+    <string name="tracking_dnd_ask_bypass">Ring this trip</string>
+    <string name="tracking_dnd_ask_respect">Stay quiet</string>
+    <string name="tracking_dnd_chosen_bypass">This trip will ring through silent mode</string>
+    <string name="tracking_dnd_chosen_respect">This trip respects silent mode</string>
+    <string name="alarm_notif_dnd_bypass">Bypassed Do Not Disturb — loud alarm</string>
     <string name="settings_lead_title">Alarm Lead Time</string>
     <string name="settings_lead_sub">Warn me before arrival</string>
     <string name="settings_lead_value">%1$d min</string>
@@ -42,6 +60,31 @@
     <string name="settings_headphone_wired">Wired headphones connected ✓</string>
     <string name="settings_headphone_bt">Bluetooth headphones connected ✓</string>
     <string name="alarm_notif_headphone_fallback">Headphones disconnected — loud phone alarm instead</string>
+
+    <!-- Phase 10.10: smartwatch-only alert (mirrored in values-ar). -->
+    <string name="alarm_notif_watch_only">Alerting on your watch — phone stays silent</string>
+    <string name="alarm_notif_watch_fallback">Watch unreachable — loud phone alarm instead</string>
+    <string name="alarm_subtitle_watch">Check your watch — alerting there</string>
+    <string name="alarm_subtitle_watch_fallback">Watch unreachable — phone alarm</string>
+    <string name="settings_watch_title">Smartwatch</string>
+    <string name="settings_watch_refresh">Refresh watch status</string>
+    <string name="settings_watch_checking">Checking for your watch…</string>
+    <string name="settings_watch_connected">Watch connected ✓ — companion app found</string>
+    <string name="settings_watch_app_missing">Watch paired but the Wasalna watch app is missing — install it from the Play Store on your watch</string>
+    <string name="settings_watch_no_watch">No watch paired — pair a Wear OS watch with this phone first</string>
+    <string name="settings_watch_unknown">Could not check the watch — open Google Play Services / Bluetooth and retry</string>
+    <string name="settings_watch_test">Send test vibration</string>
+    <string name="settings_watch_test_busy">Sending…</string>
+    <string name="settings_watch_test_ok">Test sent — your watch should buzz</string>
+    <string name="settings_watch_test_fail">Watch unreachable — check pairing and retry</string>
+    <string name="settings_watch_upsell">Watch-only alert is First Class — upgrade</string>
+    <string name="settings_watch_premium_only">Paid feature: the phone stays silent and only the watch alerts</string>
+    <string name="settings_watch_only_title">Watch-only alert</string>
+    <string name="settings_watch_only_sub">Phone stays silent — only the watch vibrates/rings</string>
+    <string name="settings_watch_only_on">Watch-only ON — silence phone</string>
+    <string name="settings_watch_only_off">Watch-only OFF — ring both</string>
+    <string name="settings_watch_only_needs_watch">Connect the watch app first to enable this</string>
+    <string name="settings_watch_fallback_note">If the watch is unreachable at alarm time, the normal phone alarm rings so you never miss your stop.</string>
 
     <!-- In-app language (Arabic/English/System). Mirrored in values-ar. -->
     <string name="settings_language_title">Language</string>

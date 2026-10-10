@@ -32,6 +32,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isHeadphoneOnlyEnabled: Flow<Boolean>
         get() = settingsDataStore.isHeadphoneOnlyEnabled
 
+    override val isWatchOnlyAlert: Flow<Boolean>
+        get() = settingsDataStore.isWatchOnlyAlert
+
     override val preferredMapEngine: Flow<String>
         get() = settingsDataStore.preferredMapEngine
 
@@ -46,6 +49,11 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val isAdaptiveAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isAdaptiveAlarmEnabled
+
+    override val alarmMode: Flow<String>
+        get() = settingsDataStore.alarmMode
+    override val alarmTimeMinutes: Flow<Int>
+        get() = settingsDataStore.alarmTimeMinutes
 
     override val customRingtoneUri: Flow<String>
         get() = settingsDataStore.customRingtoneUri
@@ -114,6 +122,10 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDataStore.setSilentAlarmEnabled(enabled)
     }
 
+    override suspend fun setWatchOnlyAlert(enabled: Boolean) {
+        settingsDataStore.setWatchOnlyAlert(enabled)
+    }
+
     override suspend fun setPreferredMapEngine(engine: String) {
         settingsDataStore.setPreferredMapEngine(engine)
     }
@@ -132,6 +144,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {
         settingsDataStore.setAdaptiveAlarmEnabled(enabled)
+    }
+
+    override suspend fun setAlarmMode(mode: String) {
+        settingsDataStore.setAlarmMode(mode)
+    }
+
+    override suspend fun setAlarmTimeMinutes(minutes: Int) {
+        settingsDataStore.setAlarmTimeMinutes(minutes)
     }
 
     override suspend fun setCustomRingtoneUri(uri: String) {

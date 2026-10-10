@@ -1,15 +1,24 @@
 package com.app.wasalna.ui.screens.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.wasalna.data.wear.WatchAlertSender
 import com.app.wasalna.domain.audio.HeadphoneMonitor
 import com.app.wasalna.domain.audio.HeadphoneState
 import com.app.wasalna.domain.repository.SettingsRepository
+import com.app.wasalna.utils.DndChoice
+import com.app.wasalna.utils.DndPolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -20,6 +29,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val headphoneMonitor: HeadphoneMonitor,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     init {
@@ -122,6 +132,26 @@ class SettingsViewModel @Inject constructor(
             runCatching { settingsRepository.setAdaptiveAlarmEnabled(enabled) }
         }
     }
+
+    // Silent-mode (DND) bypass choice — persisted, default RESPECT (safe).
+    // BYPASS needs Notification-policy access; without the grant every
+    // fire-time path falls back to respect-DND (checked in AlarmActivity).
+    val dndChoice: StateFlow<String> =
+        settingsRepository.dndChoice.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DndChoice.RESPECT,
+        )
+
+    fun setDndChoice(choice: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setDndChoice(choice) }
+        }
+    }
+
+    fun isDndPolicyAccessGranted(): Boolean =
+        runCatching { DndPolicy.isPolicyAccessGranted(appContext) }
+            .getOrDefault(false)
 
     // Phase 10.9.x: smart gradual alarm — vibration first, then sound ramps
     // up slowly. Disabled by default → legacy path untouched when off.
@@ -230,6 +260,52 @@ class SettingsViewModel @Inject constructor(
     fun setAppLanguage(code: String) {
         viewModelScope.launch {
             runCatching { settingsRepository.setAppLanguageCode(code) }
+        }
+    }
+
+    // Phase 10.10: watch-only destination alert (PREMIUM-gated) — the
+    // phone stays silent and only the paired watch vibrates/rings.
+    val watchOnlyAlert: StateFlow<Boolean> =
+        settingsRepository.isWatchOnlyAlert.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    fun setWatchOnlyAlert(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setWatchOnlyAlert(enabled) }
+        }
+    }
+
+    private val _watchStatus =
+        MutableStateFlow(WatchAlertSender.WatchStatus.UNKNOWN)
+    val watchStatus: StateFlow<WatchAlertSender.WatchStatus> =
+        _watchStatus.asStateFlow()
+
+    private val _watchTestBusy = MutableStateFlow(false)
+    val watchTestBusy: StateFlow<Boolean> = _watchTestBusy.asStateFlow()
+
+    fun refreshWatchStatus() {
+        viewModelScope.launch {
+            _watchStatus.value = WatchAlertSender.WatchStatus.CHECKING
+            _watchStatus.value = withContext(Dispatchers.IO) {
+                runCatching { WatchAlertSender.checkStatus(appContext) }
+                    .getOrDefault(WatchAlertSender.WatchStatus.UNKNOWN)
+            }
+        }
+    }
+
+    fun sendWatchTestVibration(onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _watchTestBusy.value = true
+            val delivered = withContext(Dispatchers.IO) {
+                runCatching { WatchAlertSender.sendTestVibration(appContext) }
+                    .getOrDefault(false)
+            }
+            _watchTestBusy.value = false
+            refreshWatchStatus()
+            onResult(delivered)
         }
     }
 

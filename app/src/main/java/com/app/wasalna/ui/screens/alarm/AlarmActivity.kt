@@ -3,7 +3,10 @@ package com.app.wasalna.ui.screens.alarm
 import android.app.KeyguardManager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothProfile
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -19,6 +22,7 @@ import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -48,10 +52,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.app.wasalna.R
 import com.app.wasalna.data.local.datastore.SettingsDataStore
+import com.app.wasalna.data.wear.WatchAlertSender
 import com.app.wasalna.domain.audio.HeadphoneMonitor
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -98,6 +107,16 @@ class AlarmActivity : ComponentActivity() {
     // escalation runs; null = legacy instant path. stop() halts ALL
     // sound + vibration synchronously (no leaks, no lingering coroutine).
     private var gradualController: GradualAlarmController? = null
+    // Phase 10.10: watch-only alert (PREMIUM-gated) — the watch already
+    // alerted, so the phone MUST stay silent (no sound, no vibration).
+    // [watchFallback] = true when the watch was unreachable at alarm
+    // time → normal phone alarm so the stop is never missed (noted in
+    // the alarm notification).
+    private var watchOnlyMode = false
+    private var watchFallback = false
+    private var destinationName = ""
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var dismissReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,7 +135,29 @@ class AlarmActivity : ComponentActivity() {
         premiumMode = isPremium
         silentMode = wantSilent && isPremium
         headphoneOnlyMode = wantHeadphoneOnly && isPremium
-        Log.i(TAG, "onCreate: alarm firing silent=$silentMode headphoneOnly=$headphoneOnlyMode")
+        // Phase 10.10: watch-only applies only when premium gated AND the
+        // watch actually received the alert (TrackingService guarantee).
+        watchOnlyMode = intent.getBooleanExtra(EXTRA_WATCH_ONLY, false) && isPremium
+        watchFallback = intent.getBooleanExtra(EXTRA_WATCH_FALLBACK, false)
+        destinationName = intent.getStringExtra(EXTRA_DESTINATION_NAME).orEmpty()
+        Log.i(TAG, "onCreate: alarm firing silent=$silentMode headphoneOnly=$headphoneOnlyMode watchOnly=$watchOnlyMode fallback=$watchFallback")
+        // Phase 10.10: watch-side dismissal lands here as a package-scoped
+        // broadcast (PhoneWatchDismissService) — dismissing from either
+        // side stops everything.
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == ACTION_DISMISS_ALARM) stopAlarm()
+            }
+        }
+        dismissReceiver = receiver
+        runCatching {
+            ContextCompat.registerReceiver(
+                this,
+                receiver,
+                IntentFilter(ACTION_DISMISS_ALARM),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }.onFailure { Log.w(TAG, "dismiss receiver: ${it.message}") }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -138,7 +179,12 @@ class AlarmActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        if (headphoneOnlyMode) {
+        if (watchOnlyMode) {
+            // Phone-silent guarantee: the paired watch is already alerting
+            // — no sound, no vibration on the phone. The screen still shows
+            // so the destination is visible if the user picks up the phone.
+            Log.i(TAG, "watch-only: phone stays silent, watch is alerting")
+        } else if (headphoneOnlyMode) {
             val device = HeadphoneMonitor(this).findHeadphoneDevice()
             if (device != null) {
                 headphoneActive = true
@@ -192,6 +238,8 @@ class AlarmActivity : ComponentActivity() {
         setContent {
             AlarmScreen(
                 silentMode = silentMode || headphoneActive,
+                watchOnly = watchOnlyMode,
+                watchFallback = watchFallback,
                 onLongPressStop = { stopAlarm() },
             )
         }
@@ -558,10 +606,11 @@ class AlarmActivity : ComponentActivity() {
             val notification = androidx.core.app.NotificationCompat.Builder(this, ALARM_CHANNEL_ID)
                 .setContentTitle("⏰ Wasalna — destination reached!")
                 .setContentText(
-                    if (headphoneFallback) {
-                        getString(R.string.alarm_notif_headphone_fallback)
-                    } else {
-                        "Tap to open, or stop from your watch"
+                    when {
+                        watchOnlyMode -> getString(R.string.alarm_notif_watch_only)
+                        watchFallback -> getString(R.string.alarm_notif_watch_fallback)
+                        headphoneFallback -> getString(R.string.alarm_notif_headphone_fallback)
+                        else -> "Tap to open, or stop from your watch"
                     },
                 )
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -595,6 +644,13 @@ class AlarmActivity : ComponentActivity() {
      * Phase 10.4.3.3: wrist "Silent" — kills the sound but keeps the
      * violent vibration + screen so a sleeping user still wakes up.
      */
+    /** Phase 10.10: phone dismissal also quiets the watch (fire-and-forget). */
+    private fun notifyWatchDismissed() {
+        ioScope.launch {
+            runCatching { WatchAlertSender.sendDismiss(this@AlarmActivity) }
+        }
+    }
+
     private fun silenceAlarm() {
         if (stopped) return
         Log.i(TAG, "silenceAlarm: sound off, vibration continues")
@@ -602,6 +658,7 @@ class AlarmActivity : ComponentActivity() {
         gradualController?.silenceSound()
         releasePlayer()
         cancelAlarmNotification()
+        notifyWatchDismissed()
     }
 
     private fun stopAlarm() {
@@ -609,6 +666,8 @@ class AlarmActivity : ComponentActivity() {
         stopped = true
         Log.i(TAG, "stopAlarm: dismissed silent=$silentMode")
         cancelAlarmNotification()
+        // Phase 10.10: dismissing from either side stops everything.
+        notifyWatchDismissed()
         // Phase 10.9.x: stops ALL gradual sound + vibration immediately
         // and releases the escalation scope (no leaks).
         gradualController?.release()
@@ -655,6 +714,9 @@ class AlarmActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        runCatching { dismissReceiver?.let { unregisterReceiver(it) } }
+        dismissReceiver = null
+        ioScope.cancel()
         // Phase 10.9.x: safety net — same immediate full stop as dismiss.
         gradualController?.release()
         gradualController = null
@@ -675,6 +737,9 @@ class AlarmActivity : ComponentActivity() {
         const val EXTRA_SILENT = "extra_silent"
         const val EXTRA_PREMIUM = "extra_premium"
         const val EXTRA_HEADPHONE_ONLY = "extra_headphone_only"
+        const val EXTRA_WATCH_ONLY = "extra_watch_only"
+        const val EXTRA_WATCH_FALLBACK = "extra_watch_fallback"
+        const val EXTRA_DESTINATION_NAME = "extra_destination_name"
 
         // Phase 10.4.3.3: wrist actions (WearableExtender targets).
         const val ACTION_DISMISS_ALARM = "com.app.wasalna.action.DISMISS_ALARM"
@@ -696,6 +761,8 @@ class AlarmActivity : ComponentActivity() {
 @Composable
 private fun AlarmScreen(
     silentMode: Boolean,
+    watchOnly: Boolean = false,
+    watchFallback: Boolean = false,
     onLongPressStop: () -> Unit,
 ) {
     Box(
@@ -735,10 +802,11 @@ private fun AlarmScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = if (silentMode) {
-                    stringResource(R.string.alarm_subtitle_silent)
-                } else {
-                    stringResource(R.string.alarm_subtitle)
+                text = when {
+                    watchOnly -> stringResource(R.string.alarm_subtitle_watch)
+                    watchFallback -> stringResource(R.string.alarm_subtitle_watch_fallback)
+                    silentMode -> stringResource(R.string.alarm_subtitle_silent)
+                    else -> stringResource(R.string.alarm_subtitle)
                 },
                 color = Color.White,
                 fontSize = 24.sp,

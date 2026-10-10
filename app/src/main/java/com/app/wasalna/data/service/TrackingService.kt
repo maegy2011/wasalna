@@ -20,6 +20,7 @@ import com.app.wasalna.R
 import com.app.wasalna.data.local.datastore.SettingsDataStore
 import com.app.wasalna.data.repository.OSRMRepository
 import com.app.wasalna.di.TripRepositoryEntryPoint
+import com.app.wasalna.domain.model.AlarmMode
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.repository.TripRepository
 import dagger.hilt.android.EntryPointAccessors
@@ -94,6 +95,15 @@ class TrackingService : Service() {
     private var isPaused: Boolean = false
     // Phase 10.4.3.3: adaptive trigger (loaded once per trip via .first()).
     private var adaptiveEnabled: Boolean = true
+    // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE (legacy default)
+    // vs TIME (minutes-before-arrival). Cached at trip START, re-read live
+    // on every fix inside evaluateTimeModeAlarm so mid-trip switches apply.
+    private var alarmModeName: String = AlarmMode.DISTANCE.name
+    private var alarmTimeMinutes: Int = DEFAULT_ALARM_TIME_MINUTES
+    private var hasFiredAlarm: Boolean = false
+    private val wakeupEstimator = DynamicWakeupEstimator()
+    private var routeRemainingM: Float? = null
+    private var routeRemainingAtMs: Long = 0L
     // Phase 10.4.3.4: one-shot heads-up per trip (reset on every START).
     private var hasFiredProactiveAlert: Boolean = false
     private var proactiveEnabled: Boolean = true
@@ -179,8 +189,17 @@ class TrackingService : Service() {
         acquireWakeLock()
         // Phase 10.4.3.3/10.4.3.4: one-shot reads (never collect{} in a service).
         hasFiredProactiveAlert = false
+        hasFiredAlarm = false
+        wakeupEstimator.reset()
+        routeRemainingM = null
         serviceScope.launch {
             val prefs = SettingsDataStore(applicationContext)
+            alarmModeName = runCatching {
+                prefs.alarmMode.first()
+            }.getOrDefault(AlarmMode.DISTANCE.name)
+            alarmTimeMinutes = runCatching {
+                prefs.alarmTimeMinutes.first()
+            }.getOrDefault(DEFAULT_ALARM_TIME_MINUTES)
             adaptiveEnabled = runCatching {
                 prefs.isAdaptiveAlarmEnabled.first()
             }.getOrDefault(true)
@@ -264,60 +283,14 @@ class TrackingService : Service() {
         Log.i(TAG, "onFix: distance=${distanceM.toInt()}m trigger=${triggerM.toInt()}m " +
             "speed=${"%.1f".format(lastSpeedKmh)}km/h mode=$mode")
 
-        if (distanceM <= triggerM) {
-            Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng")
-            // Phase 10.4.3.4: the heads-up has served its purpose — dismiss.
-            dismissProactiveAlert()
-            hasFiredProactiveAlert = false
-            val prefs = SettingsDataStore(applicationContext)
-            serviceScope.launch {
-                val silent = try {
-                    prefs.isSilentAlarmEnabled.first()
-                } catch (e: Exception) {
-                    Log.w(TAG, "silent read failed: ${e.message}")
-                    false
-                }
-                val premium = try {
-                    prefs.isPremium.first()
-                } catch (e: Exception) {
-                    Log.w(TAG, "premium read failed: ${e.message}")
-                    false
-                }
-                val headphoneOnly = try {
-                    prefs.isHeadphoneOnlyEnabled.first()
-                } catch (e: Exception) {
-                    Log.w(TAG, "headphone-only read failed: ${e.message}")
-                    false
-                }
-                val alarmIntent = Intent(
-                    this@TrackingService,
-                    com.app.wasalna.ui.screens.alarm.AlarmActivity::class.java,
-                ).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    putExtra(
-                        com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_SILENT,
-                        silent,
-                    )
-                    putExtra(
-                        com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_PREMIUM,
-                        premium,
-                    )
-                    putExtra(
-                        com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_HEADPHONE_ONLY,
-                        headphoneOnly,
-                    )
-                }
-                try {
-                    startActivity(alarmIntent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "AlarmActivity launch failed: ${e.message}")
-                }
-            }
-            sendBroadcast(
-                Intent(ACTION_DESTINATION_REACHED).setPackage(packageName),
-            )
-            stopSelf()
+        // DYNAMIC WAKE-UP: DISTANCE mode fires on the radius here; TIME mode
+        // never fires on distance alone — evaluated below on Default.
+        if (alarmModeName != AlarmMode.TIME.name && distanceM <= triggerM) {
+            fireAlarm(AlarmMode.DISTANCE.name)
             return
+        }
+        if (alarmModeName == AlarmMode.TIME.name) {
+            evaluateTimeModeAlarm(fix, distanceM, triggerM)
         }
 
         // ETA: live local estimate while moving; OSRM refresh at most every
@@ -415,6 +388,9 @@ class TrackingService : Service() {
         }.getOrNull()
         if (local != null) {
             offlineFallbackNotice = null
+            // DYNAMIC WAKE-UP: cache fresh route distance for TIME-mode ETA.
+            routeRemainingM = local.distanceMeters.toFloat()
+            routeRemainingAtMs = System.currentTimeMillis()
             lastEtaMin = local.etaMinutes
             persistEta()
             Log.i(
@@ -716,6 +692,174 @@ class TrackingService : Service() {
     }
 
     /**
+     * Single funnel for firing the destination alarm (both modes). Guarded
+     * so the alarm fires exactly once per trip; [firedMode] travels to
+     * AlarmActivity so the notification states which mode fired
+     * (DISTANCE radius vs TIME traffic-aware ETA).
+     */
+    private fun fireAlarm(firedMode: String) {
+        synchronized(this) {
+            if (hasFiredAlarm) return
+            hasFiredAlarm = true
+        }
+        Log.i(TAG, "DESTINATION_REACHED lat=$targetLat lng=$targetLng mode=$firedMode")
+        // Phase 10.4.3.4: the heads-up has served its purpose — dismiss.
+        dismissProactiveAlert()
+        hasFiredProactiveAlert = false
+        val prefs = SettingsDataStore(applicationContext)
+        serviceScope.launch {
+            val silent = try {
+                prefs.isSilentAlarmEnabled.first()
+            } catch (e: Exception) {
+                Log.w(TAG, "silent read failed: ${e.message}")
+                false
+            }
+            val premium = try {
+                prefs.isPremium.first()
+            } catch (e: Exception) {
+                Log.w(TAG, "premium read failed: ${e.message}")
+                false
+            }
+            val headphoneOnly = try {
+                prefs.isHeadphoneOnlyEnabled.first()
+            } catch (e: Exception) {
+                Log.w(TAG, "headphone-only read failed: ${e.message}")
+                false
+            }
+            // Phase 10.10: watch-only alert (PREMIUM-gated). When ON
+            // and a paired watch with the companion app is reachable,
+            // the watch alerts and the phone stays silent; when the
+            // watch is unreachable we FALL BACK to the normal phone
+            // gradual alarm so the user never misses the stop.
+            val watchOnly = try {
+                prefs.isWatchOnlyAlert.first()
+            } catch (e: Exception) {
+                Log.w(TAG, "watch-only read failed: ${e.message}")
+                false
+            }
+            var watchDelivered = false
+            var watchFallback = false
+            if (watchOnly && premium) {
+                watchDelivered = runCatching {
+                    com.app.wasalna.data.wear.WatchAlertSender.sendAlert(
+                        this@TrackingService,
+                        targetName,
+                    )
+                }.getOrDefault(false)
+                watchFallback = !watchDelivered
+                Log.i(
+                    TAG,
+                    "watch-only: delivered=$watchDelivered fallback=$watchFallback",
+                )
+            }
+            val alarmIntent = Intent(
+                this@TrackingService,
+                com.app.wasalna.ui.screens.alarm.AlarmActivity::class.java,
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_SILENT,
+                    silent,
+                )
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_PREMIUM,
+                    premium,
+                )
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_HEADPHONE_ONLY,
+                    headphoneOnly,
+                )
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_WATCH_ONLY,
+                    watchOnly && premium && watchDelivered,
+                )
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_WATCH_FALLBACK,
+                    watchFallback,
+                )
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_DESTINATION_NAME,
+                    targetName,
+                )
+                putExtra(
+                    com.app.wasalna.ui.screens.alarm.AlarmActivity.EXTRA_ALARM_MODE,
+                    firedMode,
+                )
+            }
+            try {
+                startActivity(alarmIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "AlarmActivity launch failed: ${e.message}")
+            }
+        }
+        sendBroadcast(
+            Intent(ACTION_DESTINATION_REACHED).setPackage(packageName),
+        )
+        stopSelf()
+    }
+
+    /**
+     * DYNAMIC WAKE-UP — TIME-mode check. Feeds the fix into the EMA, then
+     * re-reads the persisted mode on Dispatchers.Default (never Main) on
+     * EVERY fix so a mid-trip DISTANCE/TIME switch applies immediately.
+     * Funnels into [fireAlarm]; on ANY computation failure degrades to the
+     * DISTANCE trigger so the stop is never missed.
+     */
+    private fun evaluateTimeModeAlarm(fix: Location, distanceM: Float, triggerM: Float) {
+        if (hasFiredAlarm) return
+        val nowMs = System.currentTimeMillis()
+        wakeupEstimator.onFix(
+            hasSpeed = fix.hasSpeed(),
+            speedMps = fix.speed,
+            hasAccuracy = fix.hasAccuracy(),
+            accuracyM = fix.accuracy,
+            fixTimeMs = fix.time,
+            nowMs = nowMs,
+        )
+        serviceScope.launch(Dispatchers.Default) {
+            val prefs = SettingsDataStore(applicationContext)
+            val liveMode = runCatching { prefs.alarmMode.first() }
+                .getOrDefault(alarmModeName)
+            val liveMinutes = runCatching { prefs.alarmTimeMinutes.first() }
+                .getOrDefault(alarmTimeMinutes)
+            alarmModeName = liveMode
+            alarmTimeMinutes = liveMinutes
+            if (liveMode != AlarmMode.TIME.name) {
+                // Switched to DISTANCE mid-trip — same guarantee as legacy.
+                if (distanceM <= triggerRadiusMeters(fix)) {
+                    fireAlarm(AlarmMode.DISTANCE.name)
+                }
+                return@launch
+            }
+            // Prefer fresh on-device route distance; else straight-line GPS
+            // (same fallback philosophy as the offline engine).
+            val freshRoute = routeRemainingM?.takeIf {
+                nowMs - routeRemainingAtMs <= ROUTE_REMAINING_FRESH_MS
+            }
+            val remainingM = freshRoute ?: distanceM
+            val etaMin = wakeupEstimator.estimateEtaMinutes(remainingM, nowMs)
+            if (etaMin == null) {
+                // Speed data invalid (no usable fix for >60s): fall back to
+                // the distance threshold equivalent so the stop is never missed.
+                if (distanceM <= triggerM) {
+                    fireAlarm(AlarmMode.DISTANCE.name)
+                }
+                return@launch
+            }
+            lastEtaMin = etaMin
+            persistEta()
+            Log.i(
+                TAG,
+                "time-wakeup: eta=${etaMin}min threshold=${liveMinutes}min " +
+                    "remaining=${remainingM.toInt()}m",
+            )
+            if (etaMin <= liveMinutes) {
+                fireAlarm(AlarmMode.TIME.name)
+            }
+        }
+    }
+
+    /**
      * Phase 10.4.3.3: adaptive trigger distance — mode base (WALK 500m /
      * CAR 2km / TRAIN 4km), stretched when actually moving fast so the
      * user always gets ~2 minutes of warning (capped at 8 km).
@@ -805,6 +949,12 @@ class TrackingService : Service() {
 
         /** Alarm trigger radius: 2 km before the destination. */
         const val TRIGGER_RADIUS_METERS = 2000f
+
+        /** DYNAMIC WAKE-UP: default minutes-before-arrival for TIME mode. */
+        const val DEFAULT_ALARM_TIME_MINUTES = 5
+
+        /** DYNAMIC WAKE-UP: cached route distance freshness window. */
+        private const val ROUTE_REMAINING_FRESH_MS = 120_000L
 
         /** Phase 10.4.2.1: WakeLock safety ceiling — 12 hours. */
         private const val WAKELOCK_TIMEOUT_MS = 12L * 60L * 60L * 1000L

@@ -16,6 +16,8 @@ interface SettingsRepository {
 
     val isSilentAlarmEnabled: Flow<Boolean>
 
+    val isWatchOnlyAlert: Flow<Boolean>
+
     val isHeadphoneOnlyEnabled: Flow<Boolean>
 
     val preferredMapEngine: Flow<String>
@@ -27,6 +29,10 @@ interface SettingsRepository {
     val isProactiveAlertEnabled: Flow<Boolean>
 
     val isAdaptiveAlarmEnabled: Flow<Boolean>
+
+    // DYNAMIC WAKE-UP: DISTANCE (legacy default) vs TIME (minutes-before-arrival).
+    val alarmMode: Flow<String>
+    val alarmTimeMinutes: Flow<Int>
 
     val customRingtoneUri: Flow<String>
 
@@ -64,6 +70,8 @@ interface SettingsRepository {
 
     suspend fun setSilentAlarmEnabled(enabled: Boolean)
 
+    suspend fun setWatchOnlyAlert(enabled: Boolean)
+
     suspend fun setTransportMode(mode: String)
 
     suspend fun setHasSeenAutoStartGuidance(seen: Boolean)
@@ -71,6 +79,9 @@ interface SettingsRepository {
     suspend fun setProactiveAlertEnabled(enabled: Boolean)
 
     suspend fun setAdaptiveAlarmEnabled(enabled: Boolean)
+
+    suspend fun setAlarmMode(mode: String)
+    suspend fun setAlarmTimeMinutes(minutes: Int)
 
     suspend fun setCustomRingtoneUri(uri: String)
 

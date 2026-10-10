@@ -8,9 +8,9 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,11 +59,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
 import com.app.wasalna.domain.audio.HeadphoneState
+import com.app.wasalna.utils.DndChoice
+import com.app.wasalna.utils.DndPolicy
 
 /**
  * Phase 7: Settings — Material3 switches bound to DataStore.
  * - Elderly Mode → DataStore, theme recomposes via MainActivity.
- * - Force Alarm DND Override → local visual toggle only (no DataStore field yet).
+ * - Silent-mode (DND) bypass → persisted 3-way choice (respect/bypass/ask).
+ *   BYPASS needs Notification-policy access; denial falls back to respect.
  * - Alarm Lead Time → slider 1..30 min, default 5.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +96,7 @@ fun SettingsScreen(
     val gradualRampSec by viewModel.gradualRampSec.collectAsState()
     val gradualStrength by viewModel.gradualStrength.collectAsState()
     val gradualRingtoneUri by viewModel.gradualRingtoneUri.collectAsState()
+    val dndChoice by viewModel.dndChoice.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -129,8 +134,31 @@ fun SettingsScreen(
         ActivityResultContracts.RequestPermission,
     ) { viewModel.setHeadphoneOnly(true) }
 
-    // DND override has no DataStore field — visual toggle only for now.
-    var dndOverride by remember { mutableStateOf(false) }
+    // DND policy-access settings round-trip: picking BYPASS without the
+    // grant routes to system Settings; coming back still-denied falls
+    // back to RESPECT with an explanation (never a dead toggle).
+    val dndSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (viewModel.dndChoice.value == DndChoice.BYPASS &&
+            !viewModel.isDndPolicyAccessGranted()
+        ) {
+            viewModel.setDndChoice(DndChoice.RESPECT)
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_dnd_denied),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+    fun pickDndChoice(choice: String) {
+        viewModel.setDndChoice(choice)
+        if (choice == DndChoice.BYPASS && !viewModel.isDndPolicyAccessGranted()) {
+            dndSettingsLauncher.launch(DndPolicy.policyAccessIntent())
+        }
+    }
+
+
     // Hidden developer section: 5 taps on the version text reveal it.
     // Ordinary users never see Force Offline Routing.
     var devTaps by remember { mutableStateOf(0) }
@@ -246,31 +274,86 @@ fun SettingsScreen(
             }
         }
 
+        // Silent-mode (DND) bypass choice — persisted, default RESPECT.
+        // Each option carries a one-line explanation; 48dp+ radio rows.
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_dnd_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_dnd_sub),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
-                    checked = dndOverride,
-                    onCheckedChange = { dndOverride = it },
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_dnd_title),
+                    style = MaterialTheme.typography.titleMedium,
                 )
+                Text(
+                    text = stringResource(R.string.settings_dnd_sub),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val dndOptions = listOf(
+                    Triple(
+                        DndChoice.RESPECT,
+                        stringResource(R.string.settings_dnd_respect),
+                        stringResource(R.string.settings_dnd_respect_sub),
+                    ),
+                    Triple(
+                        DndChoice.BYPASS,
+                        stringResource(R.string.settings_dnd_bypass),
+                        stringResource(R.string.settings_dnd_bypass_sub),
+                    ),
+                    Triple(
+                        DndChoice.ASK,
+                        stringResource(R.string.settings_dnd_ask),
+                        stringResource(R.string.settings_dnd_ask_sub),
+                    ),
+                )
+                dndOptions.forEach { (choice, label, explain) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { pickDndChoice(choice) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = dndChoice == choice,
+                            onClick = { pickDndChoice(choice) },
+                        )
+                        Column(modifier = Modifier.padding(start = 8.dp)) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = explain,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+                if (dndChoice == DndChoice.BYPASS) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (viewModel.isDndPolicyAccessGranted()) {
+                        Text(
+                            text = stringResource(R.string.settings_dnd_granted),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.settings_dnd_rationale),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                dndSettingsLauncher.launch(DndPolicy.policyAccessIntent())
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_dnd_grant))
+                        }
+                    }
+                }
             }
         }
 
@@ -389,6 +472,13 @@ fun SettingsScreen(
                 )
             }
         }
+
+        // Phase 10.10: smartwatch companion (الساعة الذكية) — connection
+        // status + test vibration + premium-gated watch-only alert toggle.
+        WatchSettingsSection(
+            viewModel = viewModel,
+            onOpenPaywall = onOpenPaywall,
+        )
 
         // Phase 10.9.x: smart gradual alarm (المنبه التدريجي) — vibration
         // first, then a quiet sound that rises slowly. Disabled by default

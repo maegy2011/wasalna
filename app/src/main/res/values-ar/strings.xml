@@ -28,4 +28,49 @@
     <string name="settings_headphone_wired">سماعة سلكية متصلة ✓</string>
     <string name="settings_headphone_bt">سماعة بلوتوث متصلة ✓</string>
     <string name="alarm_notif_headphone_fallback">السماعة غير متصلة — منبه الهاتف العادي يعمل بدلًا منها</string>
+
+    <!-- تنبيه الساعة الذكية فقط (مطابق لقيم values). -->
+    <string name="alarm_notif_watch_only">التنبيه يعمل على ساعتك — الهاتف يبقى صامتًا</string>
+    <string name="alarm_notif_watch_fallback">الساعة غير متاحة — منبه الهاتف العادي يعمل بدلًا منها</string>
+    <string name="alarm_subtitle_watch">تفقد ساعتك — التنبيه يعمل هناك</string>
+    <string name="alarm_subtitle_watch_fallback">الساعة غير متاحة — منبه الهاتف</string>
+    <string name="settings_watch_title">الساعة الذكية</string>
+    <string name="settings_watch_refresh">تحديث حالة الساعة</string>
+    <string name="settings_watch_checking">جارٍ البحث عن ساعتك…</string>
+    <string name="settings_watch_connected">الساعة متصلة ✓ — تم العثور على تطبيق الساعة</string>
+    <string name="settings_watch_app_missing">الساعة مقترنة لكن تطبيق وصلنا للساعة غير مثبت — ثبّته من متجر بلاي على ساعتك</string>
+    <string name="settings_watch_no_watch">لا توجد ساعة مقترنة — اقترن ساعة Wear OS بهذا الهاتف أولًا</string>
+    <string name="settings_watch_unknown">تعذر فحص الساعة — افتح خدمات جوجل بلاي / البلوتوث وحاول مجددًا</string>
+    <string name="settings_watch_test">إرسال اهتزاز تجريبي</string>
+    <string name="settings_watch_test_busy">جارٍ الإرسال…</string>
+    <string name="settings_watch_test_ok">تم الإرسال — ساعتك يجب أن تهتز</string>
+    <string name="settings_watch_test_fail">الساعة غير متاحة — تحقق من الاقتران وحاول مجددًا</string>
+    <string name="settings_watch_upsell">تنبيه الساعة فقط للدرجة الأولى — اضغط للترقية</string>
+    <string name="settings_watch_premium_only">ميزة مدفوعة: الهاتف يبقى صامتًا والساعة وحدها تنبه</string>
+    <string name="settings_watch_only_title">تنبيه الساعة فقط</string>
+    <string name="settings_watch_only_sub">الهاتف يبقى صامتًا — الساعة وحدها تهتز وترن</string>
+    <string name="settings_watch_only_on">تنبيه الساعة فقط مفعّل — الهاتف صامت</string>
+    <string name="settings_watch_only_off">تنبيه الساعة فقط متوقف — التنبيه على الاثنين</string>
+    <string name="settings_watch_only_needs_watch">صِل تطبيق الساعة أولًا لتفعيل هذا الخيار</string>
+    <string name="settings_watch_fallback_note">إذا كانت الساعة غير متاحة وقت المنبه، يعمل منبه الهاتف العادي حتى لا تفوتك محطتك أبدًا.</string>
+    <!-- اختيار اختراق الوضع الصامت (مطابق لقيم values). -->
+    <string name="settings_dnd_title">اختراق الوضع الصامت</string>
+    <string name="settings_dnd_sub">اختر ما يفعله المنبه في وضع عدم الإزعاج</string>
+    <string name="settings_dnd_respect">احترام عدم الإزعاج</string>
+    <string name="settings_dnd_respect_sub">المنبه يبقى هادئًا في الوضع الصامت (الأكثر أمانًا)</string>
+    <string name="settings_dnd_bypass">تخطي دائم</string>
+    <string name="settings_dnd_bypass_sub">المنبه يرن حتى في الوضع الصامت — يحتاج إذن عدم الإزعاج</string>
+    <string name="settings_dnd_ask">اسألني كل رحلة</string>
+    <string name="settings_dnd_ask_sub">تختار التخطي أو الهدوء عند بداية كل رحلة</string>
+    <string name="settings_dnd_rationale">تخطي الوضع الصامت يحتاج إذن “الوصول إلى عدم الإزعاج”. بدونه يعود المنبه للوضع الهادئ حتى لا تفاجأ أبدًا.</string>
+    <string name="settings_dnd_grant">منح إذن عدم الإزعاج</string>
+    <string name="settings_dnd_granted">تم منح الإذن ✓ — التخطي سيعمل</string>
+    <string name="settings_dnd_denied">تم رفض الإذن — البقاء على الوضع الهادئ</string>
+    <string name="tracking_dnd_ask_title">المنبه في الوضع الصامت؟</string>
+    <string name="tracking_dnd_ask_text">هذه الرحلة: الرنين رغم عدم الإزعاج أم البقاء هادئًا؟</string>
+    <string name="tracking_dnd_ask_bypass">رنين هذه الرحلة</string>
+    <string name="tracking_dnd_ask_respect">البقاء هادئًا</string>
+    <string name="tracking_dnd_chosen_bypass">هذه الرحلة سترن رغم الوضع الصامت</string>
+    <string name="tracking_dnd_chosen_respect">هذه الرحلة تحترم الوضع الصامت</string>
+    <string name="alarm_notif_dnd_bypass">تم تخطي عدم الإزعاج — منبه عالٍ</string>
 </resources>
