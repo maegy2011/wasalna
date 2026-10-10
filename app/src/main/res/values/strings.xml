@@ -130,4 +130,9 @@
     <string name="alarm_setup_cancel">Cancel</string>
     <string name="alarm_notif_mode_distance">Alarm mode: by distance</string>
     <string name="alarm_notif_mode_time">Alarm mode: traffic-aware time</string>
+
+    <!-- Pre-arrival NUDGE (silent). Mirrored in values-ar. -->
+    <string name="settings_nudge_title">Pre-arrival Nudge 🎒</string>
+    <string name="settings_nudge_sub">Silent heads-up — gather your papers and prepare the trip fare</string>
+    <string name="settings_nudge_lead">Nudge me %1$d min before arrival</string>
 </resources>

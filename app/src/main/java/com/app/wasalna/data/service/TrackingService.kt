@@ -100,13 +100,18 @@ class TrackingService : Service() {
     // on every fix inside evaluateTimeModeAlarm so mid-trip switches apply.
     private var alarmModeName: String = AlarmMode.DISTANCE.name
     private var alarmTimeMinutes: Int = DEFAULT_ALARM_TIME_MINUTES
-    private var hasFiredAlarm: Boolean = false
+    @Volatile private var hasFiredAlarm: Boolean = false
     private val wakeupEstimator = DynamicWakeupEstimator()
     private var routeRemainingM: Float? = null
     private var routeRemainingAtMs: Long = 0L
-    // Phase 10.4.3.4: one-shot heads-up per trip (reset on every START).
-    private var hasFiredProactiveAlert: Boolean = false
+    // Phase 10.4.3.4 + pre-arrival NUDGE: one-shot silent heads-up per
+    // trip (reset on every START). Cross-thread (main fix callback vs
+    // Dispatchers.Default alarm evaluation) → volatile.
+    @Volatile private var hasFiredProactiveAlert: Boolean = false
     private var proactiveEnabled: Boolean = true
+    // Pre-arrival NUDGE lead (minutes, 1..10, default 3) — cached at trip
+    // START, re-read live on every fix so mid-trip slider moves apply.
+    private var nudgeLeadMinutes: Int = DEFAULT_NUDGE_LEAD_MINUTES
     private var currentIntervalMs: Long = -1L
     private var isTracking = false
 
@@ -206,6 +211,9 @@ class TrackingService : Service() {
             proactiveEnabled = runCatching {
                 prefs.isProactiveAlertEnabled.first()
             }.getOrDefault(true)
+            nudgeLeadMinutes = runCatching {
+                prefs.nudgeLeadMinutes.first()
+            }.getOrDefault(DEFAULT_NUDGE_LEAD_MINUTES)
             forceOffline = runCatching {
                 prefs.isForceOffline.first()
             }.getOrDefault(false)
@@ -301,6 +309,12 @@ class TrackingService : Service() {
                 .getOrDefault(alarmModeName)
             alarmTimeMinutes = runCatching { modePrefs.alarmTimeMinutes.first() }
                 .getOrDefault(alarmTimeMinutes)
+            // Nudge prefs re-read live too — mid-trip enable/lead
+            // changes apply by the next fix (never disturbs the alarm).
+            proactiveEnabled = runCatching { modePrefs.isProactiveAlertEnabled.first() }
+                .getOrDefault(proactiveEnabled)
+            nudgeLeadMinutes = runCatching { modePrefs.nudgeLeadMinutes.first() }
+                .getOrDefault(nudgeLeadMinutes)
         }
         // DYNAMIC WAKE-UP: DISTANCE mode fires on the radius here; TIME mode
         // never fires on distance alone — evaluated below on Default.
@@ -368,16 +382,9 @@ class TrackingService : Service() {
                 offlineEtaFallback(fix, distanceM)
             }
         }
-        // Phase 10.4.3.4: fire once when ETA drops to ~3 min while still
-        // outside the main trigger radius (never after it — see guard).
-        val etaNow = lastEtaMin
-        if (!hasFiredProactiveAlert && proactiveEnabled &&
-            etaNow != null && etaNow <= PROACTIVE_ETA_MIN &&
-            distanceM > triggerM
-        ) {
-            hasFiredProactiveAlert = true
-            fireProactiveAlert()
-        }
+        // Pre-arrival NUDGE: silent once-per-trip heads-up, strictly
+        // BEFORE the main alarm (ordering validated inside).
+        evaluateNudge(distanceM, triggerM)
         pushNotification(fix)
 
         // Adaptive interval: re-request only when the bucket changes.
@@ -534,8 +541,69 @@ class TrackingService : Service() {
         )
 
     /**
-     * Phase 10.4.3.4: the gentle heads-up — separate DEFAULT channel,
-     * no sound, one soft buzz, auto-dismiss + explicit cancel on arrival.
+     * Pre-arrival NUDGE — silent once-per-trip heads-up, strictly BEFORE
+     * the main alarm. Reuses the SAME ETA ([lastEtaMin]) the alarm path
+     * already computed (moving local estimate / OSRM / offline GPS+GH —
+     * never duplicated here), so it works offline on GPS-only inputs too.
+     *
+     * ORDERING validation (nudge threshold > alarm threshold, all modes):
+     * - TIME mode: effective lead = max(user lead, alarmMinutes + 1) — the
+     *   nudge ETA threshold is strictly greater, so on a countdown it
+     *   always trips on an earlier fix than the alarm. Same-fix race is
+     *   safe: this check runs synchronously while the TIME alarm evaluates
+     *   async — the nudge lands first, then the alarm.
+     * - DISTANCE mode: the alarm already returned early above when
+     *   distanceM <= triggerM, and the failsafe returned when <= 500 m —
+     *   reaching here means still outside both radii (strictly before).
+     * - ETA unavailable (offline/standstill): distance-equivalent band
+     *   (alarmRadius, alarmRadius + margin] — strictly outside the alarm
+     *   radius AND the 500 m failsafe, so it can never fire after/instead.
+     * - [hasFiredAlarm] guard: even if the async TIME evaluation won the
+     *   race, the nudge is suppressed after the alarm — never after it.
+     *
+     * Dismissing this notification only cancels its own id — the main
+     * alarm path is untouched and still fires (fireAlarm dismisses the
+     * nudge, never the reverse).
+     */
+    private fun evaluateNudge(distanceM: Float, triggerM: Float) {
+        if (hasFiredProactiveAlert || !proactiveEnabled || hasFiredAlarm) return
+        val etaNow = lastEtaMin
+        if (etaNow != null) {
+            if (alarmModeName == AlarmMode.TIME.name) {
+                val effectiveLead = maxOf(
+                    nudgeLeadMinutes,
+                    alarmTimeMinutes + NUDGE_TIME_MARGIN_MIN,
+                )
+                if (etaNow <= effectiveLead) {
+                    hasFiredProactiveAlert = true
+                    fireProactiveAlert()
+                }
+            } else if (etaNow <= nudgeLeadMinutes &&
+                distanceM > triggerM && distanceM > SAFETY_VALVE_METERS
+            ) {
+                hasFiredProactiveAlert = true
+                fireProactiveAlert()
+            }
+            return
+        }
+        // ETA unavailable — distance equivalent of the lead, strictly
+        // outside every alarm radius (same GPS-only fallback philosophy
+        // as the alarm itself).
+        val alarmRadiusM = maxOf(triggerM, SAFETY_VALVE_METERS)
+        if (distanceM <= alarmRadiusM + NUDGE_DISTANCE_MARGIN_M &&
+            distanceM > alarmRadiusM
+        ) {
+            hasFiredProactiveAlert = true
+            fireProactiveAlert()
+        }
+    }
+
+    /**
+     * The silent nudge — dedicated IMPORTANCE_LOW channel ([NUDGE_CHANNEL_ID],
+     * never the alarm channel): no sound, no vibration, no heads-up, no
+     * full-screen intent — just a quiet shade entry, DND-friendly by design.
+     * Auto-dismiss + explicit cancel on arrival; dismissing it never
+     * cancels the main alarm (separate notification id, no shared state).
      */
     private fun fireProactiveAlert() {
         runCatching {
@@ -548,29 +616,29 @@ class TrackingService : Service() {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            val notification = NotificationCompat.Builder(this, PROACTIVE_CHANNEL_ID)
-                .setContentTitle("Approaching destination / اقتربنا من الوصول")
+            val notification = NotificationCompat.Builder(this, NUDGE_CHANNEL_ID)
+                .setContentTitle("اقتربنا 🎒")
                 .setContentText(
-                    "We are close. Start gathering your belongings and preparing " +
-                        "your trip fare. / اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.",
+                    "اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.",
                 )
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(
-                        "We are close. Start gathering your belongings and preparing " +
-                            "your trip fare.\nاقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.",
+                        "اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.\n" +
+                            "We are close — gather your papers and prepare the trip fare.",
                     ),
                 )
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setSilent(true)
                 .setSound(null)
-                .setVibrate(longArrayOf(0, 300))
+                .setVibrate(null)
                 .setAutoCancel(true)
                 .setTimeoutAfter(PROACTIVE_TIMEOUT_MS)
                 .setContentIntent(contentIntent)
                 .build()
-            manager.notify(PROACTIVE_NOTIF_ID, notification)
-            Log.i(TAG, "proactive alert fired (ETA<=${PROACTIVE_ETA_MIN}min)")
+            manager.notify(NUDGE_NOTIF_ID, notification)
+            Log.i(TAG, "silent nudge fired (lead=${nudgeLeadMinutes}min)")
         }.onFailure {
             Log.w(TAG, "fireProactiveAlert failed: ${it.message}")
         }
@@ -578,7 +646,11 @@ class TrackingService : Service() {
 
     private fun dismissProactiveAlert() {
         runCatching {
-            getSystemService(NotificationManager::class.java)?.cancel(PROACTIVE_NOTIF_ID)
+            val manager = getSystemService(NotificationManager::class.java) ?: return
+            // Dismissing the nudge never touches the alarm — separate id.
+            manager.cancel(NUDGE_NOTIF_ID)
+            // Hygiene: legacy pre-silent channel id, if ever posted.
+            manager.cancel(PROACTIVE_NOTIF_ID)
         }
     }
 
@@ -660,21 +732,27 @@ class TrackingService : Service() {
                 },
             )
         }
-        // Phase 10.4.3.4: heads-up channel — DEFAULT (no loud sound),
-        // one gentle buzz only.
-        if (manager.getNotificationChannel(PROACTIVE_CHANNEL_ID) == null) {
+        // Pre-arrival NUDGE channel — IMPORTANCE_LOW, fully silent (no
+        // sound, no vibration, no heads-up): a quiet shade entry that is
+        // DND-friendly by design. A NEW channel id (the legacy
+        // wasalna_proactive channel was IMPORTANCE_DEFAULT — importance is
+        // immutable once created, so the id had to change); the legacy
+        // channel is deleted below for hygiene.
+        if (manager.getNotificationChannel(NUDGE_CHANNEL_ID) == null) {
             manager.createNotificationChannel(
                 NotificationChannel(
-                    PROACTIVE_CHANNEL_ID,
-                    "Approaching alert",
-                    NotificationManager.IMPORTANCE_DEFAULT,
+                    NUDGE_CHANNEL_ID,
+                    "Pre-arrival nudge",
+                    NotificationManager.IMPORTANCE_LOW,
                 ).apply {
                     setSound(null, null)
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 300)
+                    enableVibration(false)
+                    vibrationPattern = null
+                    setShowBadge(false)
                 },
             )
         }
+        runCatching { manager.deleteNotificationChannel(PROACTIVE_CHANNEL_ID) }
     }
 
     /**
@@ -954,12 +1032,34 @@ class TrackingService : Service() {
         const val CHANNEL_ID = "wasalna_tracking"
         const val NOTIF_ID = 1001
 
-        /** Phase 10.4.3.4: gentle heads-up channel + notification id. */
+        /**
+         * Pre-arrival NUDGE: dedicated silent channel + notification id.
+         * Never the alarm channel. PROACTIVE_* kept only to delete the
+         * legacy IMPORTANCE_DEFAULT channel + cancel its id (hygiene).
+         */
+        const val NUDGE_CHANNEL_ID = "wasalna_nudge_silent"
+        const val NUDGE_NOTIF_ID = 1002
         const val PROACTIVE_CHANNEL_ID = "wasalna_proactive"
         const val PROACTIVE_NOTIF_ID = 1002
 
-        /** Fire the heads-up when ETA drops to this many minutes. */
-        private const val PROACTIVE_ETA_MIN = 3
+        /** Default nudge lead (minutes-before-arrival); adjustable 1..10. */
+        const val DEFAULT_NUDGE_LEAD_MINUTES = 3
+        const val NUDGE_LEAD_MIN = 1
+        const val NUDGE_LEAD_MAX = 10
+
+        /**
+         * ORDERING margin (TIME mode): effective nudge lead =
+         * max(userLead, alarmMinutes + this) — strictly greater than the
+         * TIME alarm threshold so the nudge always fires first.
+         */
+        private const val NUDGE_TIME_MARGIN_MIN = 1
+
+        /**
+         * ORDERING margin (distance fallback): nudge band =
+         * (alarmRadius, alarmRadius + this] — strictly outside the alarm
+         * radius and the 500 m failsafe.
+         */
+        private const val NUDGE_DISTANCE_MARGIN_M = 500f
 
         /** Backstop: heads-up auto-dismisses after 10 minutes regardless. */
         private const val PROACTIVE_TIMEOUT_MS = 10L * 60L * 1000L

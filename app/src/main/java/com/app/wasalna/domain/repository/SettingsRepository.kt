@@ -28,6 +28,9 @@ interface SettingsRepository {
 
     val isProactiveAlertEnabled: Flow<Boolean>
 
+    // Pre-arrival NUDGE lead (minutes, 1..10, default 3).
+    val nudgeLeadMinutes: Flow<Int>
+
     val isAdaptiveAlarmEnabled: Flow<Boolean>
 
     // DYNAMIC WAKE-UP: DISTANCE (legacy default) vs TIME (minutes-before-arrival).
@@ -75,6 +78,8 @@ interface SettingsRepository {
     suspend fun setTransportMode(mode: String)
 
     suspend fun setHasSeenAutoStartGuidance(seen: Boolean)
+
+    suspend fun setNudgeLeadMinutes(minutes: Int)
 
     suspend fun setProactiveAlertEnabled(enabled: Boolean)
 

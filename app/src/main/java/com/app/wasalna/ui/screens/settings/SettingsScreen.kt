@@ -88,6 +88,7 @@ fun SettingsScreen(
     val customRingtoneUri by viewModel.customRingtoneUri.collectAsState()
     val adaptiveAlarm by viewModel.adaptiveAlarm.collectAsState()
     val proactiveAlert by viewModel.proactiveAlert.collectAsState()
+    val nudgeLead by viewModel.nudgeLeadMinutes.collectAsState()
     val forceOffline by viewModel.forceOffline.collectAsState()
     val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
@@ -712,32 +713,51 @@ fun SettingsScreen(
             }
         }
 
-        // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
+        // Pre-arrival NUDGE: silent once-per-trip heads-up strictly before
+        // the main alarm. Enable switch (default ON) + lead slider 1..10
+        // min (default 3) — Arabic-first labels.
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Proactive Alert (3 mins before)",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "Gentle heads-up to gather belongings",
-                        style = MaterialTheme.typography.bodySmall,
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_nudge_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_nudge_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = proactiveAlert,
+                        onCheckedChange = viewModel::setProactiveAlert,
                     )
                 }
-                Switch(
-                    checked = proactiveAlert,
-                    onCheckedChange = viewModel::setProactiveAlert,
-                )
+                if (proactiveAlert) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_nudge_lead, nudgeLead),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Slider(
+                        value = nudgeLead.toFloat(),
+                        onValueChange = { viewModel.setNudgeLeadMinutes(it.toInt()) },
+                        valueRange = 1f..10f,
+                        steps = 8,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    )
+                }
             }
         }
 

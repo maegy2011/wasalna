@@ -86,4 +86,9 @@
     <string name="alarm_setup_cancel">إلغاء</string>
     <string name="alarm_notif_mode_distance">وضع التنبيه: حسب المسافة</string>
     <string name="alarm_notif_mode_time">وضع التنبيه: حسب الوقت (مرتبط بالزحام)</string>
+
+    <!-- تنبيه الاقتراب الصامت -->
+    <string name="settings_nudge_title">تنبيه الاقتراب 🎒</string>
+    <string name="settings_nudge_sub">إشعار صامت قبل الوصول — اجمع أوراقك وجهّز حساب الرحلة</string>
+    <string name="settings_nudge_lead">نبّهني قبل الوصول بـ %1$d دقائق</string>
 </resources>

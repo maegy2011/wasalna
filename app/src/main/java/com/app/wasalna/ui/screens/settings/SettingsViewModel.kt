@@ -323,6 +323,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Pre-arrival NUDGE lead (minutes, 1..10, default 3) — StateFlow-exposed.
+    val nudgeLeadMinutes: StateFlow<Int> =
+        settingsRepository.nudgeLeadMinutes.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 3,
+        )
+
+    fun setNudgeLeadMinutes(minutes: Int) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setNudgeLeadMinutes(minutes) }
+        }
+    }
+
     // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE (legacy default)
     // vs TIME (minutes-before-arrival). Persisted, StateFlow-exposed.
     val alarmMode: StateFlow<String> =

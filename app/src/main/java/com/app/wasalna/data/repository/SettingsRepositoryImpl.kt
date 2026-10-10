@@ -47,6 +47,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isProactiveAlertEnabled: Flow<Boolean>
         get() = settingsDataStore.isProactiveAlertEnabled
 
+    override val nudgeLeadMinutes: Flow<Int>
+        get() = settingsDataStore.nudgeLeadMinutes
+
     override val isAdaptiveAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isAdaptiveAlarmEnabled
 
@@ -140,6 +143,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setProactiveAlertEnabled(enabled: Boolean) {
         settingsDataStore.setProactiveAlertEnabled(enabled)
+    }
+
+    override suspend fun setNudgeLeadMinutes(minutes: Int) {
+        settingsDataStore.setNudgeLeadMinutes(minutes)
     }
 
     override suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {

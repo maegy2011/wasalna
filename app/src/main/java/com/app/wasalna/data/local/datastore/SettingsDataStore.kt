@@ -66,6 +66,12 @@ class SettingsDataStore @Inject constructor(
     val isProactiveAlertEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.PROACTIVE_ALERT_ENABLED] ?: true }
 
+    // Pre-arrival NUDGE (silent): lead minutes before arrival (1..10,
+    // default 3). Strictly-earlier companion of the main alarm — see
+    // TrackingService.evaluateNudge for the ordering validation.
+    val nudgeLeadMinutes: Flow<Int> =
+        dataStore.data.map { it[Keys.NUDGE_LEAD_MINUTES]?.coerceIn(1, 10) ?: 3 }
+
     // Phase 10.4.2: persisted transport mode (WALK/CAR/TRAIN name).
     val transportMode: Flow<String> =
         dataStore.data.map { it[Keys.TRANSPORT_MODE] ?: "CAR" }
@@ -159,6 +165,10 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setProactiveAlertEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.PROACTIVE_ALERT_ENABLED] = enabled }
+    }
+
+    suspend fun setNudgeLeadMinutes(minutes: Int) {
+        dataStore.edit { it[Keys.NUDGE_LEAD_MINUTES] = minutes.coerceIn(1, 10) }
     }
 
     suspend fun setTransportMode(mode: String) {
@@ -321,6 +331,7 @@ class SettingsDataStore @Inject constructor(
         val PREFERRED_MAP_ENGINE = stringPreferencesKey("preferred_map_engine")
         val TRANSPORT_MODE = stringPreferencesKey("transport_mode")
         val PROACTIVE_ALERT_ENABLED = booleanPreferencesKey("proactive_alert_enabled")
+        val NUDGE_LEAD_MINUTES = intPreferencesKey("nudge_lead_minutes")
         val HAS_SEEN_AUTOSTART_GUIDANCE = booleanPreferencesKey("has_seen_autostart_guidance")
         val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
         val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
