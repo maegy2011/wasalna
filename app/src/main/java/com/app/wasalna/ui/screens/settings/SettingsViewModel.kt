@@ -107,6 +107,21 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Traffic overlay toggle — reuses SettingsRepository.isTrafficEnabled
+    // (same DataStore flow as MapViewModel); two-way synced with the map FAB.
+    val isTrafficEnabled: StateFlow<Boolean> =
+        settingsRepository.isTrafficEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    fun setTrafficEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTrafficEnabled(enabled) }
+        }
+    }
+
     // Phase 10.4.3.4: gentle heads-up ~3 min before the main alarm.
     val proactiveAlert: StateFlow<Boolean> =
         settingsRepository.isProactiveAlertEnabled.stateIn(

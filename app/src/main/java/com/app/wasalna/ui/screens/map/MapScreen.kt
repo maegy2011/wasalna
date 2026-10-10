@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
@@ -29,7 +28,7 @@ import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -226,37 +225,6 @@ fun MapScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            // Enabled only when a destination is selected (hidden otherwise).
-            if (selectedLatLng != null && selectedName != null) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    addressLine?.let { line ->
-                        Card(
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            onClick = {
-                                selectedLatLng?.let { homeWorkSheetPoint = it }
-                            },
-                        ) {
-                            Text(
-                                text = line,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
-                        }
-                    }
-                    ExtendedFloatingActionButton(
-                        onClick = { viewModel.saveDestination(onSaved) },
-                        icon = {
-                            if (isSaving) CircularProgressIndicator(strokeWidth = 2.dp)
-                            else Icon(Icons.Default.Check, contentDescription = null)
-                        },
-                        text = { Text(if (isSaving) "Saving…" else "Add Destination") },
-                    )
-                }
-            }
-        },
     ) { padding ->
         // Phase 10-Fix: professional SearchBar — while active the results
         // take over the screen (map hidden, no overlap); picking a result
@@ -471,7 +439,7 @@ fun MapScreen(
                         )
                     }
                     // Phase 10.4.3.1: My Location FAB (bottom-start, clear of
-                    // the Save FAB) — centers the camera on the live fix.
+                    // the action FABs) — centers the camera on the live fix.
                     SmallFloatingActionButton(
                         onClick = { viewModel.recenterToMyLocation() },
                         modifier = Modifier
@@ -479,6 +447,61 @@ fun MapScreen(
                             .padding(16.dp),
                     ) {
                         Icon(Icons.Filled.MyLocation, contentDescription = "My location")
+                    }
+                    // Map action FABs (bottom-end, stacked vertically with
+                    // 8dp+ spacing): traffic toggle (small, icon-only, two-way
+                    // synced with the Settings switch via the same StateFlow)
+                    // + Add Destination (icon-only, same save behavior).
+                    // My Location stays bottom-start — no overlap.
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        addressLine?.let { line ->
+                            Card(
+                                onClick = {
+                                    selectedLatLng?.let { homeWorkSheetPoint = it }
+                                },
+                            ) {
+                                Text(
+                                    text = line,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            }
+                        }
+                        SmallFloatingActionButton(
+                            onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
+                            modifier = Modifier.size(48.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Traffic,
+                                contentDescription = if (isTrafficEnabled) {
+                                    "Traffic on — tap to hide — الازدحام ظاهر"
+                                } else {
+                                    "Traffic off — tap to show — الازدحام مخفي"
+                                },
+                            )
+                        }
+                        // Add Destination — icon-only (visible only when a
+                        // destination is selected; same save flow as before).
+                        if (selectedLatLng != null && selectedName != null) {
+                            FloatingActionButton(
+                                onClick = { viewModel.saveDestination(onSaved) },
+                            ) {
+                                if (isSaving) {
+                                    CircularProgressIndicator(strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Add destination — إضافة وجهة",
+                                    )
+                                }
+                            }
+                        }
                     }
                     // Map UX fixes: zoom-level selector (3..19) bound to the
                     // MapLibre camera zoom — +/- steppers (48dp targets) + slider.

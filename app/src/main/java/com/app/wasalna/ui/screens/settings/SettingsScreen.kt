@@ -75,6 +75,7 @@ fun SettingsScreen(
     val adaptiveAlarm by viewModel.adaptiveAlarm.collectAsState()
     val proactiveAlert by viewModel.proactiveAlert.collectAsState()
     val forceOffline by viewModel.forceOffline.collectAsState()
+    val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -468,20 +469,33 @@ fun SettingsScreen(
             }
         }
 
-        // Phase 10.8.0g (traffic): data-source disclosure for the map
-        // Traffic toggle (default OFF). Tile viewport may leave the device.
+        // Phase 10.8.0g (traffic): enable/disable switch bound to the
+        // existing SettingsDataStore traffic flow (reused, not duplicated).
+        // Default OFF. Tile viewport may leave the device (Arabic disclosure).
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "مصدر بيانات الازدحام",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.",
-                    style = MaterialTheme.typography.bodySmall,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "الازدحام — Traffic",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "طبقة الازدحام من Google — عرض الخريطة يرسل موقع المنطقة إلى Google. متوقف افتراضيًا.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = isTrafficEnabled,
+                    onCheckedChange = viewModel::setTrafficEnabled,
                 )
             }
         }
