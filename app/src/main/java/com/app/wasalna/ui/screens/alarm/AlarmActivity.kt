@@ -613,7 +613,7 @@ class AlarmActivity : ComponentActivity() {
                 watchOnlyMode -> getString(R.string.alarm_notif_watch_only)
                 watchFallback -> getString(R.string.alarm_notif_watch_fallback)
                 headphoneFallback -> getString(R.string.alarm_notif_headphone_fallback)
-                else -> "Tap to open, or stop from your watch"
+                else -> getString(R.string.alarm_notif_open_hint)
             }
             val modeText = if (alarmModeName == "TIME") {
                 getString(R.string.alarm_notif_mode_time)
@@ -621,7 +621,7 @@ class AlarmActivity : ComponentActivity() {
                 getString(R.string.alarm_notif_mode_distance)
             }
             val notification = androidx.core.app.NotificationCompat.Builder(this, ALARM_CHANNEL_ID)
-                .setContentTitle("⏰ Wasalna — destination reached!")
+                .setContentTitle(getString(R.string.alarm_notif_title))
                 .setContentText("$baseText • $modeText")
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)

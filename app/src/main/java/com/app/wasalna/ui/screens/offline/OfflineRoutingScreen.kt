@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.offline
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,10 +62,10 @@ fun OfflineRoutingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Offline Routing") },
+                title = { Text(stringResource(R.string.routing_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
             )
@@ -83,7 +86,7 @@ fun OfflineRoutingScreen(
                     ),
                 ) {
                     Text(
-                        text = "Engine error: $msg",
+                        text = stringResource(R.string.routing_engine_error, msg),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(16.dp),
                     )
@@ -137,19 +140,19 @@ private fun OfflineRegionCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Size ~${region.sizeMb} MB",
+                text = stringResource(R.string.routing_size, region.sizeMb),
                 style = MaterialTheme.typography.bodySmall,
             )
             Spacer(modifier = Modifier.height(8.dp))
             when (state) {
                 is OfflineGraphState.NotDownloaded -> {
                     Text(
-                        text = "Not downloaded",
+                        text = stringResource(R.string.routing_not_downloaded),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = onDownload) {
-                        Text("Download")
+                        Text(stringResource(R.string.common_download))
                     }
                 }
                 is OfflineGraphState.Downloading -> {
@@ -160,7 +163,7 @@ private fun OfflineRegionCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Downloading… $pct%",
+                        text = stringResource(R.string.routing_downloading, pct),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -168,26 +171,26 @@ private fun OfflineRegionCard(
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Extracting…",
+                        text = stringResource(R.string.routing_extracting),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 is OfflineGraphState.Ready -> {
                     Text(
-                        text = "Ready — on-device routing available ✓",
+                        text = stringResource(R.string.routing_ready),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = onDelete) {
-                            Text("Delete")
+                            Text(stringResource(R.string.common_delete))
                         }
                     }
                 }
                 is OfflineGraphState.Error -> {
                     Text(
-                        text = "Error: ${state.message}",
+                        text = stringResource(R.string.routing_error, state.message),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -197,10 +200,10 @@ private fun OfflineRegionCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Button(onClick = onDownload) {
-                            Text("Retry")
+                            Text(stringResource(R.string.common_retry))
                         }
                         OutlinedButton(onClick = onDelete) {
-                            Text("Delete")
+                            Text(stringResource(R.string.common_delete))
                         }
                     }
                 }

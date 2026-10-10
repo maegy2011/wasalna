@@ -160,13 +160,19 @@ fun MainContainerScreen() {
     fun shareApp() {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Try Wasalna — never miss your stop! ${com.app.wasalna.utils.AppLinks.SHARE_URL}")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                context.getString(
+                    R.string.drawer_share_text,
+                    com.app.wasalna.utils.AppLinks.SHARE_URL,
+                ),
+            )
         }
-        context.startActivity(Intent.createChooser(send, "Share Wasalna"))
+        context.startActivity(Intent.createChooser(send, context.getString(R.string.drawer_share_title)))
     }
 
     fun rateApp() {
-        Toast.makeText(context, "Rate us on Google Play — coming soon!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.drawer_rate_toast), Toast.LENGTH_SHORT).show()
     }
 
     fun contactUs() {
@@ -199,19 +205,19 @@ fun MainContainerScreen() {
                         selected = isSelected(Screen.Home.route),
                         onClick = { navigateTab(Screen.Home.route) },
                         icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                        label = { Text("Home") },
+                        label = { Text(stringResource(R.string.nav_home)) },
                     )
                     NavigationBarItem(
                         selected = isSelected(Screen.MyPlaces.route),
                         onClick = { navigateTab(Screen.MyPlaces.route) },
                         icon = { Icon(Icons.Filled.Place, contentDescription = null) },
-                        label = { Text("My Places") },
+                        label = { Text(stringResource(R.string.myplaces_title)) },
                     )
                     NavigationBarItem(
                         selected = isSelected(Screen.Paywall.route),
                         onClick = { navigateTab(Screen.Paywall.route) },
                         icon = { Icon(Icons.Filled.Diamond, contentDescription = null) },
-                        label = { Text("First Class") },
+                        label = { Text(stringResource(R.string.paywall_title)) },
                     )
                     NavigationBarItem(
                         selected = isSelected(Screen.TripsHistory.route),
@@ -261,7 +267,7 @@ fun MainContainerScreen() {
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
                 NavigationDrawerItem(
-                    label = { Text("Settings") },
+                    label = { Text(stringResource(R.string.settings_title)) },
                     selected = isSelected(Screen.Settings.route),
                     onClick = {
                         closeDrawer()
@@ -271,7 +277,7 @@ fun MainContainerScreen() {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
-                    label = { Text("Trip History") },
+                    label = { Text(stringResource(R.string.trips_title)) },
                     selected = isSelected(Screen.TripsHistory.route),
                     onClick = {
                         closeDrawer()
@@ -285,12 +291,12 @@ fun MainContainerScreen() {
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Your Impact",
+                    text = stringResource(R.string.drawer_impact),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
                 )
                 NavigationDrawerItem(
-                    label = { Text("Peace of mind: $successfulTrips trips") },
+                    label = { Text(stringResource(R.string.impact_trips, successfulTrips)) },
                     selected = false,
                     onClick = {
                         closeDrawer()
@@ -301,7 +307,7 @@ fun MainContainerScreen() {
                 )
                 NavigationDrawerItem(
                     label = {
-                        Text("Time saved: ${"%.1f".format(timeSavedHours)} hrs")
+                        Text(stringResource(R.string.impact_hours, "%.1f".format(timeSavedHours)))
                     },
                     selected = false,
                     onClick = {
@@ -312,7 +318,7 @@ fun MainContainerScreen() {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
-                    label = { Text("Share") },
+                    label = { Text(stringResource(R.string.common_share)) },
                     selected = false,
                     onClick = {
                         closeDrawer()
@@ -322,7 +328,7 @@ fun MainContainerScreen() {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
-                    label = { Text("Rate") },
+                    label = { Text(stringResource(R.string.drawer_rate)) },
                     selected = false,
                     onClick = {
                         closeDrawer()
@@ -332,7 +338,7 @@ fun MainContainerScreen() {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
                 NavigationDrawerItem(
-                    label = { Text("Contact") },
+                    label = { Text(stringResource(R.string.drawer_contact)) },
                     selected = false,
                     onClick = {
                         closeDrawer()

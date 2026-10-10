@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.restrictions
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,7 +61,7 @@ fun DeviceRestrictionsScreen(
         if (!opened) {
             Toast.makeText(
                 context,
-                "Couldn't open device settings — please open them manually",
+                context.getString(R.string.restrictions_settings_toast),
                 Toast.LENGTH_LONG,
             ).show()
         }
@@ -86,15 +89,13 @@ fun DeviceRestrictionsScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Fix Background Tracking",
+                text = stringResource(R.string.restrictions_title),
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Your device ($maker) aggressively closes background apps. " +
-                    "To ensure Wasalna wakes you up, you must enable AutoStart " +
-                    "and remove background restrictions.",
+                text = stringResource(R.string.restrictions_body, maker),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
@@ -111,18 +112,18 @@ fun DeviceRestrictionsScreen(
                 onClick = { openDeviceSettings() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) {
-                Text("Open Device Settings")
+                Text(stringResource(R.string.restrictions_open))
             }
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedButton(
                 onClick = { confirmAndLeave() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) {
-                Text("I've Done This")
+                Text(stringResource(R.string.restrictions_done))
             }
             Spacer(modifier = Modifier.height(4.dp))
             TextButton(onClick = { confirmAndLeave() }) {
-                Text("Skip")
+                Text(stringResource(R.string.common_skip))
             }
         }
     }

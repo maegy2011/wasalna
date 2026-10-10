@@ -424,8 +424,8 @@ class TrackingService : Service() {
                 "offline GH route: ${local.points.size} pts, ~${local.etaMinutes} min",
             )
         } else {
-            offlineFallbackNotice = FALLBACK_NOTICE
-            Log.w(TAG, "$FALLBACK_NOTICE (dist=${distanceM.toInt()}m GPS line)")
+            offlineFallbackNotice = getString(R.string.tracking_offline_fallback)
+            Log.w(TAG, "offline fallback (dist=${distanceM.toInt()}m GPS line)")
             showFallbackToast()
         }
     }
@@ -437,7 +437,7 @@ class TrackingService : Service() {
                 runCatching {
                     android.widget.Toast.makeText(
                         applicationContext,
-                        FALLBACK_NOTICE,
+                        getString(R.string.tracking_offline_fallback),
                         android.widget.Toast.LENGTH_LONG,
                     ).show()
                 }
@@ -460,9 +460,9 @@ class TrackingService : Service() {
 
     /** Builds the rich notification; null fix = static (start/pause/silent). */
     private fun buildNotification(fix: Location?): NotificationCompat.Builder {
-        val title = if (isPaused) "Paused — $targetName" else "Heading to: $targetName"
+        val title = if (isPaused) getString(R.string.tracking_paused_title, targetName) else getString(R.string.tracking_heading_title, targetName)
         val body = if (isPaused) {
-            "Trip paused — tap Resume to continue"
+            getString(R.string.tracking_paused_body)
         } else if (fix != null) {
             val distKm = fix.distanceTo(
                 Location("wasalna-target").apply {
@@ -479,7 +479,7 @@ class TrackingService : Service() {
             "Dist: ${"%.1f".format(distKm)} km | " +
                 "Speed: ${"%.0f".format(lastSpeedKmh)} km/h | ETA: $eta$offlineTag$fallbackTag"
         } else {
-            "Alarm is active... Sleep tight!"
+            getString(R.string.tracking_text)
         }
 
         // Content tap opens the app (change destination from My Places).
@@ -617,14 +617,12 @@ class TrackingService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             val notification = NotificationCompat.Builder(this, NUDGE_CHANNEL_ID)
-                .setContentTitle("اقتربنا 🎒")
-                .setContentText(
-                    "اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.",
-                )
+                .setContentTitle(getString(R.string.nudge_title))
+                .setContentText(getString(R.string.nudge_body))
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(
-                        "اقتربنا، ابدأ في جمع أوراقك وتجهيز حساب الرحلة.\n" +
-                            "We are close — gather your papers and prepare the trip fare.",
+                        getString(R.string.nudge_body) + "\n" +
+                            getString(R.string.nudge_body_alt),
                     ),
                 )
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -1099,7 +1097,6 @@ class TrackingService : Service() {
         private const val MIN_OFFLINE_SPEED_MPS = 0.5f
 
         /** Phase 10.5.x Step 5: exact user-facing offline fallback notice. */
-        const val FALLBACK_NOTICE = "Offline Routing failed, using GPS straight-line"
 
         private const val REQ_CONTENT = 10
         private const val REQ_PAUSE = 11

@@ -122,9 +122,9 @@ fun SettingsScreen(
                 }
             }
             viewModel.setCustomRingtoneUri(uri.toString())
-            Toast.makeText(context, "Custom ringtone saved", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_ringtone_saved), Toast.LENGTH_SHORT).show()
         }.onFailure {
-            Toast.makeText(context, "Couldn't use that audio file", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.settings_ringtone_bad), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -173,7 +173,7 @@ fun SettingsScreen(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
             )
@@ -619,7 +619,7 @@ fun SettingsScreen(
                 onConfirm = { uri ->
                     viewModel.setGradualRingtoneUri(uri)
                     showGradualPicker = false
-                    Toast.makeText(context, "Gradual tone saved", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.settings_gradual_saved), Toast.LENGTH_SHORT).show()
                 },
                 onDismiss = { showGradualPicker = false },
             )
@@ -639,7 +639,7 @@ fun SettingsScreen(
                         } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                         val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                             putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Choose alarm sound")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.settings_picker_title))
                             putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
                             putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
                             if (existing != null) {
@@ -648,7 +648,7 @@ fun SettingsScreen(
                         }
                         ringtoneLauncher.launch(picker)
                     }.onFailure {
-                        Toast.makeText(context, "No ringtone picker found", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.settings_no_picker), Toast.LENGTH_LONG).show()
                     }
                 }
             },
@@ -662,23 +662,23 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Custom Alarm Ringtone",
+                        text = stringResource(R.string.settings_ringtone_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
                         text = if (!isPremium) {
-                            "First Class only"
+                            stringResource(R.string.settings_premium_only)
                         } else if (customRingtoneUri.isBlank()) {
-                            "System default"
+                            stringResource(R.string.settings_system_default)
                         } else {
-                            "Custom tone set ✓"
+                            stringResource(R.string.settings_custom_set)
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Icon(
                     if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
-                    contentDescription = if (!isPremium) "Premium only" else "Pick ringtone",
+                    contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_pick_desc),
                 )
             }
         }
@@ -698,11 +698,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Adaptive Alarm Distance",
+                        text = stringResource(R.string.settings_adaptive_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Trigger adapts to Walk / Car / Train + speed",
+                        text = stringResource(R.string.settings_adaptive_sub),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -775,11 +775,11 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Force Offline Routing (Dev)",
+                                text = stringResource(R.string.settings_dev_title),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "Bypass OSRM — always route on-device",
+                                text = stringResource(R.string.settings_dev_sub),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -796,11 +796,11 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Share crash log",
+                                text = stringResource(R.string.settings_crash_title),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "Send the latest local crash report",
+                                text = stringResource(R.string.settings_crash_sub),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -809,11 +809,11 @@ fun SettingsScreen(
                                 runCatching {
                                     com.app.wasalna.utils.CrashReporter.shareLatest(context)
                                 }.onFailure {
-                                    Toast.makeText(context, "No crash log yet", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.settings_no_crash), Toast.LENGTH_SHORT).show()
                                 }
                             },
                         ) {
-                            Text("Share")
+                            Text(stringResource(R.string.common_share))
                         }
                     }
                 }
@@ -836,17 +836,17 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Fix Background Tracking",
+                            text = stringResource(R.string.settings_fix_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = "AutoStart + background restrictions",
+                            text = stringResource(R.string.settings_fix_sub),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     Icon(
                         Icons.Filled.BatteryAlert,
-                        contentDescription = "Fix background tracking",
+                        contentDescription = stringResource(R.string.settings_fix_desc),
                     )
                 }
             }
@@ -869,21 +869,21 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Offline Maps (Download Regions)",
+                        text = stringResource(R.string.settings_offline_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
                         text = if (isPremium) {
-                            "Use the map without internet"
+                            stringResource(R.string.settings_offline_sub)
                         } else {
-                            "First Class only"
+                            stringResource(R.string.settings_premium_only)
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Icon(
                     if (!isPremium) Icons.Filled.Lock else Icons.Filled.Download,
-                    contentDescription = if (!isPremium) "Premium only" else "Open offline maps",
+                    contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_offline_open),
                 )
             }
         }
@@ -930,18 +930,18 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Alarm Lead Time",
+                        text = stringResource(R.string.settings_lead_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "$leadTime min",
+                        text = stringResource(R.string.settings_lead_value, leadTime),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Warn me before arrival",
+                    text = stringResource(R.string.settings_lead_sub),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Slider(

@@ -132,7 +132,7 @@ fun MyPlacesScreen(
                 }
             }
             launch(kotlinx.coroutines.Dispatchers.Main) {
-                snackbarHostState.showSnackbar("Backup exported")
+                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_backup_ok))
             }
         }
     }
@@ -146,14 +146,18 @@ fun MyPlacesScreen(
             }.getOrNull()
             if (text.isNullOrBlank()) {
                 launch(kotlinx.coroutines.Dispatchers.Main) {
-                    snackbarHostState.showSnackbar("Couldn't read backup file")
+                    snackbarHostState.showSnackbar(context.getString(R.string.myplaces_backup_unread))
                 }
                 return@launch
             }
             val count = viewModel.importBackup(text)
             launch(kotlinx.coroutines.Dispatchers.Main) {
                 snackbarHostState.showSnackbar(
-                    if (count < 0) "Invalid backup file" else "Restored $count place(s)",
+                    if (count < 0) {
+                        context.getString(R.string.myplaces_backup_invalid)
+                    } else {
+                        context.getString(R.string.myplaces_restored, count)
+                    },
                 )
             }
         }
@@ -162,13 +166,13 @@ fun MyPlacesScreen(
         if (lat == null || lng == null) {
             quickEditTarget = if (address == homeAddress) "home" else "work"
             scope.launch {
-                snackbarHostState.showSnackbar("Set this place first (long-press).")
+                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_set_first))
             }
             return
         }
         requestTrip(
             Location(
-                name = address.ifBlank { "Quick trip" },
+                name = address.ifBlank { context.getString(R.string.quick_trip_fallback) },
                 latitude = lat,
                 longitude = lng,
             ),
@@ -180,7 +184,7 @@ fun MyPlacesScreen(
         if (!hasLocationPermission(context)) {
             Toast.makeText(
                 context,
-                "Location permission required — grant it in Permissions",
+                context.getString(R.string.home_location_required),
                 Toast.LENGTH_LONG,
             ).show()
             return
@@ -217,7 +221,7 @@ fun MyPlacesScreen(
                 if (intent?.action == TrackingService.ACTION_DESTINATION_REACHED) {
                     trackingName = null
                     scope.launch {
-                        snackbarHostState.showSnackbar("Destination reached! ⏰")
+                        snackbarHostState.showSnackbar(context.getString(R.string.home_destination_reached))
                     }
                 }
             }
@@ -235,11 +239,11 @@ fun MyPlacesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Places") },
+                title = { Text(stringResource(R.string.myplaces_title)) },
                 navigationIcon = {
                     // Phase 10.4.1: back reliably returns to the Home tab.
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Home")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back_home))
                     }
                 },
             )
@@ -247,7 +251,7 @@ fun MyPlacesScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddDestination) {
-                Icon(Icons.Filled.Add, contentDescription = "Add destination")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.common_add_destination))
             }
         },
         bottomBar = {
@@ -264,7 +268,7 @@ fun MyPlacesScreen(
         ) {
             trackingName?.let { name ->
                 Text(
-                    text = "Tracking started: $name",
+                    text = stringResource(R.string.home_tracking_started, name),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -275,7 +279,7 @@ fun MyPlacesScreen(
                 value = filter,
                 onValueChange = { filter = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Search saved places") },
+                label = { Text(stringResource(R.string.myplaces_search)) },
                 leadingIcon = {
                     Icon(Icons.Filled.Search, contentDescription = null)
                 },
@@ -309,12 +313,12 @@ fun MyPlacesScreen(
             Spacer(modifier = Modifier.height(4.dp))
             if (locations.isEmpty()) {
                 Text(
-                    text = "No places saved yet. Tap + to add one!",
+                    text = stringResource(R.string.myplaces_empty),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else if (visiblePlaces.isEmpty()) {
                 Text(
-                    text = "No saved places match \"$filter\".",
+                    text = stringResource(R.string.myplaces_no_match, filter),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
@@ -363,12 +367,10 @@ fun MyPlacesScreen(
     if (showBatteryDialog) {
         AlertDialog(
             onDismissRequest = { showBatteryDialog = false },
-            title = { Text("Unrestricted battery needed") },
+            title = { Text(stringResource(R.string.myplaces_battery_title)) },
             text = {
                 Text(
-                    "You must allow unrestricted battery usage for the alarm " +
-                        "to work in the background. Otherwise the system may " +
-                        "kill tracking while the screen is off.",
+                    stringResource(R.string.myplaces_battery_text),
                 )
             },
             confirmButton = {
@@ -376,12 +378,12 @@ fun MyPlacesScreen(
                     showBatteryDialog = false
                     openBatterySettings(context)
                 }) {
-                    Text("Open Settings")
+                    Text(stringResource(R.string.common_open_settings))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBatteryDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -390,7 +392,7 @@ fun MyPlacesScreen(
     quickEditTarget?.let { target ->
         val isHome = target == "home"
         QuickPlaceEditDialog(
-            title = if (isHome) "Home" else "Work",
+            title = if (isHome) stringResource(R.string.quick_home) else stringResource(R.string.quick_work),
             initialAddress = if (isHome) homeAddress else workAddress,
             initialLat = if (isHome) homeLat else workLat,
             initialLng = if (isHome) homeLng else workLng,
@@ -420,12 +422,12 @@ fun MyPlacesScreen(
         var draft by remember(target.id) { mutableStateOf(target.name) }
         AlertDialog(
             onDismissRequest = { renameTarget = null },
-            title = { Text("Rename place") },
+            title = { Text(stringResource(R.string.myplaces_rename)) },
             text = {
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    label = { Text("Place name") },
+                    label = { Text(stringResource(R.string.myplaces_name_hint)) },
                     singleLine = true,
                 )
             },
@@ -434,12 +436,12 @@ fun MyPlacesScreen(
                     viewModel.renameLocation(target, draft)
                     renameTarget = null
                 }) {
-                    Text("Save")
+                    Text(stringResource(R.string.common_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { renameTarget = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -459,13 +461,13 @@ private fun BackupRow(
             onClick = onExport,
             modifier = Modifier.weight(1f).height(48.dp),
         ) {
-            Text("Export backup")
+            Text(stringResource(R.string.myplaces_export))
         }
         androidx.compose.material3.OutlinedButton(
             onClick = onImportPick,
             modifier = Modifier.weight(1f).height(48.dp),
         ) {
-            Text("Import backup")
+            Text(stringResource(R.string.myplaces_import))
         }
     }
 }
@@ -658,7 +660,7 @@ private fun SavedPlaceCard(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp),
                 )
-                Text("Activate Alarm")
+                Text(stringResource(R.string.home_activate_alarm))
             }
         }
     }
@@ -677,7 +679,7 @@ private fun openBatterySettings(context: Context) {
         )
         context.startActivity(intent)
     }.onFailure {
-        Toast.makeText(context, "Open battery settings manually", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.myplaces_battery_manual), Toast.LENGTH_LONG).show()
     }
 }
 

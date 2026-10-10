@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,17 +65,17 @@ fun HomeWorkQuickRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         QuickPlaceCard(
-            title = "Home",
-            subtitle = homeAddress.ifBlank { "Tap to start · hold to set" },
-            iconContentDescription = "Home quick trip",
+            title = stringResource(R.string.quick_home),
+            subtitle = homeAddress.ifBlank { stringResource(R.string.quick_tap_hint) },
+            iconContentDescription = stringResource(R.string.quick_home_desc),
             onClick = onHomeClick,
             onLongClick = onHomeEdit,
             modifier = Modifier.weight(1f),
         )
         QuickPlaceCard(
-            title = "Work",
-            subtitle = workAddress.ifBlank { "Tap to start · hold to set" },
-            iconContentDescription = "Work quick trip",
+            title = stringResource(R.string.quick_work),
+            subtitle = workAddress.ifBlank { stringResource(R.string.quick_tap_hint) },
+            iconContentDescription = stringResource(R.string.quick_work_desc),
             onClick = onWorkClick,
             onLongClick = onWorkEdit,
             modifier = Modifier.weight(1f),
@@ -111,9 +114,9 @@ fun QuickPlaceEditDialog(
     }
     if (showClearConfirm) {
         ConfirmDialog(
-            title = "مسح نقطة $title؟",
-            message = "لديك نقطة $title محفوظة — الحفظ فارغًا سيمسحها وستحتاج لإدخالها من جديد.",
-            confirmLabel = "امسح",
+            title = stringResource(R.string.quick_clear_title, title),
+            message = stringResource(R.string.quick_clear_msg, title),
+            confirmLabel = stringResource(R.string.quick_clear_confirm),
             isDestructive = true,
             onConfirm = {
                 onSave(null, null, address.trim())
@@ -125,32 +128,32 @@ fun QuickPlaceEditDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set $title") },
+        title = { Text(stringResource(R.string.quick_set_title, title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = address,
                     onValueChange = { address = it },
-                    label = { Text("Address label") },
+                    label = { Text(stringResource(R.string.common_address_label)) },
                     singleLine = true,
                 )
                 OutlinedTextField(
                     value = latText,
                     onValueChange = { latText = it },
-                    label = { Text("Latitude") },
+                    label = { Text(stringResource(R.string.common_latitude)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
                 OutlinedTextField(
                     value = lngText,
                     onValueChange = { lngText = it },
-                    label = { Text("Longitude") },
+                    label = { Text(stringResource(R.string.common_longitude)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Tip: search or tap the map first, then long-press here to prefill.",
+                    text = stringResource(R.string.quick_tip),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -158,12 +161,12 @@ fun QuickPlaceEditDialog(
         },
         confirmButton = {
             TextButton(onClick = { attemptSave() }) {
-                Text("Save")
+                Text(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         },
     )

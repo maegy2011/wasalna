@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.offline
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -88,10 +91,10 @@ fun OfflineMapsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Offline Maps") },
+                title = { Text(stringResource(R.string.offline_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
             )
@@ -100,7 +103,7 @@ fun OfflineMapsScreen(
             ExtendedFloatingActionButton(
                 onClick = { showPicker = true },
                 icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("Download New Region") },
+                text = { Text(stringResource(R.string.offline_download_new)) },
             )
         },
     ) { padding ->
@@ -121,7 +124,11 @@ fun OfflineMapsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Downloading $downloadingName… ${(pct * 100).toInt()}%",
+                            text = stringResource(
+                                R.string.offline_downloading,
+                                downloadingName,
+                                (pct * 100).toInt(),
+                            ),
                             style = MaterialTheme.typography.titleSmall,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -131,7 +138,7 @@ fun OfflineMapsScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedButton(onClick = { showCancelDownloadConfirm = true }) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.common_cancel))
                         }
                     }
                 }
@@ -154,7 +161,7 @@ fun OfflineMapsScreen(
                             modifier = Modifier.weight(1f),
                         )
                         OutlinedButton(onClick = { viewModel.clearError() }) {
-                            Text("OK")
+                            Text(stringResource(R.string.common_ok))
                         }
                     }
                 }
@@ -170,16 +177,16 @@ fun OfflineMapsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Offline Routing (GraphHopper)",
+                            text = stringResource(R.string.offline_graph_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = "Per-region graphs with live status",
+                            text = stringResource(R.string.offline_graph_sub),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     Button(onClick = onOpenOfflineRouting) {
-                        Text("Manage")
+                        Text(stringResource(R.string.common_manage))
                     }
                 }
             }
@@ -187,15 +194,16 @@ fun OfflineMapsScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "🧭 Offline Routing Data",
+                        text = stringResource(R.string.offline_data_title),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (graphInstalled)
-                            "Cairo + Giza graph installed — on-device routing ready."
-                        else
-                            "Optional routing graph (Cairo + Giza, ~42 MB). Downloaded only if you tap.",
+                        text = if (graphInstalled) {
+                            stringResource(R.string.offline_graph_installed)
+                        } else {
+                            stringResource(R.string.offline_graph_optional)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -206,7 +214,7 @@ fun OfflineMapsScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Downloading routing graph… $pct%",
+                            text = stringResource(R.string.offline_graph_downloading, pct),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -217,25 +225,24 @@ fun OfflineMapsScreen(
                                 onClick = { showGraphDeleteConfirm = true },
                                 enabled = !graphBusy,
                             ) {
-                                Text("Delete")
+                                Text(stringResource(R.string.common_delete))
                             }
                         } else {
                             Button(
                                 onClick = { viewModel.downloadGraph() },
                                 enabled = !graphBusy,
                             ) {
-                                Text(if (graphBusy) "Working…" else "Download")
+                                Text(if (graphBusy) stringResource(R.string.common_working) else stringResource(R.string.common_download))
                             }
                         }
                     }
                 }
             }
             when {
-                isLoading -> Text("Loading downloads…")
+                isLoading -> Text(stringResource(R.string.offline_loading))
                 regions.isEmpty() && progress == null ->
                     Text(
-                        "No offline regions yet — tap below to download your city. " +
-                            "The map then renders without internet.",
+                        stringResource(R.string.offline_empty),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 // Audit fix (9 Oct 2026): unconstrained LazyColumn inside a
@@ -343,14 +350,14 @@ private fun RegionPickerDialog(
         Card(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Pick an area",
+                    text = stringResource(R.string.offline_pick_area),
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = regionName,
                     onValueChange = { regionName = it },
-                    label = { Text("Region name (e.g. My City)") },
+                    label = { Text(stringResource(R.string.offline_region_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -378,7 +385,7 @@ private fun RegionPickerDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Pan & zoom to the area, then tap Download Here.",
+                    text = stringResource(R.string.offline_pan_hint),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -390,7 +397,7 @@ private fun RegionPickerDialog(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.common_cancel))
                     }
                     Button(
                         onClick = {
@@ -400,16 +407,16 @@ private fun RegionPickerDialog(
                             if (bounds == null) {
                                 Toast.makeText(
                                     context,
-                                    "Map isn't ready yet — wait a second",
+                                    context.getString(R.string.offline_not_ready),
                                     Toast.LENGTH_SHORT,
                                 ).show()
                             } else {
-                                onDownload(regionName.ifBlank { "My City" }, bounds)
+                                onDownload(regionName.ifBlank { context.getString(R.string.offline_default_city) }, bounds)
                             }
                         },
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Download Here")
+                        Text(stringResource(R.string.offline_download_here))
                     }
                 }
             }

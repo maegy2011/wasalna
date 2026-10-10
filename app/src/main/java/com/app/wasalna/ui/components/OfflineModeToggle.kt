@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -43,9 +46,9 @@ fun OfflineModeButton(
         Icon(
             imageVector = if (isOffline) Icons.Filled.CloudOff else Icons.Filled.Cloud,
             contentDescription = if (isOffline) {
-                "وضع أوفلاين مفعّل — اضغط للعودة إلى الاتصال"
+                stringResource(R.string.offline_desc_on)
             } else {
-                "متصل بالإنترنت — اضغط لتفعيل وضع أوفلاين"
+                stringResource(R.string.offline_desc_off)
             },
         )
     }
@@ -70,7 +73,7 @@ fun OfflineModeBanner(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "وضع أوفلاين — GPS فقط 🛰️",
+                text = stringResource(R.string.offline_banner),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
             )

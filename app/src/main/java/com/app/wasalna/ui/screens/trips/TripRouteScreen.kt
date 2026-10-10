@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.trips
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -108,10 +111,10 @@ fun TripRouteScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(trip?.locationName ?: "Trip route") },
+                title = { Text(trip?.locationName ?: stringResource(R.string.trip_share_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
             )
@@ -205,7 +208,7 @@ fun TripRouteScreen(
                         TextButton(
                             onClick = { showDestinationShare = true },
                         ) {
-                            Text("📤 مشاركة الوجهة")
+                            Text(stringResource(R.string.share_destination))
                         }
                     }
                 }

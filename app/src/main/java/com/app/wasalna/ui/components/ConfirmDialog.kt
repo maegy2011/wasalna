@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -35,11 +38,13 @@ fun ConfirmDialog(
     title: String,
     message: String,
     confirmLabel: String,
-    dismissLabel: String = "تراجع",
+    dismissLabel: String? = null,
     isDestructive: Boolean = true,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val confirmDesc = stringResource(R.string.confirm_desc, confirmLabel)
+    val dismissDesc = stringResource(R.string.dismiss_desc, title)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -49,7 +54,7 @@ fun ConfirmDialog(
                 onClick = onConfirm,
                 modifier = Modifier
                     .heightIn(min = 48.dp)
-                    .semantics { contentDescription = "تأكيد: $confirmLabel" },
+                    .semantics { contentDescription = confirmDesc },
                 colors = if (isDestructive) {
                     ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error,
@@ -66,9 +71,9 @@ fun ConfirmDialog(
                 onClick = onDismiss,
                 modifier = Modifier
                     .heightIn(min = 48.dp)
-                    .semantics { contentDescription = "تراجع عن: $title" },
+                    .semantics { contentDescription = dismissDesc },
             ) {
-                Text(dismissLabel)
+                Text(dismissLabel ?: stringResource(R.string.common_dismiss))
             }
         },
     )

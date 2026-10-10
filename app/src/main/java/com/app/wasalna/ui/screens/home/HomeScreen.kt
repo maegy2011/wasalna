@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.home
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -75,12 +78,12 @@ fun HomeScreen(
         if (!isPremium && locations.size >= 2) {
             scope.launch {
                 snackbarHostState.showSnackbar(
-                    "Free plan allows 2 places. Upgrade to First Class!",
+                    context.getString(R.string.home_free_limit),
                 )
             }
             Toast.makeText(
                 context,
-                "Free plan allows 2 places. Upgrade to First Class!",
+                context.getString(R.string.home_free_limit),
                 Toast.LENGTH_LONG,
             ).show()
             onOpenPaywall()
@@ -98,10 +101,10 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Wasalna") },
+                title = { Text(stringResource(R.string.home_title)) },
                 navigationIcon = {
                     IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                        Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.home_open_menu))
                     }
                 },
                 actions = {
@@ -115,9 +118,9 @@ fun HomeScreen(
                             scope.launch {
                                 snackbarHostState.showSnackbar(
                                     if (enabled) {
-                                        "تم تفعيل وضع أوفلاين — الاعتماد على GPS فقط 🛰️"
+                                        context.getString(R.string.map_offline_on)
                                     } else {
-                                        "تم إيقاف وضع أوفلاين — عودة إلى الاتصال 🌐"
+                                        context.getString(R.string.map_offline_off)
                                     },
                                 )
                             }
@@ -160,8 +163,8 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = trip.etaMinutes?.let { "ETA: $it mins" }
-                                ?: "Tracking live…",
+                            text = trip.etaMinutes?.let { stringResource(R.string.trips_eta, it) }
+                                ?: stringResource(R.string.trips_tracking_live),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -171,22 +174,22 @@ fun HomeScreen(
             }
             Icon(
                 Icons.Filled.LocationOn,
-                contentDescription = "No destinations yet",
+                contentDescription = stringResource(R.string.home_empty_desc),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(96.dp),
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Welcome to Wasalna! 🚏",
+                text = stringResource(R.string.home_welcome),
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = if (locations.isEmpty()) {
-                    "No destinations yet — add your first stop and never miss it again."
+                    stringResource(R.string.home_empty_hint)
                 } else {
-                    "You have ${locations.size} saved place(s). Add another or manage them in My Places."
+                    stringResource(R.string.home_sub_count, locations.size)
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -205,7 +208,7 @@ fun HomeScreen(
                     modifier = Modifier.padding(end = 8.dp),
                 )
                 Text(
-                    text = "Add New Destination",
+                    text = stringResource(R.string.home_add_cta),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }

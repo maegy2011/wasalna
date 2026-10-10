@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -88,7 +91,7 @@ fun DestinationShareSheet(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "📤 مشاركة الوجهة",
+                text = stringResource(R.string.share_destination),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -120,8 +123,7 @@ fun DestinationShareSheet(
                 targets.isEmpty() -> {
                     // Empty state (Arabic): no maps/ride app installed.
                     Text(
-                        text = "لا توجد تطبيقات خرائط أو توصيل مثبتة على جهازك — " +
-                            "ثبّت خرائط جوجل أو أوبر أو دي دي أو إن درايف ثم أعد المحاولة 🗺️",
+                        text = stringResource(R.string.share_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -147,7 +149,7 @@ fun DestinationShareSheet(
                                         } else {
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(
-                                                    "تعذر فتح ${target.arabicLabel} — تأكد أنه مثبت وحاول مجددًا",
+                                                    context.getString(R.string.share_open_failed, target.arabicLabel),
                                                 )
                                             }
                                         }

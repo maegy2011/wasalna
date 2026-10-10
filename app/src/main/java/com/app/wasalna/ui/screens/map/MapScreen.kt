@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.map
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -103,8 +106,6 @@ private val DefaultCairoLibre = MapLibreLatLng(30.0444, 31.2357)
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 private const val MARKER_IMAGE_ID = "wasalna-marker"
 // True offline mode (GPS-chip only): Arabic toggle confirmations.
-private const val MSG_OFFLINE_ON = "تم تفعيل وضع أوفلاين — الاعتماد على GPS فقط 🛰️"
-private const val MSG_OFFLINE_OFF = "تم إيقاف وضع أوفلاين — عودة إلى الاتصال 🌐"
 /** Phase 10-2: OSRM route source + layer ids (MapLibre free engine). */
 private const val ROUTE_SOURCE_ID = "route-source"
 private const val ROUTE_LAYER_ID = "route-layer"
@@ -232,10 +233,10 @@ fun MapScreen(
     Scaffold(
         topBar = {
             androidx.compose.material3.TopAppBar(
-                title = { Text("Pick Destination") },
+                title = { Text(stringResource(R.string.map_pick_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -248,7 +249,11 @@ fun MapScreen(
                             viewModel.setOfflineMode(enabled)
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    if (enabled) MSG_OFFLINE_ON else MSG_OFFLINE_OFF,
+                                    if (enabled) {
+                                        stringResource(R.string.map_offline_on)
+                                    } else {
+                                        stringResource(R.string.map_offline_off)
+                                    },
                                 )
                             }
                         },
@@ -285,7 +290,7 @@ fun MapScreen(
                 },
                 active = searchActive,
                 onActiveChange = { searchActive = it },
-                placeholder = { Text("Search destination") },
+                placeholder = { Text(stringResource(R.string.map_search_hint)) },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null)
                 },
@@ -295,7 +300,7 @@ fun MapScreen(
                             viewModel.onQueryChange("")
                             viewModel.clearSelection()
                         }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.map_clear_search))
                         }
                     }
                 },
@@ -363,7 +368,7 @@ fun MapScreen(
                 }
                 selectedName?.let { name ->
                     Text(
-                        text = "Selected: ${addressLine ?: name}",
+                        text = stringResource(R.string.map_selected, addressLine ?: name),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
@@ -387,9 +392,9 @@ fun MapScreen(
                                 label = {
                                     Text(
                                         when (mode) {
-                                            TransportMode.WALK -> "🚶 Walk"
-                                            TransportMode.CAR -> "🚗 Car"
-                                            TransportMode.TRAIN -> "🚆 Train"
+                                            TransportMode.WALK -> stringResource(R.string.transport_walk)
+                                            TransportMode.CAR -> stringResource(R.string.transport_car)
+                                            TransportMode.TRAIN -> stringResource(R.string.transport_train)
                                         },
                                     )
                                 },
@@ -413,7 +418,7 @@ fun MapScreen(
                             .heightIn(min = 48.dp)
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                     ) {
-                        Text("📤 مشاركة الوجهة")
+                        Text(stringResource(R.string.share_destination))
                     }
                 }
                 // Phase 10.8.0g (traffic): Vela live-traffic raster (Google
@@ -440,10 +445,10 @@ fun MapScreen(
                         if (isTrafficEnabled) {
                             Text(
                                 text = when (trafficOverlayState) {
-                                    is TrafficOverlayState.Live -> "مباشر"
-                                    is TrafficOverlayState.Stale -> "قديم — تتم إعادة المحاولة"
-                                    is TrafficOverlayState.Checking -> "جارٍ الفحص…"
-                                    else -> "غير متاح"
+                                    is TrafficOverlayState.Live -> stringResource(R.string.traffic_live)
+                                    is TrafficOverlayState.Stale -> stringResource(R.string.traffic_stale)
+                                    is TrafficOverlayState.Checking -> stringResource(R.string.traffic_checking)
+                                    else -> stringResource(R.string.traffic_unavailable)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -485,7 +490,7 @@ fun MapScreen(
                     )
                     if (selectedLatLng == null && predictions.isEmpty()) {
                         Text(
-                            text = "Search above or tap the map to pick a destination",
+                            text = stringResource(R.string.map_empty_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier
                                 .align(Alignment.Center)
@@ -500,7 +505,7 @@ fun MapScreen(
                             .align(Alignment.BottomStart)
                             .padding(16.dp),
                     ) {
-                        Icon(Icons.Filled.MyLocation, contentDescription = "My location")
+                        Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.map_my_location))
                     }
                     // Map action FABs (bottom-end, stacked vertically with
                     // 8dp+ spacing): traffic toggle (small, icon-only, two-way
@@ -534,9 +539,9 @@ fun MapScreen(
                             Icon(
                                 Icons.Filled.Traffic,
                                 contentDescription = if (isTrafficEnabled) {
-                                    "Traffic on — tap to hide — الازدحام ظاهر"
+                                    stringResource(R.string.map_traffic_on)
                                 } else {
-                                    "Traffic off — tap to show — الازدحام مخفي"
+                                    stringResource(R.string.map_traffic_off)
                                 },
                             )
                         }
@@ -551,7 +556,7 @@ fun MapScreen(
                                 } else {
                                     Icon(
                                         Icons.Default.Add,
-                                        contentDescription = "Add destination — إضافة وجهة",
+                                        contentDescription = stringResource(R.string.map_add_desc),
                                     )
                                 }
                             }
@@ -573,7 +578,7 @@ fun MapScreen(
                                 onClick = { viewModel.zoomIn() },
                                 modifier = Modifier.size(48.dp),
                             ) {
-                                Icon(Icons.Filled.Add, contentDescription = "Zoom in")
+                                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.map_zoom_in))
                             }
                             Text(
                                 text = cameraZoom.toInt().toString(),
@@ -583,7 +588,7 @@ fun MapScreen(
                                 onClick = { viewModel.zoomOut() },
                                 modifier = Modifier.size(48.dp),
                             ) {
-                                Icon(Icons.Filled.Remove, contentDescription = "Zoom out")
+                                Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.map_zoom_out))
                             }
                             Slider(
                                 value = cameraZoom,
@@ -613,7 +618,7 @@ fun MapScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = addressLine ?: selectedName ?: "Selected point",
+                        text = addressLine ?: selectedName ?: stringResource(R.string.map_selected_point),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
@@ -627,7 +632,7 @@ fun MapScreen(
                             .height(64.dp),
                     ) {
                         Text(
-                            text = "تعيين كـ Home 🏠",
+                            text = stringResource(R.string.map_set_home),
                             style = MaterialTheme.typography.titleMedium,
                         )
                     }
@@ -641,7 +646,7 @@ fun MapScreen(
                             .height(64.dp),
                     ) {
                         Text(
-                            text = "تعيين كـ Work 🏢",
+                            text = stringResource(R.string.map_set_work),
                             style = MaterialTheme.typography.titleMedium,
                         )
                     }
@@ -670,7 +675,7 @@ fun MapScreen(
         // become Home/Work in one step.
         editTarget?.let { target ->
             QuickPlaceEditDialog(
-                title = if (target == "home") "Home" else "Work",
+                title = if (target == "home") stringResource(R.string.quick_home) else stringResource(R.string.quick_work),
                 initialAddress = if (target == "home") homeAddress else workAddress,
                 initialLat = (if (target == "home") homeLat else workLat)
                     ?: selectedLatLng?.latitude,

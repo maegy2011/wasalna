@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.settings
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import android.content.Context
 import android.media.RingtoneManager
 import android.net.Uri
@@ -79,7 +82,7 @@ fun GradualRingtonePickerDialog(
             stopPreview()
             onDismiss()
         },
-        title = { Text("نغمة المنبه") },
+        title = { Text(stringResource(R.string.settings_gradual_ringtone)) },
         text = {
             val list = tones
             if (list == null) {
@@ -147,7 +150,7 @@ fun GradualRingtonePickerDialog(
                     onConfirm(selected)
                 },
             ) {
-                Text("حفظ")
+                Text(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
@@ -157,7 +160,7 @@ fun GradualRingtonePickerDialog(
                     onDismiss()
                 },
             ) {
-                Text("إلغاء")
+                Text(stringResource(R.string.common_cancel))
             }
         },
     )

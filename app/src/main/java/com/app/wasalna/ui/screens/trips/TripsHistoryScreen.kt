@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.trips
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -53,15 +56,15 @@ fun TripsHistoryScreen(
     val pastTrips by viewModel.pastTrips.collectAsState()
     val savedPlaces by viewModel.savedPlaces.collectAsState()
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Current", "Future", "Past")
+    val tabs = listOf(stringResource(R.string.trips_tab_current), stringResource(R.string.trips_tab_future), stringResource(R.string.trips_tab_past))
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Trip History") },
+                title = { Text(stringResource(R.string.trips_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Home")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back_home))
                     }
                 },
             )
@@ -85,7 +88,7 @@ fun TripsHistoryScreen(
                 0 -> {
                     val trip = activeTrip
                     if (trip == null) {
-                        EmptyNote("No active trip — start tracking from My Places.")
+                        EmptyNote(stringResource(R.string.trips_empty_current))
                     } else {
                         LazyColumn(
                             modifier = Modifier.padding(16.dp),
@@ -105,13 +108,13 @@ fun TripsHistoryScreen(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = trip.etaMinutes?.let { "ETA: $it mins" }
-                                                ?: "Tracking live…",
+                                            text = trip.etaMinutes?.let { stringResource(R.string.trips_eta, it) }
+                                                ?: stringResource(R.string.trips_tracking_live),
                                             style = MaterialTheme.typography.bodyLarge,
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = "Started ${formatTime(trip.startTime)}",
+                                            text = stringResource(R.string.trips_started, formatTime(trip.startTime)),
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
@@ -126,7 +129,7 @@ fun TripsHistoryScreen(
                                                 .fillMaxWidth()
                                                 .height(48.dp),
                                         ) {
-                                            Text("Share live trip")
+                                            Text(stringResource(R.string.trips_share_live))
                                         }
                                     }
                                 }
@@ -136,7 +139,7 @@ fun TripsHistoryScreen(
                 }
                 1 -> {
                     if (savedPlaces.isEmpty()) {
-                        EmptyNote("No saved places yet — add destinations from Home.")
+                        EmptyNote(stringResource(R.string.trips_empty_future))
                     } else {
                         LazyColumn(
                             modifier = Modifier.padding(16.dp),
@@ -162,7 +165,7 @@ fun TripsHistoryScreen(
                 }
                 else -> {
                     if (pastTrips.isEmpty()) {
-                        EmptyNote("No completed trips yet — your history appears here.")
+                        EmptyNote(stringResource(R.string.trips_empty_past))
                     } else {
                         LazyColumn(
                             modifier = Modifier.padding(16.dp),
@@ -182,8 +185,10 @@ fun TripsHistoryScreen(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = "Finished ${formatTime(trip.endTime ?: trip.startTime)}" +
-                                                (trip.etaMinutes?.let { " • ~$it mins" } ?: ""),
+                                            text = stringResource(
+                                                R.string.trips_finished,
+                                                formatTime(trip.endTime ?: trip.startTime),
+                                            ) + (trip.etaMinutes?.let { " • ~$it mins" } ?: ""),
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                     }

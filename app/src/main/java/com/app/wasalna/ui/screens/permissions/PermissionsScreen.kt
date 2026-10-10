@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.permissions
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
@@ -247,7 +250,7 @@ fun PermissionsScreen(
     ) {
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "Enable what Wasalna needs",
+            text = stringResource(R.string.perm_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
@@ -379,7 +382,7 @@ fun PermissionsScreen(
                 .fillMaxWidth()
                 .height(56.dp),
         ) {
-            Text("Start Journey — بدء الرحلة")
+            Text(stringResource(R.string.perm_start))
         }
         if (!canStartJourney) {
             Text(
@@ -397,7 +400,7 @@ fun PermissionsScreen(
                 .fillMaxWidth()
                 .heightIn(min = 48.dp),
         ) {
-            Text("Continue without permissions — متابعة بدون الأذونات")
+            Text(stringResource(R.string.perm_continue))
         }
         Text(
             text = "You can use the app without permissions, but the wake-up alarm " +
@@ -467,7 +470,7 @@ private fun PermissionCard(
                         } else {
                             Icons.Filled.Pending
                         },
-                        contentDescription = if (granted) "Granted" else "Pending",
+                        contentDescription = if (granted) stringResource(R.string.perm_granted_desc) else stringResource(R.string.perm_pending_desc),
                         tint = if (granted) {
                             MaterialTheme.colorScheme.primary
                         } else {
@@ -532,7 +535,7 @@ private fun PermissionCard(
                                 modifier = Modifier.size(18.dp),
                             )
                             Spacer(modifier = Modifier.size(8.dp))
-                            Text("Open settings — فتح الإعدادات")
+                            Text(stringResource(R.string.perm_open_settings))
                         }
                     }
                 }

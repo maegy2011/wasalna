@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.paywall
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -73,10 +76,10 @@ fun PaywallScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("First Class") },
+                title = { Text(stringResource(R.string.paywall_title)) },
                 navigationIcon = {
                     IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                        Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.common_open_menu))
                     }
                 },
             )
@@ -97,13 +100,13 @@ fun PaywallScreen(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Wasalna First Class",
+            text = stringResource(R.string.paywall_header),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = if (isPremium) "You're riding First Class ✦" else "Never miss your stop — in style",
+            text = if (isPremium) stringResource(R.string.paywall_active_sub) else stringResource(R.string.paywall_sub),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -112,7 +115,7 @@ fun PaywallScreen(
             trialRemainingText(trialEnd, trialNow)?.let { remaining ->
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Trial - $remaining",
+                    text = stringResource(R.string.paywall_trial_remaining, remaining),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -120,22 +123,22 @@ fun PaywallScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
-        BenefitRow("Zero Ads — clean ride, no banners")
-        BenefitRow("Unlimited saved places")
-        BenefitRow("Silent Alarm + priority alerts")
+        BenefitRow(stringResource(R.string.paywall_benefit_ads))
+        BenefitRow(stringResource(R.string.paywall_benefit_places))
+        BenefitRow(stringResource(R.string.paywall_benefit_silent))
 
         Spacer(modifier = Modifier.height(16.dp))
 
         PlanCard(
-            title = "Monthly",
-            price = "$0.99 / month",
+            title = stringResource(R.string.paywall_monthly),
+            price = stringResource(R.string.paywall_monthly_price),
             selected = selectedPlan == "monthly",
             onSelect = { selectedPlan = "monthly" },
         )
         Spacer(modifier = Modifier.height(8.dp))
         PlanCard(
-            title = "Yearly — Best value",
-            price = "$5.99 / year",
+            title = stringResource(R.string.paywall_yearly),
+            price = stringResource(R.string.paywall_yearly_price),
             selected = selectedPlan == "yearly",
             onSelect = { selectedPlan = "yearly" },
         )
@@ -147,19 +150,19 @@ fun PaywallScreen(
                 viewModel.simulatePurchase(selectedPlan)
                 Toast.makeText(
                     context,
-                    "Welcome to First Class! (3-day free trial started)",
+                    context.getString(R.string.paywall_welcome_toast),
                     Toast.LENGTH_LONG,
                 ).show()
             },
             enabled = !isPremium,
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
-            Text(if (isPremium) "First Class Active ✦" else "Start 3-Day Free Trial")
+            Text(if (isPremium) stringResource(R.string.paywall_cta_active) else stringResource(R.string.paywall_cta_start))
         }
         if (!isPremium) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Mock checkout — no real charge. Real Play Billing on release.",
+                text = stringResource(R.string.paywall_mock_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -216,7 +219,7 @@ private fun PlanCard(
                 )
             }
             OutlinedButton(onClick = onSelect) {
-                Text(if (selected) "Selected" else "Select")
+                Text(if (selected) stringResource(R.string.common_selected) else stringResource(R.string.common_select))
             }
         }
     }

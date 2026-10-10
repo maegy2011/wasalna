@@ -1,5 +1,8 @@
 package com.app.wasalna.ui.screens.splash
 
+import androidx.compose.ui.res.stringResource
+import com.app.wasalna.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,7 +63,7 @@ fun SplashScreen(
         ) {
             Icon(
                 imageVector = Icons.Filled.LocationOn,
-                contentDescription = "Wasalna logo",
+                contentDescription = stringResource(R.string.splash_logo_desc),
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -73,7 +76,7 @@ fun SplashScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Never miss your stop",
+                text = stringResource(R.string.splash_tagline),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
