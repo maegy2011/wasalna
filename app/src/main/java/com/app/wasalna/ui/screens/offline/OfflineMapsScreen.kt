@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -49,6 +50,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.ui.components.ConfirmDialog
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
@@ -72,6 +74,9 @@ fun OfflineMapsScreen(
     val progress by viewModel.downloadProgress.collectAsState()
     val downloadingName by viewModel.downloadingName.collectAsState()
     val error by viewModel.error.collectAsState()
+    // Oct 2026 offline upgrade: retry + on-device tile size.
+    val canRetry by viewModel.canRetry.collectAsState()
+    val offlineDbBytes by viewModel.offlineDbBytes.collectAsState()
     // Phase 10.4.3.9: offline routing graph state (on-demand download).
     val graphInstalled by viewModel.graphInstalled.collectAsState()
     val graphBusy by viewModel.graphBusy.collectAsState()
@@ -160,8 +165,21 @@ fun OfflineMapsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )
-                        OutlinedButton(onClick = { viewModel.clearError() }) {
-                            Text(stringResource(R.string.common_ok))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (canRetry) {
+                                Button(
+                                    onClick = { viewModel.retryDownload() },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                ) {
+                                    Text(stringResource(R.string.offline_retry))
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { viewModel.clearError() },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text(stringResource(R.string.common_ok))
+                            }
                         }
                     }
                 }
@@ -276,14 +294,32 @@ fun OfflineMapsScreen(
                     }
                 }
             }
+            // Oct 2026: storage transparency (Vela Storage row) + attribution.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = offlineStorageText(
+                            bytes = offlineDbBytes,
+                            regionCount = regions.size,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.offline_credit),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 
     pendingRegionDelete?.let { info ->
         ConfirmDialog(
-            title = "حذف المنطقة؟",
-            message = "سيتم حذف خريطة \"${info.name}\" المحمّلة نهائيًا وستحتاج لتنزيلها من جديد.",
-            confirmLabel = "احذف",
+            title = stringResource(R.string.offline_delete_region_title),
+            message = stringResource(R.string.offline_delete_region_msg, info.name),
+            confirmLabel = stringResource(R.string.common_delete),
             isDestructive = true,
             onConfirm = {
                 viewModel.deleteRegion(info)
@@ -294,9 +330,9 @@ fun OfflineMapsScreen(
     }
     if (showGraphDeleteConfirm) {
         ConfirmDialog(
-            title = "حذف بيانات التوجيه؟",
-            message = "سيتم حذف جراف التوجيه (القاهرة + الجيزة، ~42 م.ب) وستحتاج لتنزيله من جديد للملاحة دون إنترنت.",
-            confirmLabel = "احذف",
+            title = stringResource(R.string.offline_delete_graph_title),
+            message = stringResource(R.string.offline_delete_graph_msg),
+            confirmLabel = stringResource(R.string.common_delete),
             isDestructive = true,
             onConfirm = {
                 viewModel.deleteGraph()
@@ -307,9 +343,9 @@ fun OfflineMapsScreen(
     }
     if (showCancelDownloadConfirm) {
         ConfirmDialog(
-            title = "إلغاء التنزيل؟",
-            message = "التنزيل جارٍ الآن — إلغاؤه يعني فقدان ما تم تحميله وستبدأ من جديد.",
-            confirmLabel = "ألغِ",
+            title = stringResource(R.string.offline_cancel_title),
+            message = stringResource(R.string.offline_cancel_msg),
+            confirmLabel = stringResource(R.string.common_cancel),
             isDestructive = true,
             onConfirm = {
                 viewModel.cancelDownload()
@@ -329,9 +365,52 @@ fun OfflineMapsScreen(
     }
 }
 
+/** Storage row text: on-device tile size (or unknown) + region count. */
+@Composable
+private fun offlineStorageText(bytes: Long?, regionCount: Int): String {
+    val size = if (bytes != null && bytes > 0L) {
+        if (bytes >= 1024L * 1024L) {
+            stringResource(R.string.offline_size_mb, bytes / (1024L * 1024L))
+        } else {
+            stringResource(R.string.offline_size_kb, bytes / 1024L)
+        }
+    } else {
+        stringResource(R.string.offline_storage_unknown)
+    }
+    return stringResource(R.string.offline_storage_note, size, regionCount)
+}
+
+/** Vela-style pre-download estimate label for a preset bounds. */
+@Composable
+private fun presetSizeLabel(bounds: LatLngBounds): String {
+    val tiles = OfflineTileEstimate.countTiles(
+        south = bounds.latitudeSouth,
+        west = bounds.longitudeWest,
+        north = bounds.latitudeNorth,
+        east = bounds.longitudeEast,
+        minZoom = OfflineMapsViewModel.MIN_ZOOM_INT,
+        maxZoom = OfflineMapsViewModel.MAX_ZOOM_INT,
+    )
+    val bytes = OfflineTileEstimate.bytesFor(tiles)
+    return if (bytes >= 1024L * 1024L) {
+        stringResource(
+            R.string.offline_estimate_mb,
+            bytes / (1024L * 1024L),
+            tiles,
+        )
+    } else {
+        stringResource(
+            R.string.offline_estimate_kb,
+            (bytes / 1024L).coerceAtLeast(1L),
+            tiles,
+        )
+    }
+}
+
 /**
  * Full-screen picker: pan/zoom the mini-map to the wanted area, name it,
- * then download exactly the visible bounds.
+ * then download exactly the visible bounds. Cairo/Giza presets first
+ * (Vela catalog idea: one tap downloads a known metro area).
  */
 @Composable
 private fun RegionPickerDialog(
@@ -361,6 +440,55 @@ private fun RegionPickerDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Quick-area presets with pre-download size (Vela catalog).
+                Text(
+                    text = stringResource(R.string.offline_presets_label),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val presets = listOf(
+                    Triple(
+                        R.string.offline_preset_cairo,
+                        OfflineMapsViewModel.PRESET_CAIRO,
+                        11.0,
+                    ),
+                    Triple(
+                        R.string.offline_preset_giza,
+                        OfflineMapsViewModel.PRESET_GIZA,
+                        11.0,
+                    ),
+                    Triple(
+                        R.string.offline_preset_cairo_giza,
+                        OfflineMapsViewModel.PRESET_CAIRO_GIZA,
+                        10.0,
+                    ),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    presets.forEach { (nameRes, bounds, zoom) ->
+                        OutlinedButton(
+                            onClick = {
+                                regionName = context.getString(nameRes)
+                                runCatching {
+                                    mapRef?.moveCamera(
+                                        CameraUpdateFactory.newLatLngZoom(
+                                            OfflineMapsViewModel.centerOf(bounds),
+                                            zoom,
+                                        ),
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                        ) {
+                            Text(
+                                text = "${context.getString(nameRes)} · ${presetSizeLabel(bounds)}",
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 AndroidView(
                     factory = { ctx ->
