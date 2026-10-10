@@ -1,5 +1,6 @@
 package com.app.wasalna.utils
 
+import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Resources
 import android.os.Build
@@ -38,7 +39,7 @@ object AppLocaleHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val manager = context.getSystemService(LocaleManager::class.java) ?: return
             manager.applicationLocales = if (normalized.isBlank()) {
-                LocaleList.getEmpty()
+                LocaleList.getEmptyLocaleList()
             } else {
                 LocaleList.forLanguageTags(normalized)
             }

@@ -20,6 +20,7 @@ import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
 import com.app.wasalna.domain.model.TransitPlanner
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.domain.model.displayName
 import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
 import com.app.wasalna.utils.NetworkGuards
@@ -877,7 +878,7 @@ class MapViewModel @Inject constructor(
         const val MSG_SAVE_FAILED = "تعذر الحفظ — تحقق من الاتصال وحاول مجددًا"
         const val FALLBACK_MSG = "Offline Routing failed, using GPS straight-line"
         /** Upgrade (Oct 2026): route spans unstored areas — names the graph to download. */
-        const val SPAN_WITH_SUGGESTION = "Route is outside stored offline maps — download %1$s for road routing 🛰️"
+        const val SPAN_WITH_SUGGESTION = "Route is outside stored offline maps — download %1\$s for road routing 🛰️"
         const val MSG_OFFLINE_SEARCH =
             "وضع أوفلاين: البحث يحتاج اتصال — اعتمد على الأماكن المحفوظة 🛰️"
         const val MSG_TRAFFIC_OFFLINE =

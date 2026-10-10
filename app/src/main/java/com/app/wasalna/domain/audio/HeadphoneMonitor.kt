@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.media.AudioDeviceInfo
+import android.media.AudioDeviceCallback
 import android.media.AudioManager
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -49,7 +50,7 @@ class HeadphoneMonitor @Inject constructor(
     private val _state = MutableStateFlow(HeadphoneState.NONE)
     val state: StateFlow<HeadphoneState> = _state.asStateFlow()
 
-    private var callback: AudioManager.AudioDeviceCallback? = null
+    private var callback: AudioDeviceCallback? = null
 
     fun start() {
         if (callback != null) return
@@ -58,7 +59,7 @@ class HeadphoneMonitor @Inject constructor(
             Log.w(TAG, "start: no AudioManager")
             return
         }
-        val cb = object : AudioManager.AudioDeviceCallback() {
+        val cb = object : AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
                 scope.launch { refresh() }
             }

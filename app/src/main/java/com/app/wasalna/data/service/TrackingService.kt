@@ -418,7 +418,7 @@ class TrackingService : Service() {
             // when ON, osrm.fetchRoute below is never reached: GPS fixes +
             // local GraphHopper engine + straight-line fallback only.
             forceOffline = runCatching {
-                SettingsDataStore(applicationContext).isForceOffline.first()
+                kotlinx.coroutines.runBlocking { SettingsDataStore(applicationContext).isForceOffline.first() }
             }.getOrDefault(forceOffline)
             // Phase 10.4.3.7: while offline, silence the radio — one probe
             // per minute max, pure GPS distance on every tick meanwhile.

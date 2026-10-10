@@ -2,6 +2,7 @@ package com.app.wasalna.ui.screens.trips
 
 import androidx.compose.ui.res.stringResource
 import com.app.wasalna.R
+import com.app.wasalna.domain.model.displayName
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement

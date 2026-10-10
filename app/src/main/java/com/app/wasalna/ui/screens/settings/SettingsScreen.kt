@@ -141,7 +141,7 @@ fun SettingsScreen(
     // on API 31+. getDevices-based detection works without it, so a denial
     // only reduces BT-profile accuracy — the toggle still enables.
     val btPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission,
+        ActivityResultContracts.RequestPermission(),
     ) { viewModel.setHeadphoneOnly(true) }
 
     // DND policy-access settings round-trip: picking BYPASS without the

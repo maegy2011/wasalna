@@ -112,10 +112,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        <!-- Phase 10.10: watch-side dismissal receiver (Data Layer). -->
+        <!-- Phase 10.10: watch-side dismissal receiver (Data Layer).
+             WearableListenerService requires BIND_LISTENER to receive
+             events; the deprecation (prefer live Capability/Message
+             listeners) is acknowledged — migration is future work, the
+             filter stays so dismissal keeps working. -->
         <service
             android:name=".data.wear.PhoneWatchDismissService"
-            android:exported="false">
+            android:exported="false"
+            tools:ignore="WearableBindListener">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
             </intent-filter>

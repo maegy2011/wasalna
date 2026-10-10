@@ -2,6 +2,7 @@ package com.app.wasalna.ui.screens.map
 
 import androidx.compose.ui.res.stringResource
 import com.app.wasalna.R
+import com.app.wasalna.domain.model.displayName
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -258,17 +259,17 @@ fun MapScreen(
                     // Header cloud button: icon shows the CURRENT mode
                     // (cloud = online, cloud-off = offline); tap toggles
                     // with an Arabic confirmation Snackbar.
+                    // (strings hoisted — stringResource is @Composable-only,
+                    //  never inside the launch coroutine.)
+                    val offlineOnMsg = stringResource(R.string.map_offline_on)
+                    val offlineOffMsg = stringResource(R.string.map_offline_off)
                     OfflineModeButton(
                         isOffline = isOfflineMode,
                         onToggle = { enabled ->
                             viewModel.setOfflineMode(enabled)
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    if (enabled) {
-                                        stringResource(R.string.map_offline_on)
-                                    } else {
-                                        stringResource(R.string.map_offline_off)
-                                    },
+                                    if (enabled) offlineOnMsg else offlineOffMsg,
                                 )
                             }
                         },

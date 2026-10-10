@@ -69,6 +69,7 @@ import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.NearestStation
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.domain.model.displayName
 import com.app.wasalna.ui.components.TransitApproxNote
 import com.app.wasalna.ui.components.TransitGuideCard
 import com.app.wasalna.ui.ads.AdBanner
@@ -166,22 +167,6 @@ fun MyPlacesScreen(
             }
         }
     }
-    fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
-        if (lat == null || lng == null) {
-            quickEditTarget = if (address == homeAddress) "home" else "work"
-            scope.launch {
-                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_set_first))
-            }
-            return
-        }
-        requestTrip(
-            Location(
-                name = address.ifBlank { context.getString(R.string.quick_trip_fallback) },
-                latitude = lat,
-                longitude = lng,
-            ),
-        )
-    }
     // DYNAMIC WAKE-UP: trip-setup gate — permission/battery checks, then the
     // Arabic mode dialog (per-trip choice, persisted); confirm starts tracking.
     fun requestTrip(place: Location) {
@@ -199,6 +184,22 @@ fun MyPlacesScreen(
         }
         pendingTrip = place
         showAlarmSetup = true
+    }
+    fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
+        if (lat == null || lng == null) {
+            quickEditTarget = if (address == homeAddress) "home" else "work"
+            scope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_set_first))
+            }
+            return
+        }
+        requestTrip(
+            Location(
+                name = address.ifBlank { context.getString(R.string.quick_trip_fallback) },
+                latitude = lat,
+                longitude = lng,
+            ),
+        )
     }
     fun confirmTrip() {
         val place = pendingTrip ?: return

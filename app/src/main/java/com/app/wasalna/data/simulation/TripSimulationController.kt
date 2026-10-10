@@ -8,6 +8,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -163,7 +165,7 @@ object TripSimulationController {
         if (points.size < 2) {
             val last = points.lastOrNull() ?: return
             while (_isSimulating.value) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 emitFix(last.lat, last.lng, baseSpeedMps, 0f)
                 _progress.value = 1f
                 delay(TICK_MS)
@@ -175,7 +177,7 @@ object TripSimulationController {
         if (total < 1f) {
             val last = points.last()
             while (_isSimulating.value) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 emitFix(last.lat, last.lng, baseSpeedMps, 0f)
                 _progress.value = 1f
                 delay(TICK_MS)
@@ -199,7 +201,7 @@ object TripSimulationController {
         var stopIdx = 0
         var travelled = 0f
         while (_isSimulating.value && travelled < total) {
-            ensureActive()
+            currentCoroutineContext().ensureActive()
             if (!_isPaused.value) {
                 val speed = baseSpeedMps * _speedMultiplier.value.toFloat()
                 val nextStop = stopMarks.getOrNull(stopIdx)
@@ -215,7 +217,7 @@ object TripSimulationController {
                     emitFix(pos.lat, pos.lng, 0f, pos.bearing)
                     _progress.value = (travelled / total).coerceIn(0f, 1f)
                     repeat(dwellTicks) {
-                        ensureActive()
+                        currentCoroutineContext().ensureActive()
                         // Pause freezes the dwell too (no time passes).
                         if (!_isPaused.value) emitFix(pos.lat, pos.lng, 0f, pos.bearing)
                         delay(TICK_MS)
@@ -232,7 +234,7 @@ object TripSimulationController {
         val end = points.last()
         val cruise = baseSpeedMps * _speedMultiplier.value.toFloat()
         while (_isSimulating.value) {
-            ensureActive()
+            currentCoroutineContext().ensureActive()
             if (!_isPaused.value) emitFix(end.lat, end.lng, cruise, 0f)
             delay(TICK_MS)
         }
@@ -346,10 +348,8 @@ object TripSimulationController {
         simScope.coroutineContext.cancelChildren()
     }
 
-    companion object {
-        private const val SNAP_M = 20f
+    private const val SNAP_M = 20f
 
-        /** Station dwell ticks at 1x (scaled down at 4x/16x, min 2). */
-        private const val DWELL_TICKS = 15
-    }
+    /** Station dwell ticks at 1x (scaled down at 4x/16x, min 2). */
+    private const val DWELL_TICKS = 15
 }

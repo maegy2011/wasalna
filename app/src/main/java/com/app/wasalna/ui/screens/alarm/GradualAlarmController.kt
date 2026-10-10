@@ -17,6 +17,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -97,7 +99,7 @@ class GradualAlarmController(
             runCatching {
                 runEscalation(uri, config, preferredDevice, headphoneOnly)
             }.onFailure { error ->
-                ensureActive()
+                if (error is CancellationException) throw error
                 Log.e(TAG, "escalation failed: ${error.message}")
             }
         }
@@ -123,7 +125,7 @@ class GradualAlarmController(
             startVibration(patternFor(config.vibrationStrength), repeat = 0)
             Log.i(TAG, "phase1: vibration-only ${config.vibrationOnlySec}s")
             delay(config.vibrationOnlySec.coerceIn(5, 20) * 1_000L)
-            ensureActive()
+            currentCoroutineContext().ensureActive()
 
             // Phase 2 — quiet looping sound, ramping up once per second.
             _phase.value = GradualPhase.RAMPING
@@ -133,7 +135,7 @@ class GradualAlarmController(
             Log.i(TAG, "phase2: ramping $startLevel->$maxVolume over ${steps}s" +
                 if (headphoneOnly) " (headphones only)" else "")
             for (step in 0..steps) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 val level = startLevel + ((maxVolume - startLevel) * step / steps)
                 runCatching {
                     am?.setStreamVolume(stream, level, 0)
@@ -141,7 +143,7 @@ class GradualAlarmController(
                 if (step == steps) break
                 delay(1_000L)
             }
-            ensureActive()
+            currentCoroutineContext().ensureActive()
 
             // Phase 3 — full volume + aggressive vibration until dismissed.
             _phase.value = GradualPhase.FULL
@@ -195,7 +197,7 @@ class GradualAlarmController(
                 prepare()
             }
             withContext(Dispatchers.Main.immediate) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 player?.let {
                     runCatching {
                         if (it.isPlaying) it.stop()
