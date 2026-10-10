@@ -56,6 +56,29 @@ import kotlin.math.sqrt
  *   → alight at nearest stop to destination → walk (no timetables, no
  *   live departures — OsmAnd-style static routing).
  *
+ * OSMAND ROUTING PRINCIPLES (studied Oct 2026 from the OsmAnd PT-
+ * navigation doc — VERBATIM facts, quoted, then what we adapted):
+ * - Verbatim: PT data comes from OSM under the PTv2 schema; supported
+ *   route types: bus, trolleybus, share_taxi, funicular, subway,
+ *   light_rail, monorail, train, tram, ferry. A default speed per vehicle
+ *   type (routing.xml) finds the fastest routes. Options show walk times
+ *   + PT routes with time/distance/transfers; details list all stops +
+ *   transfers. Alternative routes = different services sharing the same
+ *   track/stops (colored badges with refs). Search depth = max PT
+ *   transfers (default 2). PT navigation is BETA: build + view a route,
+ *   no full navigation function yet.
+ * - Adapted here: our bundled rosters ARE the preprocessed form (our
+ *   equivalent of OsmAnd's map-side PT bake — Kotlin objects, no obf
+ *   toolchain on-device); per-system cruise speeds ([TransitLine.effKmh]
+ *   in TransitData.kt) play the routing.xml role; walk + ride + transfer
+ *   options with stop lists mirror OsmAnd's option/details split.
+ * - Explicitly NOT claimed: no obf files, no embedded GTFS/timetables,
+ *   no full turn-by-turn PT navigation (same beta boundary OsmAnd
+ *   itself declares), max 1 transfer in TransitPlanner vs OsmAnd's
+ *   default 2 (documented gap — 2-transfer search is future work),
+ *   no avoid-X filters yet (their avoid bus/subway/train/tram/ferry/
+ *   share-taxi toggles have no counterpart here).
+ *
  * REFRESH PATH (fetch-at-download-time evolution, not yet wired):
  * [OVERPASS_REFRESH_QL] re-derives the Cairo rosters from OSM whenever a
  * region downloads. Direct Overpass access was unavailable from the build
