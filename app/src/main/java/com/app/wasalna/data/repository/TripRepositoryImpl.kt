@@ -37,6 +37,7 @@ class TripRepositoryImpl @Inject constructor(
         lat: Double,
         lng: Double,
         mode: TransportMode,
+        isSimulated: Boolean,
     ): Long {
         val now = System.currentTimeMillis()
         return tripDao.closeAndStartTrip(
@@ -46,6 +47,7 @@ class TripRepositoryImpl @Inject constructor(
             startTime = now,
             endTime = now,
             mode = mode.name,
+            isSimulated = isSimulated,
         )
     }
 

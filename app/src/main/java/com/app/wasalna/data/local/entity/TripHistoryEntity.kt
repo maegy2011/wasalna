@@ -20,6 +20,11 @@ data class TripHistoryEntity(
     val status: String = TripStatus.ACTIVE,
     val transportMode: String = "CAR",
     val etaMinutes: Int? = null,
+    // Sim quarantine (Oct 2026, user order): simulated trips must NEVER
+    // pollute history or stats. The service never inserts for sims
+    // (primary guard); this flag + the DAO's `isSimulated = 0` filters
+    // are the backstop so no future path can leak one in.
+    val isSimulated: Boolean = false,
 )
 
 object TripStatus {

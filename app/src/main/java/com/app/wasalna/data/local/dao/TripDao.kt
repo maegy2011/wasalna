@@ -18,20 +18,22 @@ interface TripDao {
     @Insert
     suspend fun insertTrip(trip: TripHistoryEntity): Long
 
-    @Query("SELECT * FROM trips WHERE status = '${TripStatus.ACTIVE}' ORDER BY startTime DESC LIMIT 1")
+    // Sim quarantine (Oct 2026): every read path excludes simulated
+    // rows — history, counts, ETA sums and the active-trip slot.
+    @Query("SELECT * FROM trips WHERE status = '${TripStatus.ACTIVE}' AND isSimulated = 0 ORDER BY startTime DESC LIMIT 1")
     fun activeTrip(): Flow<TripHistoryEntity?>
 
     // Phase 10.4.3.8: single-trip lookup for the route map screen.
     @Query("SELECT * FROM trips WHERE id = :id LIMIT 1")
     suspend fun tripById(id: Long): TripHistoryEntity?
 
-    @Query("SELECT * FROM trips WHERE status = '${TripStatus.PAST}' ORDER BY endTime DESC")
+    @Query("SELECT * FROM trips WHERE status = '${TripStatus.PAST}' AND isSimulated = 0 ORDER BY endTime DESC")
     fun pastTrips(): Flow<List<TripHistoryEntity>>
 
-    @Query("SELECT COUNT(*) FROM trips WHERE status = '${TripStatus.PAST}'")
+    @Query("SELECT COUNT(*) FROM trips WHERE status = '${TripStatus.PAST}' AND isSimulated = 0")
     fun pastCount(): Flow<Int>
 
-    @Query("SELECT COALESCE(SUM(etaMinutes), 0) FROM trips WHERE status = '${TripStatus.PAST}'")
+    @Query("SELECT COALESCE(SUM(etaMinutes), 0) FROM trips WHERE status = '${TripStatus.PAST}' AND isSimulated = 0")
     fun totalEtaMinutes(): Flow<Int>
 
     @Query("UPDATE trips SET etaMinutes = :etaMin WHERE id = :id")
@@ -54,6 +56,9 @@ interface TripDao {
         startTime: Long,
         endTime: Long,
         mode: String,
+        // Sim quarantine: callers must pass true for simulated trips so
+        // the row is born quarantined even before the DAO filters apply.
+        isSimulated: Boolean = false,
     ): Long {
         closeOpenTrips(endTime)
         return insertTrip(
@@ -64,6 +69,7 @@ interface TripDao {
                 startTime = startTime,
                 status = TripStatus.ACTIVE,
                 transportMode = mode,
+                isSimulated = isSimulated,
             ),
         )
     }

@@ -28,7 +28,7 @@ object DatabaseModule {
     )
         // Phase 10.4.3.7 (Part 2): real v2→v3 migration; destructive stays
         // only as a last-resort safety net.
-        .addMigrations(AppDatabase.MIGRATION_2_3)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
         .fallbackToDestructiveMigration()
         .build()
 

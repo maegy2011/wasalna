@@ -18,12 +18,18 @@ interface TripRepository {
 
     fun totalEtaMinutes(): Flow<Int>
 
-    /** Closes stale ACTIVE rows, inserts the new trip, returns its id. */
+    /**
+     * Closes stale ACTIVE rows, inserts the new trip, returns its id.
+     * Sim quarantine (Oct 2026): simulated trips must pass
+     * `isSimulated = true` — quarantined at birth, invisible to history
+     * and stats even if the service-level skip is ever bypassed.
+     */
     suspend fun startTrip(
         name: String,
         lat: Double,
         lng: Double,
         mode: TransportMode,
+        isSimulated: Boolean = false,
     ): Long
 
     suspend fun updateEta(id: Long, etaMin: Int)
