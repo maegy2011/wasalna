@@ -11,4 +11,7 @@ object AppLinks {
 
     /** Base URL hosting downloadable offline routing graphs (*.ghz). */
     const val GRAPH_BASE_URL = "https://mohamedadel.cfd/downloads/graphs"
+
+    /** Base URL hosting offline search gazetteers (*.json.gz, Oct 2026). */
+    const val GAZETTEER_BASE_URL = "https://mohamedadel.cfd/downloads/gazetteer"
 }

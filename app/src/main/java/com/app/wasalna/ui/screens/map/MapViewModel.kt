@@ -33,6 +33,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,6 +65,7 @@ class MapViewModel @Inject constructor(
     private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
     private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
     private val traffic: TrafficRepository,
+    private val gazetteer: com.app.wasalna.data.search.OfflineGazetteer,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -449,32 +451,102 @@ class MapViewModel @Inject constructor(
      */
     fun searchPlaces(query: String) {
         viewModelScope.launch {
-            // ── OFFLINE BOUNDARY: Photon search needs network — when
-            // offline, keep the map usable and say so in Arabic.
-            if (isOfflineMode.value) {
-                _predictions.value = emptyList()
-                _searchError.value = msg(R.string.map_offline_search)
-                _isSearching.value = false
+            // ── OFFLINE BOUNDARY (upgraded Oct 2026): Photon needs
+            // network, but the on-device gazetteer (streets, districts,
+            // stations, services + saved places) answers anyway — the
+            // old "offline, no search" dead end is gone.
+            if (isOfflineMode.value || !NetworkGuards.isOnline(appContext)) {
+                searchOffline(query)
                 return@launch
             }
+            // Online: Photon first, gazetteer fills gaps (new streets,
+            // Arabic spellings Photon misses). Deduped by coordinates.
             val fix = currentFix()
-            runCatching {
+            val online = runCatching {
                 vela.suggest(query, lat = fix?.latitude, lon = fix?.longitude)
-            }.onSuccess {
-                _predictions.value = it
-                // Phase 10.4.3.2: offline search — map renders, network doesn't.
-                _searchError.value = if (it.isEmpty() && vela.lastWasOffline) {
-                    NetworkGuards.OFFLINE_MESSAGE
-                } else {
-                    null
-                }
-            }.onFailure { e ->
-                Log.e(TAG, "Photon search failed: ${e.message}")
-                _predictions.value = emptyList()
-                _searchError.value = "Search failed: check your connection"
+            }.getOrElse {
+                Log.e(TAG, "Photon search failed: ${it.message}")
+                // Photon down = offline path (gazetteer + saved places).
+                searchOffline(query)
+                return@launch
             }
+            val local = searchLocalHits(query)
+            _predictions.value = mergeSearchResults(online, local)
+            _searchError.value = null
             _isSearching.value = false
         }
+    }
+
+    /**
+     * Offline search (Oct 2026): gazetteer index + the user's own saved
+     * places, ranked gazetteer-first. Ensures the index for the current
+     * area is loaded (fetches the tiny file when missing), so search
+     * works with zero preparation — not only for pre-downloaded regions.
+     */
+    private suspend fun searchOffline(query: String) {
+        runCatching {
+            val fix = currentFix()
+            if (fix != null) {
+                gazetteer.ensureForLocation(graphManager, fix.latitude, fix.longitude)
+            } else {
+                gazetteer.preloadInstalled(graphManager)
+            }
+        }
+        _predictions.value = searchLocalHits(query)
+        _searchError.value = if (_predictions.value.isEmpty()) {
+            msg(R.string.map_offline_search)
+        } else {
+            null
+        }
+        _isSearching.value = false
+    }
+
+    /** Gazetteer hits + saved-place matches, as [SearchResult] rows. */
+    private suspend fun searchLocalHits(query: String): List<SearchResult> {
+        val gazHits = runCatching { gazetteer.search(query) }.getOrDefault(emptyList())
+        val results = gazHits.map {
+            SearchResult(name = it.name, lat = it.lat, lng = it.lng)
+        }.toMutableList()
+        // The user's own places always searchable (both languages match
+        // via the same normalizer — "home"/"البيت" both work).
+        runCatching {
+            val q = gazetteer.normalize(query)
+            // first() snapshot — the Room Flow never completes, so
+            // collect{} would hang the search; one snapshot is enough.
+            locationRepository.getAllLocations().first().forEach { loc ->
+                if (gazetteer.normalize(loc.name).contains(q)) {
+                    results.add(
+                        SearchResult(
+                            name = loc.name,
+                            lat = loc.latitude,
+                            lng = loc.longitude,
+                        ),
+                    )
+                }
+            }
+        }
+        return results.take(10)
+    }
+
+    /** Online first, then local extras deduped by ~100 m coordinate cell. */
+    private fun mergeSearchResults(
+        online: List<SearchResult>,
+        local: List<SearchResult>,
+    ): List<SearchResult> {
+        if (local.isEmpty()) return online
+        val seen = online.mapNotNull {
+            val la = it.lat ?: return@mapNotNull null
+            val ln = it.lng ?: return@mapNotNull null
+            "${(la * 1000).toInt()}:${(ln * 1000).toInt()}"
+        }.toMutableSet()
+        val merged = online.toMutableList()
+        for (hit in local) {
+            val la = hit.lat ?: continue
+            val ln = hit.lng ?: continue
+            val key = "${(la * 1000).toInt()}:${(ln * 1000).toInt()}"
+            if (seen.add(key)) merged.add(hit)
+        }
+        return merged.take(12)
     }
 
     /**

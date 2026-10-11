@@ -15,4 +15,12 @@ object NetworkGuards {
 
     fun isOfflineCause(t: Throwable): Boolean =
         t is UnknownHostException || t is IOException
+
+    /** True when any validated network is up (Oct 2026, gazetteer use). */
+    fun isOnline(context: android.content.Context): Boolean = runCatching {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+            ?: return false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }.getOrDefault(false)
 }
