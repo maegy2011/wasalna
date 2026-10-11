@@ -95,6 +95,31 @@ class OfflineGazetteer @Inject constructor(
 
     fun anyLoaded(): Boolean = loadedRegions.isNotEmpty()
 
+    /** File on disk (downloaded, whether or not loaded into memory). */
+    fun isStored(regionId: String): Boolean {
+        val f = gazFile(regionId)
+        return f.exists() && f.length() >= 1024
+    }
+
+    /** Stored file size in bytes (0 when absent). */
+    fun storedBytes(regionId: String): Long =
+        runCatching { gazFile(regionId).takeIf { it.exists() }?.length() ?: 0L }
+            .getOrDefault(0L)
+
+    /**
+     * Deletes the stored file and drops the in-memory index (entries are
+     * not region-tagged, so the whole index rebuilds lazily on next
+     * search). Returns true when something was removed.
+     */
+    suspend fun delete(regionId: String): Boolean = mutex.withLock {
+        val removed = runCatching {
+            gazFile(regionId).delete() || !gazFile(regionId).exists()
+        }.getOrDefault(false)
+        loadedRegions.clear()
+        index.clear()
+        removed
+    }
+
     /**
      * Loads a region's index into memory (cached; second call is free).
      * Downloads first when missing — small file, any network allowed.

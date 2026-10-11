@@ -98,11 +98,23 @@ fun OfflineRoutingScreen(
             ) {
                 items(viewModel.regions, key = { it.id }) { region ->
                     val state by viewModel.stateFor(region.id).collectAsState()
+                    // Gazetteer row state (Oct 2026): file-based, re-read
+                    // on every gazVersion bump (download/delete/fail).
+                    val gazVersion by viewModel.gazVersion.collectAsState()
+                    val gazBusyIds by viewModel.gazBusy.collectAsState()
+                    val gazFailedIds by viewModel.gazFailed.collectAsState()
+                    @Suppress("UNUSED_EXPRESSION") gazVersion
                     OfflineRegionCard(
                         region = region,
                         state = state,
                         onDownload = { viewModel.download(region) },
                         onDelete = { pendingGraphDelete = region.id },
+                        gazStored = viewModel.isGazStored(region.id),
+                        gazBusy = gazBusyIds.contains(region.id),
+                        gazFailed = gazFailedIds.contains(region.id),
+                        gazKb = viewModel.gazSizeKb(region.id),
+                        onGazDownload = { viewModel.downloadGazetteer(region) },
+                        onGazDelete = { viewModel.deleteGazetteer(region.id) },
                     )
                 }
             }
@@ -131,6 +143,12 @@ private fun OfflineRegionCard(
     state: OfflineGraphState,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
+    gazStored: Boolean,
+    gazBusy: Boolean,
+    gazFailed: Boolean,
+    gazKb: Long,
+    onGazDownload: () -> Unit,
+    onGazDelete: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -143,6 +161,60 @@ private fun OfflineRegionCard(
                 text = stringResource(R.string.routing_size, region.sizeMb),
                 style = MaterialTheme.typography.bodySmall,
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            // Offline search index (Oct 2026): same download/delete UX
+            // as the graph above — streets, districts, stations, POIs.
+            Text(
+                text = "🔍 ${stringResource(R.string.routing_gaz_title)}",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(R.string.routing_gaz_hint),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            when {
+                gazBusy -> {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.routing_gaz_downloading),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                gazStored -> {
+                    Text(
+                        text = stringResource(R.string.routing_gaz_ready, gazKb),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onGazDelete) {
+                            Text(stringResource(R.string.common_delete))
+                        }
+                    }
+                }
+                else -> {
+                    Text(
+                        text = if (gazFailed) {
+                            stringResource(R.string.routing_gaz_failed)
+                        } else {
+                            stringResource(R.string.routing_gaz_missing)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (gazFailed) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(onClick = onGazDownload) {
+                        Text(
+                            if (gazFailed) stringResource(R.string.common_retry)
+                            else stringResource(R.string.common_download),
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             when (state) {
                 is OfflineGraphState.NotDownloaded -> {

@@ -158,6 +158,12 @@
     <string name="settings_voice_engine_note">Uses your device text-to-speech engine</string>
     <string name="alarm_arrived_voice">You have arrived at %1$s</string>
     <string name="settings_autograph_title">Auto-download trip maps</string>
+    <string name="routing_gaz_title">Street &amp; place search</string>
+    <string name="routing_gaz_hint">Offline names for this region</string>
+    <string name="routing_gaz_ready">Search ready (%1$d KB on device)</string>
+    <string name="routing_gaz_missing">Search names not downloaded</string>
+    <string name="routing_gaz_failed">Search download failed — retry</string>
+    <string name="routing_gaz_downloading">Downloading search names…</string>
     <string name="settings_autograph_sub">Fetch offline routing over Wi-Fi when needed</string>
     <string name="alarm_setup_cancel">Cancel</string>
     <string name="alarm_notif_mode_distance">Alarm mode: by distance</string>

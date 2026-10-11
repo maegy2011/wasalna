@@ -7,6 +7,7 @@ import com.app.wasalna.data.routing.OfflineGraphState
 import com.app.wasalna.data.routing.RoutingGraphManager
 import com.app.wasalna.data.routing.RoutingRegion
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -28,6 +29,7 @@ data class OfflineRoutingRow(
 class OfflineRoutingViewModel @Inject constructor(
     private val graphManager: RoutingGraphManager,
     private val routeEngine: GraphHopperRouteEngine,
+    private val gazetteer: com.app.wasalna.data.search.OfflineGazetteer,
 ) : ViewModel() {
 
     /** Region list (hardcoded for now, list-designed via REGIONS). */
@@ -55,6 +57,45 @@ class OfflineRoutingViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { routeEngine.reset() }
             runCatching { graphManager.delete(regionId) }
+        }
+    }
+
+    // ---- Offline search indexes (Oct 2026): downloadable gazetteers,
+    // same UX pattern as graphs. [gazVersion] bumps on every change so
+    // the screen re-reads stored state (file-based, not a Flow).
+    private val _gazVersion = MutableStateFlow(0)
+    val gazVersion: StateFlow<Int> = _gazVersion
+
+    private val _gazBusy = MutableStateFlow<Set<String>>(emptySet())
+    val gazBusy: StateFlow<Set<String>> = _gazBusy
+
+    private val _gazFailed = MutableStateFlow<Set<String>>(emptySet())
+    val gazFailed: StateFlow<Set<String>> = _gazFailed
+
+    fun isGazStored(regionId: String): Boolean =
+        runCatching { gazetteer.isStored(regionId) }.getOrDefault(false)
+
+    fun gazSizeKb(regionId: String): Long =
+        runCatching { gazetteer.storedBytes(regionId) / 1024L }.getOrDefault(0L)
+
+    fun downloadGazetteer(region: RoutingRegion) {
+        if (_gazBusy.value.contains(region.id)) return
+        _gazBusy.value = _gazBusy.value + region.id
+        _gazFailed.value = _gazFailed.value - region.id
+        viewModelScope.launch {
+            val ok = runCatching { gazetteer.ensureRegion(region) }
+                .getOrDefault(false)
+            if (!ok) _gazFailed.value = _gazFailed.value + region.id
+            _gazBusy.value = _gazBusy.value - region.id
+            _gazVersion.value = _gazVersion.value + 1
+        }
+    }
+
+    fun deleteGazetteer(regionId: String) {
+        viewModelScope.launch {
+            runCatching { gazetteer.delete(regionId) }
+            _gazFailed.value = _gazFailed.value - regionId
+            _gazVersion.value = _gazVersion.value + 1
         }
     }
 }
