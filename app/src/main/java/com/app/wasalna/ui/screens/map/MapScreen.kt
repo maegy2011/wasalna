@@ -33,8 +33,10 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Traffic
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -540,40 +542,31 @@ fun MapScreen(
                             }
                         }
                     }
-                    // Map UX fixes: zoom-level selector (3..19) bound to the
-                    // MapLibre camera zoom — +/- steppers (48dp targets) + slider.
+                    // Zoom pill (user order Oct 2026): two compact +/- buttons
+                    // in one slim pill — the number readout and slider are
+                    // gone, the map keeps the stage.
                     Card(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(16.dp),
+                        shape = RoundedCornerShape(24.dp),
                     ) {
                         Column(
-                            modifier = Modifier.padding(8.dp),
+                            modifier = Modifier.padding(4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            IconButton(
+                            FilledTonalIconButton(
                                 onClick = { viewModel.zoomIn() },
                                 modifier = Modifier.size(48.dp),
                             ) {
                                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.map_zoom_in))
                             }
-                            Text(
-                                text = cameraZoom.toInt().toString(),
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                            IconButton(
+                            FilledTonalIconButton(
                                 onClick = { viewModel.zoomOut() },
                                 modifier = Modifier.size(48.dp),
                             ) {
                                 Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.map_zoom_out))
                             }
-                            Slider(
-                                value = cameraZoom,
-                                onValueChange = viewModel::setZoom,
-                                valueRange = MapViewModel.MIN_ZOOM..MapViewModel.MAX_ZOOM,
-                                modifier = Modifier.width(120.dp),
-                            )
                         }
                     }
                 }

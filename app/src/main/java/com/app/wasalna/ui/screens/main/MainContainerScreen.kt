@@ -128,6 +128,41 @@ fun MainContainerScreen() {
     fun isSelected(route: String): Boolean =
         currentHierarchy?.any { it.route == route } == true
 
+
+    fun openDrawer() = scope.launch { drawerState.open() }
+    fun closeDrawer() = scope.launch { drawerState.close() }
+
+    // Phase 10-Fix: bottom bar stays visible on every destination (tabs +
+    // full-screen Map) so navigation never disappears. NavHost lives INSIDE
+    // the Scaffold padding below.
+    fun navigateTab(route: String) {
+        innerNav.navigate(route) {
+            popUpTo(innerNav.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    /**
+     * Phase 10.4.3.1: null = blank picker; a trip carries its destination
+     * + mode so the map opens on the live visualization.
+     */
+    fun openMapFullScreen(trip: TripHistory? = null) {
+        val route = if (trip == null) {
+            Screen.Map.route
+        } else {
+            Screen.Map.route +
+                "?lat=${trip.destLat}&lng=${trip.destLng}" +
+                "&mode=${trip.transportMode.name}" +
+                "&name=${Uri.encode(trip.locationName)}"
+        }
+        innerNav.navigate(route) {
+            launchSingleTop = true
+        }
+    }
+
     // Smart back (user order Oct 2026): remembers the visit history and
     // returns to the LAST screen instead of fixed destinations. Drawer
     // closes first; pushed screens pop naturally; at a root the previous
@@ -170,40 +205,6 @@ fun MainContainerScreen() {
                     Toast.LENGTH_SHORT,
                 ).show()
             }
-        }
-    }
-
-    fun openDrawer() = scope.launch { drawerState.open() }
-    fun closeDrawer() = scope.launch { drawerState.close() }
-
-    // Phase 10-Fix: bottom bar stays visible on every destination (tabs +
-    // full-screen Map) so navigation never disappears. NavHost lives INSIDE
-    // the Scaffold padding below.
-    fun navigateTab(route: String) {
-        innerNav.navigate(route) {
-            popUpTo(innerNav.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
-
-    /**
-     * Phase 10.4.3.1: null = blank picker; a trip carries its destination
-     * + mode so the map opens on the live visualization.
-     */
-    fun openMapFullScreen(trip: TripHistory? = null) {
-        val route = if (trip == null) {
-            Screen.Map.route
-        } else {
-            Screen.Map.route +
-                "?lat=${trip.destLat}&lng=${trip.destLng}" +
-                "&mode=${trip.transportMode.name}" +
-                "&name=${Uri.encode(trip.locationName)}"
-        }
-        innerNav.navigate(route) {
-            launchSingleTop = true
         }
     }
 
