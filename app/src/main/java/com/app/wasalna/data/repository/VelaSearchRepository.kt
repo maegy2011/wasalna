@@ -30,10 +30,10 @@ class VelaSearchRepository @Inject constructor() {
         .build()
 
     /**
-     * Keyless place autocomplete. When [lat]/[lon] are supplied Photon
-     * biases results toward the user's actual country/city; without them
-     * it falls back to unbiased global search. Empty list on any failure —
-     * never throws (runs on Dispatchers.IO).
+     * Keyless place autocomplete, GPS-scoped (Oct 2026): the search
+     * window follows the live fix (±3°, country-scale) — no hardcoded
+     * country; without a fix it falls back to the home-market bbox.
+     * Empty list on any failure — never throws (runs on Dispatchers.IO).
      */
     /**
      * Phase 10.4.3.2: true when the last call failed from no connectivity.
@@ -50,12 +50,17 @@ class VelaSearchRepository @Inject constructor() {
     ): List<SearchResult> =
         withContext(Dispatchers.IO) {
             lastWasOffline = false
+            rLat = lat
+            rLng = lon
             runCatching {
                 val bias = if (lat != null && lon != null) "&lat=$lat&lon=$lon" else ""
-                // Egypt-only (Oct 2026, user order): server-side bbox +
-                // client-side backstop — Wasalna? serves Egypt, so Paris
-                // or Dubai matches must never appear in the list.
-                val url = PHOTON_URL + "?q=${encode(query)}$bias&limit=10&lang=en&bbox=$EGYPT_BBOX"
+                // GPS-scoped (Oct 2026, user order): the search window
+                // follows the LIVE fix — no hardcoded country. With a
+                // fix the window is ±3° around it (country-scale); without
+                // one we fall back to the home-market bbox (Egypt).
+                val scope = scopeFor(lat, lon)
+                val url = PHOTON_URL + "?q=${encode(query)}$bias&limit=10&lang=en" +
+                    "&bbox=${scope[0]},${scope[1]},${scope[2]},${scope[3]}"
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", NominatimRepository.USER_AGENT)
@@ -74,6 +79,10 @@ class VelaSearchRepository @Inject constructor() {
             }.getOrDefault(emptyList())
         }
 
+    // Request scope remembered for the client-side backstop (same call).
+    @Volatile private var rLat: Double? = null
+    @Volatile private var rLng: Double? = null
+
     private fun parsePhoton(body: String): List<SearchResult> {
         val features = JSONObject(body).optJSONArray("features") ?: return emptyList()
         return List(features.length()) { i ->
@@ -84,8 +93,8 @@ class VelaSearchRepository @Inject constructor() {
             val lat = coords?.optDouble(1)
             if (props == null || lat == null || lng == null) return@List null
             // Backstop: Photon honors bbox, but a misbehaving mirror or
-            // future API change must not leak foreign results into the UI.
-            if (!inEgypt(lat, lng)) return@List null
+            // future API change must not leak out-of-scope results.
+            if (!inScope(lat, lng, rLat, rLng)) return@List null
             SearchResult(
                 name = displayName(props),
                 lat = lat,
@@ -109,10 +118,40 @@ class VelaSearchRepository @Inject constructor() {
         private const val TAG = "VelaSearch"
         const val PHOTON_URL = "https://photon.komoot.io/api/"
 
-        /** Egypt bbox (minLon,minLat,maxLon,maxLat) — mirrors EGYPT_FULL. */
+        /** GPS window half-size (degrees ≈ ±330 km) — country-scale. */
+        const val SCOPE_HALF_DEG = 3.0
+
+        /** Home-market fallback bbox (minLon,minLat,maxLon,maxLat). */
         const val EGYPT_BBOX = "24.5,21.5,35.0,31.8"
 
-        /** True inside Egypt (inclusive) — client-side result guard. */
+        /**
+         * Search scope for a fix: [minLon,minLat,maxLon,maxLat] window
+         * around the live position, clamped to valid ranges. Null fix →
+         * home-market (Egypt) default — the app cannot scope blind.
+         */
+        fun scopeFor(lat: Double?, lon: Double?): DoubleArray {
+            if (lat == null || lon == null) {
+                return doubleArrayOf(24.5, 21.5, 35.0, 31.8)
+            }
+            val h = SCOPE_HALF_DEG
+            return doubleArrayOf(
+                (lon - h).coerceIn(-180.0, 180.0),
+                (lat - h).coerceIn(-90.0, 90.0),
+                (lon + h).coerceIn(-180.0, 180.0),
+                (lat + h).coerceIn(-90.0, 90.0),
+            )
+        }
+
+        /** True when the point lies in the request's scope window. */
+        fun inScope(lat: Double, lng: Double, cLat: Double?, cLng: Double?): Boolean {
+            if (cLat == null || cLng == null) {
+                return lat in 21.5..31.8 && lng in 24.5..35.0
+            }
+            val h = SCOPE_HALF_DEG
+            return lat in (cLat - h)..(cLat + h) && lng in (cLng - h)..(cLng + h)
+        }
+
+        /** True inside Egypt (inclusive) — legacy guard, kept for callers. */
         fun inEgypt(lat: Double, lng: Double): Boolean =
             lat in 21.5..31.8 && lng in 24.5..35.0
     }

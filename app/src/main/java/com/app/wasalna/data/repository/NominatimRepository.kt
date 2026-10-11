@@ -28,17 +28,26 @@ class NominatimRepository @Inject constructor() {
 
     /**
      * Forward search: query → up to 5 results with display_name + lat/lon.
-     * Egypt-only (Oct 2026, user order): countrycodes + bounded viewbox
-     * (same EGYPT_FULL bbox as the Photon path). Currently used by no
-     * UI path (Map uses Photon; this stays for fallback) — kept correct.
-     * Runs on Dispatchers.IO — never blocks the UI thread.
+     * GPS-scoped (Oct 2026, user order): bounded viewbox around the fix
+     * when supplied (+ optional countrycodes); home-market Egypt box as
+     * fallback. Currently used by no UI path (Map uses Photon) — kept
+     * correct. Runs on Dispatchers.IO — never blocks the UI thread.
      */
-    suspend fun searchPlaces(query: String): List<OsmSearchResult> =
+    suspend fun searchPlaces(
+        query: String,
+        lat: Double? = null,
+        lon: Double? = null,
+        countryCode: String? = null,
+    ): List<OsmSearchResult> =
         withContext(Dispatchers.IO) {
             runCatching {
+                val scope = VelaSearchRepository.scopeFor(lat, lon)
+                // Nominatim viewbox order: left,top,right,bottom.
+                val viewbox = "${scope[0]},${scope[3]},${scope[2]},${scope[1]}"
+                val cc = if (countryCode != null) "&countrycodes=$countryCode" else ""
                 val url = HttpUrlBuilder.SEARCH +
                     "?q=${encode(query)}&format=json&limit=5&addressdetails=0" +
-                    "&countrycodes=eg&viewbox=24.5,31.8,35.0,21.5&bounded=1"
+                    "&viewbox=$viewbox&bounded=1$cc"
                 val body = get(url) ?: return@runCatching emptyList<OsmSearchResult>()
                 val arr = JSONArray(body)
                 List(arr.length()) { i ->
