@@ -123,6 +123,18 @@ class RoutingGraphManager @Inject constructor(
     fun installedRegionIds(): List<String> =
         REGIONS.map { it.id }.filter { isInstalled(it) }
 
+    /**
+     * Via-route coverage (Oct 2026, offline edit): first installed
+     * region containing EVERY point (origin + stops + destination) —
+     * the engine holds one graph, so multi-region via routes are not
+     * routable offline (caller falls back, never fakes).
+     */
+    fun coveringRegionForAll(points: List<Pair<Double, Double>>): RoutingRegion? =
+        REGIONS.firstOrNull { region ->
+            points.all { (la, ln) -> region.contains(la, ln) } &&
+                isInstalled(region.id)
+        }
+
     /** Installed region id → its graph dir (new store preferred). */
     fun installedRegionDirs(): Map<String, File> =
         installedRegionIds().associateWith { regionId ->

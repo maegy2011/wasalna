@@ -333,6 +333,21 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // AQI BYOK (Oct 2026): user's own WAQI token ("" = layer unavailable).
+    val waqiApiKey: StateFlow<String> =
+        settingsRepository.waqiApiKey.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    fun setWaqiApiKey(key: String) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setWaqiApiKey(key) }
+                .onFailure { Log.e(TAG, "waqi key save failed: ${it.message}") }
+        }
+    }
+
     // Phase 10.10: watch-only destination alert (PREMIUM-gated) — the
     // phone stays silent and only the paired watch vibrates/rings.
     val watchOnlyAlert: StateFlow<Boolean> =

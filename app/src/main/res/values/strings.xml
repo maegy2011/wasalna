@@ -167,6 +167,22 @@
     <string name="trip_need_battery">Remove battery restriction so tracking survives — opening settings</string>
     <string name="trip_sim_prefix">[SIM]</string>
     <string name="nav_start_trip">Start a new trip</string>
+    <string name="via_added">Stop %1$d added — route updated</string>
+    <string name="via_max">Maximum %1$d stops</string>
+    <string name="via_stop">Stop %1$d</string>
+    <string name="via_remove">Remove stop</string>
+    <string name="via_clear">Clear stops</string>
+    <string name="voice_search_desc">Voice search</string>
+    <string name="voice_prompt">Say the place name</string>
+    <string name="voice_unavailable">Voice search is not available on this device</string>
+    <string name="layers_title">Map layers</string>
+    <string name="layer_traffic">Traffic</string>
+    <string name="layer_traffic_sub">Live congestion (online)</string>
+    <string name="layer_transit">Public transit</string>
+    <string name="layer_transit_sub">Cairo metro lines + stations (works offline)</string>
+    <string name="layer_aqi">Air quality</string>
+    <string name="layer_aqi_sub">AQI heatmap (online, needs a free WAQI token)</string>
+    <string name="layer_aqi_need_token">Add your free WAQI token in Settings → Air quality</string>
     <string name="sim_blocked_by_trip">A real trip is running — stop it before simulating</string>
     <string name="routing_gaz_title">Street &amp; place search</string>
     <string name="routing_gaz_hint">Offline names for this region</string>
@@ -595,6 +611,11 @@
     <string name="settings_routes_cleared">Routes key cleared</string>
     <string name="settings_routes_show">Show key</string>
     <string name="settings_routes_hide">Hide key</string>
+    <string name="settings_waqi_title">Air-quality token (optional)</string>
+    <string name="settings_waqi_sub">Your free WAQI token (aqicn.org/data-platform/token) enables the air-quality map layer. Stored only on this device, never in the code.</string>
+    <string name="settings_waqi_hint">Paste WAQI token</string>
+    <string name="settings_waqi_saved">Air-quality token saved</string>
+    <string name="settings_waqi_cleared">Air-quality token cleared</string>
     <!-- Static transit systems (METRO/MONORAIL/LRT-train, Oct 2026). Mirrored in values-ar. -->
     <string name="vehicle_metro">🚇 Metro</string>
     <string name="vehicle_monorail">🚝 Monorail</string>

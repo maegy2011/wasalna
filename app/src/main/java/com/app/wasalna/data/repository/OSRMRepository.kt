@@ -41,11 +41,18 @@ class OSRMRepository @Inject constructor() {
         destLat: Double,
         destLng: Double,
         profile: String = "driving",
+        // Via stops (Oct 2026, offline edit): OSRM chains coordinates
+        // start;via1;…;dest server-side — same semantics as the GH legs.
+        via: List<Pair<Double, Double>> = emptyList(),
     ): OsrmRoute? = withContext(Dispatchers.IO) {
         lastWasOffline = false
         runCatching {
-            val url = "$BASE/route/v1/$profile/" +
-                "$startLng,$startLat;$destLng,$destLat" +
+            val coords = buildString {
+                append("$startLng,$startLat")
+                via.forEach { (la, ln) -> append(";$ln,$la") }
+                append(";$destLng,$destLat")
+            }
+            val url = "$BASE/route/v1/$profile/" + coords +
                 "?overview=full&geometries=geojson"
             val request = Request.Builder()
                 .url(url)

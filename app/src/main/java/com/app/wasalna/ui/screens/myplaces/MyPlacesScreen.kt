@@ -100,6 +100,9 @@ fun MyPlacesScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    // Just-in-time permissions (Oct 2026): trip start requests missing
+    // permissions first, then runs — onboarding stays all-optional.
+    val permGate = com.app.wasalna.ui.components.rememberPermissionGate()
     val locations by viewModel.locations.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     // Elderly simplification (user order Oct 2026): no ads.
@@ -219,16 +222,20 @@ fun MyPlacesScreen(
     }
     fun confirmTrip() {
         val place = pendingTrip ?: return
-        fun go() {
-            startTracking(context, place, transportMode)
-            trackingName = place.name
-        }
-        showAlarmSetup = false
-        pendingTrip = null
-        if (!isPremium) {
-            InterstitialHelper.showInterstitial(context) { go() }
-        } else {
-            go()
+        // Grant-first (Oct 2026): missing permissions are requested now;
+        // the trip runs right after the grant (TripStarter re-checks).
+        permGate.runTripGated {
+            fun go() {
+                startTracking(context, place, transportMode)
+                trackingName = place.name
+            }
+            showAlarmSetup = false
+            pendingTrip = null
+            if (!isPremium) {
+                InterstitialHelper.showInterstitial(context) { go() }
+            } else {
+                go()
+            }
         }
     }
     val visiblePlaces = remember(locations, filter) {

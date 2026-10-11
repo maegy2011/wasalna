@@ -124,6 +124,8 @@ fun SettingsScreen(
     val gradualRingtoneUri by viewModel.gradualRingtoneUri.collectAsState()
     val dndChoice by viewModel.dndChoice.collectAsState()
     val routesApiKey by viewModel.routesApiKey.collectAsState()
+    // AQI BYOK (Oct 2026): free WAQI token for the air-quality layer.
+    val waqiApiKey by viewModel.waqiApiKey.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -1293,6 +1295,95 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+            // AQI token card (Oct 2026): mirrors the routes-key card.
+            if (match("aqi", "air", "جودة", "هواء", "waqi", "token", "رمز")) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_key),
+                            contentDescription = stringResource(R.string.settings_waqi_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_waqi_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.settings_waqi_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var waqiDraft by remember(waqiApiKey) { mutableStateOf(waqiApiKey) }
+                    var waqiVisible by remember { mutableStateOf(false) }
+                    OutlinedTextField(
+                        value = waqiDraft,
+                        onValueChange = { waqiDraft = it.take(128) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.settings_waqi_hint)) },
+                        singleLine = true,
+                        visualTransformation = if (waqiVisible) VisualTransformation.None
+                            else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { waqiVisible = !waqiVisible },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(
+                                    imageVector = if (waqiVisible) Icons.Filled.VisibilityOff
+                                        else Icons.Filled.Visibility,
+                                    contentDescription = stringResource(
+                                        if (waqiVisible) R.string.settings_routes_hide
+                                        else R.string.settings_routes_show,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.setWaqiApiKey(waqiDraft)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.settings_waqi_saved),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_routes_save))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                waqiDraft = ""
+                                viewModel.setWaqiApiKey("")
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.settings_waqi_cleared),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_routes_clear))
+                        }
+                    }
+                }
+            }
             }
 
         }

@@ -85,6 +85,9 @@ fun HomeWizard(
     val savedLeadMinutes by viewModel.alarmLeadTimeMinutes.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
 
+    // Just-in-time permissions (Oct 2026): trip start requests missing
+    // permissions first, then runs — onboarding stays all-optional.
+    val permGate = com.app.wasalna.ui.components.rememberPermissionGate()
     var step by remember { mutableIntStateOf(0) }
     var picked by remember { mutableStateOf<Location?>(null) }
     var vehicle by remember(savedMode) { mutableStateOf(savedMode) }
@@ -103,24 +106,20 @@ fun HomeWizard(
 
     fun startTrip() {
         val dest = picked ?: return
-        if (!hasLocationPermission(context)) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.home_location_required),
-                Toast.LENGTH_LONG,
-            ).show()
-            return
-        }
-        if (!isBatteryUnrestricted(context)) {
-            showBatteryDialog = true
-            return
-        }
-        finish()
-        fun go() = startTracking(context, dest, vehicle)
-        if (!isPremium) {
-            InterstitialHelper.showInterstitial(context) { go() }
-        } else {
-            go()
+        // Grant-first (Oct 2026): missing permissions are requested now;
+        // the trip runs right after the grant (TripStarter re-checks).
+        permGate.runTripGated {
+            if (!isBatteryUnrestricted(context)) {
+                showBatteryDialog = true
+                return@runTripGated
+            }
+            finish()
+            fun go() = startTracking(context, dest, vehicle)
+            if (!isPremium) {
+                InterstitialHelper.showInterstitial(context) { go() }
+            } else {
+                go()
+            }
         }
     }
 

@@ -165,6 +165,34 @@ class GraphHopperRouteEngine @Inject constructor(
         }.getOrNull()
     }
 
+    /**
+     * Via-route (Oct 2026, offline edit): chains one CH query per leg
+     * (start→via1→…→dest), drops duplicate joints, sums distance/time.
+     * Null when any leg fails — the caller falls back, never fakes.
+     * ── OFFLINE BOUNDARY: pure on-device queries, zero network. ──
+     */
+    suspend fun calculateRouteVia(
+        points: List<Pair<Double, Double>>,
+    ): RouteResult? = withContext(Dispatchers.IO) {
+        if (points.size < 2) return@withContext null
+        val merged = ArrayList<RoutePoint2D>(4096)
+        var dist = 0.0
+        var time = 0.0
+        for (i in 0 until points.size - 1) {
+            val leg = calculateRoute(
+                points[i].first, points[i].second,
+                points[i + 1].first, points[i + 1].second,
+            ) ?: return@withContext null
+            // Drop the joint duplicate (leg start == previous leg end).
+            val legPts = if (merged.isEmpty()) leg.points else leg.points.drop(1)
+            merged.addAll(legPts)
+            dist += leg.distanceMeters
+            time += leg.durationSec
+        }
+        if (merged.size < 2) return@withContext null
+        RouteResult(points = merged, distanceMeters = dist, durationSec = time)
+    }
+
     /** Shared engine configuration (MMAP flag set by the caller). */
     private fun configureEngine(graphDir: File) {
         gh.apply {

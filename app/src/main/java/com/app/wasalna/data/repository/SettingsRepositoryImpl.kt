@@ -240,6 +240,27 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDataStore.setTrafficEnabled(enabled)
     }
 
+    override val isTransitLayerEnabled: Flow<Boolean>
+        get() = settingsDataStore.isTransitLayerEnabled
+
+    override suspend fun setTransitLayerEnabled(enabled: Boolean) {
+        settingsDataStore.setTransitLayerEnabled(enabled)
+    }
+
+    override val isAqiLayerEnabled: Flow<Boolean>
+        get() = settingsDataStore.isAqiLayerEnabled
+
+    override suspend fun setAqiLayerEnabled(enabled: Boolean) {
+        settingsDataStore.setAqiLayerEnabled(enabled)
+    }
+
+    override val waqiApiKey: Flow<String>
+        get() = settingsDataStore.waqiApiKey
+
+    override suspend fun setWaqiApiKey(key: String) {
+        settingsDataStore.setWaqiApiKey(key)
+    }
+
     override suspend fun setAppLanguageCode(code: String) {
         settingsDataStore.setAppLanguageCode(code)
     }

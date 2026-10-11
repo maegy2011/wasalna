@@ -5,6 +5,11 @@ import com.app.wasalna.R
 import com.app.wasalna.domain.model.displayName
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +42,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -44,6 +50,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -123,6 +130,7 @@ private const val MARKER_IMAGE_ID = "wasalna-marker"
 // True offline mode (GPS-chip only): Arabic toggle confirmations.
 /** Phase 10-2: OSRM route source + layer ids (MapLibre free engine). */
 private const val ROUTE_SOURCE_ID = "route-source"
+private const val ROUTE_CASING_LAYER_ID = "route-casing-layer"
 private const val ROUTE_LAYER_ID = "route-layer"
 private const val EMPTY_FEATURE_COLLECTION = "{\"type\":\"FeatureCollection\",\"features\":[]}"
 
@@ -151,6 +159,8 @@ fun MapScreen(
     // REDESIGN 10 Oct 2026: search loading state (clear loading UX).
     val isSearching by viewModel.isSearching.collectAsState()
     val routeGeoJson by viewModel.routeGeoJson.collectAsState()
+    // Via stops (Oct 2026, offline edit): chained into road routes.
+    val viaPoints by viewModel.viaPoints.collectAsState()
     val selectedName by viewModel.selectedName.collectAsState()
     val selectedAddress by viewModel.selectedAddress.collectAsState()
     val selectedLatLng by viewModel.selectedLatLng.collectAsState()
@@ -162,6 +172,11 @@ fun MapScreen(
     // Map UX fixes: zoom + traffic + quick places.
     val cameraZoom by viewModel.cameraZoom.collectAsState()
     val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
+    // Map layers (Oct 2026): transit vector + AQI raster (WAQI BYOK).
+    val isTransitLayer by viewModel.isTransitLayer.collectAsState()
+    val isAqiLayer by viewModel.isAqiLayer.collectAsState()
+    val waqiKey by viewModel.waqiKey.collectAsState()
+    var layersOpen by remember { mutableStateOf(false) }
     val trafficOverlayState by viewModel.trafficState.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     val homeLat by viewModel.homeLat.collectAsState()
@@ -189,6 +204,20 @@ fun MapScreen(
     // Phase 10-Fix: SearchBar active state — while typing, results take
     // over the screen (map hidden); picking a result reveals map + marker.
     var searchActive by remember { mutableStateOf(false) }
+    // Voice search launcher (Oct 2026): transcript → query, bar stays open.
+    val voiceLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val heard = result.data
+                ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull { it.isNotBlank() }
+            if (heard != null) {
+                viewModel.onQueryChange(heard)
+                searchActive = true
+            }
+        }
+    }
 
     // Phase 10.4.2: hardware/software back always pops gracefully —
     // never freezes, never traps the user on the map.
@@ -352,6 +381,34 @@ fun MapScreen(
                         }) {
                             Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.map_clear_search))
                         }
+                    } else {
+                        // Voice search (Oct 2026): system recognizer (Arabic)
+                        // → transcript straight into the query. No RECORD_
+                        // AUDIO permission needed (system dialog owns the mic).
+                        IconButton(onClick = {
+                            if (!android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
+                                viewModel.voiceNotAvailable()
+                            } else {
+                                val voiceIntent = android.content.Intent(
+                                    android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH,
+                                ).apply {
+                                    putExtra(
+                                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                                    )
+                                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ar")
+                                    putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                                    putExtra(
+                                        android.speech.RecognizerIntent.EXTRA_PROMPT,
+                                        context.getString(R.string.voice_prompt),
+                                    )
+                                }
+                                runCatching { voiceLauncher.launch(voiceIntent) }
+                                    .onFailure { viewModel.voiceNotAvailable() }
+                            }
+                        }) {
+                            Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.voice_search_desc))
+                        }
                     }
                 },
                 modifier = Modifier
@@ -442,6 +499,12 @@ fun MapScreen(
                 ) {
                     MapLibreMapView(
                         selectedLatLng = selectedLatLng,
+                        viaPoints = viaPoints.map {
+                            com.google.android.gms.maps.model.LatLng(it.lat, it.lng)
+                        },
+                        transitLayerOn = isTransitLayer,
+                        aqiLayerOn = isAqiLayer && waqiKey.isNotBlank() && !isOfflineMode,
+                        aqiToken = waqiKey,
                         routeGeoJson = routeGeoJson,
                         recenterTarget = recenterTarget,
                         cameraZoom = cameraZoom,
@@ -456,14 +519,34 @@ fun MapScreen(
                             viewModel.onMapClicked(latLng.latitude, latLng.longitude)
                             tripSheetOpen = true
                         },
-                        // Long-press: select the point (reverse-geocode for the
-                        // address line) + open the Home/Work bottom sheet.
+                        // Long-press: with NO destination yet it selects the
+                        // point (old behavior: reverse-geocode + Home/Work
+                        // sheet); once a destination exists it adds a VIA
+                        // STOP instead (Oct 2026, offline edit — works
+                        // fully offline, chained in OSRM/GraphHopper).
                         onMapLongClick = { latLng ->
-                            viewModel.onMapClicked(latLng.latitude, latLng.longitude)
-                            tripSheetOpen = false
-                            homeWorkSheetPoint = latLng
+                            if (selectedLatLng != null) {
+                                viewModel.addViaPoint(latLng.latitude, latLng.longitude)
+                            } else {
+                                viewModel.onMapClicked(latLng.latitude, latLng.longitude)
+                                tripSheetOpen = false
+                                homeWorkSheetPoint = latLng
+                            }
                         },
                     )
+                    // Via stops row (Oct 2026, offline edit): one chip per
+                    // stop (tap ✕ removes) + clear-all. Top-start so it
+                    // never collides with the trip bottom sheet.
+                    if (viaPoints.isNotEmpty()) {
+                        ViaStopsRow(
+                            stops = viaPoints,
+                            onRemove = { viewModel.removeViaPoint(it) },
+                            onClear = { viewModel.clearViaPoints() },
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(12.dp),
+                        )
+                    }
                     if (selectedLatLng == null && predictions.isEmpty()) {
                         Text(
                             text = stringResource(R.string.map_empty_hint),
@@ -480,6 +563,7 @@ fun MapScreen(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(16.dp),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.75f),
                     ) {
                         Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.map_my_location))
                     }
@@ -500,7 +584,7 @@ fun MapScreen(
                                     tripSheetOpen = true
                                 },
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                                 ),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                             ) {
@@ -512,17 +596,19 @@ fun MapScreen(
                                 )
                             }
                         }
+                        // Layers (Oct 2026): one button opens the sheet with
+                        // traffic + transit + air-quality toggles.
                         SmallFloatingActionButton(
-                            onClick = { viewModel.setTrafficEnabled(!isTrafficEnabled) },
+                            onClick = {
+                                viewModel.refreshLayerPrefs()
+                                layersOpen = true
+                            },
                             modifier = Modifier.size(48.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.75f),
                         ) {
                             Icon(
-                                Icons.Filled.Traffic,
-                                contentDescription = if (isTrafficEnabled) {
-                                    stringResource(R.string.map_traffic_on)
-                                } else {
-                                    stringResource(R.string.map_traffic_off)
-                                },
+                                Icons.Filled.Layers,
+                                contentDescription = stringResource(R.string.layers_title),
                             )
                         }
                         // Add Destination — icon-only (visible only when a
@@ -530,6 +616,7 @@ fun MapScreen(
                         if (selectedLatLng != null && selectedName != null) {
                             FloatingActionButton(
                                 onClick = { viewModel.saveDestination(onSaved) },
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
                             ) {
                                 if (isSaving) {
                                     CircularProgressIndicator(strokeWidth = 2.dp)
@@ -542,32 +629,34 @@ fun MapScreen(
                             }
                         }
                     }
-                    // Zoom pill (user order Oct 2026): two compact +/- buttons
-                    // in one slim pill — the number readout and slider are
-                    // gone, the map keeps the stage.
-                    Card(
+                    // Zoom controls (user order Oct 2026): NO background
+                    // panel — two floating translucent buttons straight on
+                    // the map (premium glass feel, zero map occlusion).
+                    Column(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(16.dp),
-                        shape = RoundedCornerShape(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                        // Elderly: touch targets grow to 64dp via dimens.
+                        FilledTonalIconButton(
+                            onClick = { viewModel.zoomIn() },
+                            modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
+                            ),
                         ) {
-                            // Elderly: touch targets grow to 64dp via dimens.
-                            FilledTonalIconButton(
-                                onClick = { viewModel.zoomIn() },
-                                modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight),
-                            ) {
-                                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.map_zoom_in))
-                            }
-                            FilledTonalIconButton(
-                                onClick = { viewModel.zoomOut() },
-                                modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight),
-                            ) {
-                                Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.map_zoom_out))
-                            }
+                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.map_zoom_in))
+                        }
+                        FilledTonalIconButton(
+                            onClick = { viewModel.zoomOut() },
+                            modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
+                            ),
+                        ) {
+                            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.map_zoom_out))
                         }
                     }
                 }
@@ -897,6 +986,19 @@ fun MapScreen(
                 }
             }
         }
+        // Map layers sheet (Oct 2026): traffic + transit + air-quality.
+        if (layersOpen) {
+            MapLayersSheet(
+                trafficOn = isTrafficEnabled,
+                onTraffic = { viewModel.setTrafficEnabled(it) },
+                transitOn = isTransitLayer,
+                onTransit = { viewModel.setTransitLayer(it) },
+                aqiOn = isAqiLayer,
+                onAqi = { viewModel.setAqiLayer(it) },
+                waqiConfigured = waqiKey.isNotBlank(),
+                onDismiss = { layersOpen = false },
+            )
+        }
         // Phase 10.11: dynamic destination share (MapScreen selection
         // state reused — no duplicated storage; re-queries on every open).
         if (showDestinationShare) {
@@ -943,6 +1045,10 @@ fun MapScreen(
 @Composable
 private fun MapLibreMapView(
     selectedLatLng: LatLng?,
+    viaPoints: List<LatLng> = emptyList(),
+    transitLayerOn: Boolean = false,
+    aqiLayerOn: Boolean = false,
+    aqiToken: String = "",
     routeGeoJson: String?,
     recenterTarget: LatLng? = null,
     cameraZoom: Float = 15f,
@@ -965,12 +1071,17 @@ private fun MapLibreMapView(
     var lastZoomApplied by remember { mutableStateOf<Float?>(null) }
     // Phase 10.8.0g (traffic): last applied overlay state (style can reload).
     var lastTrafficApplied by remember { mutableStateOf<Boolean?>(null) }
+    // Map layers (Oct 2026): transit + AQI last-applied (token included —
+    // a changed token rebuilds the raster source).
+    var lastTransitApplied by remember { mutableStateOf<Boolean?>(null) }
+    var lastAqiApplied by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
 
     val mapView = remember(context) {
         MapView(context).apply { onCreate(null) }
     }
 
-    fun refreshMarker(target: LatLng?) {
+    // Destination pin (red) + via stops (blue, Oct 2026 offline edit).
+    fun refreshMarker(target: LatLng?, via: List<LatLng> = emptyList()) {
         val manager = symbolManager ?: return
         runCatching {
             manager.deleteAll()
@@ -979,6 +1090,13 @@ private fun MapLibreMapView(
                     SymbolOptions()
                         .withLatLng(MapLibreLatLng(it.latitude, it.longitude))
                         .withIconImage(MARKER_IMAGE_ID),
+                )
+            }
+            via.forEach {
+                manager.create(
+                    SymbolOptions()
+                        .withLatLng(MapLibreLatLng(it.latitude, it.longitude))
+                        .withIconImage(VIA_IMAGE_ID),
                 )
             }
         }
@@ -1025,23 +1143,41 @@ private fun MapLibreMapView(
                 styleRef = style
                 lastRouteApplied = null
                 lastTrafficApplied = null
+                lastTransitApplied = null
+                lastAqiApplied = null
                 // Phase 10.4.3.1: live blue dot (guarded by runtime permission).
                 enableLocationComponent(context, map, style)
                 runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
+                runCatching { style.addImage(VIA_IMAGE_ID, makeViaBitmap()) }
                 // Phase 10-2: route source + styled line layer (created once
                 // per style; source data updates dynamically below).
                 runCatching {
                     if (style.getSource(ROUTE_SOURCE_ID) == null) {
                         style.addSource(GeoJsonSource(ROUTE_SOURCE_ID, EMPTY_FEATURE_COLLECTION))
                     }
-                    if (style.getLayer(ROUTE_LAYER_ID) == null) {
+                    // Route drawing fix (Oct 2026): white casing UNDER the
+                    // blue line — visible on any basemap, round joints so
+                    // via-point corners don't spike. Same source, two layers.
+                    if (style.getLayer(ROUTE_CASING_LAYER_ID) == null) {
                         style.addLayer(
+                            LineLayer(ROUTE_CASING_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
+                                PropertyFactory.lineColor("#FFFFFF"),
+                                PropertyFactory.lineWidth(9f),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                                PropertyFactory.lineOpacity(0.9f),
+                            ),
+                        )
+                    }
+                    if (style.getLayer(ROUTE_LAYER_ID) == null) {
+                        style.addLayerAbove(
                             LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
                                 PropertyFactory.lineColor("#1976D2"),
                                 PropertyFactory.lineWidth(5f),
                                 PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                             ),
+                            ROUTE_CASING_LAYER_ID,
                         )
                     }
                 }
@@ -1050,10 +1186,16 @@ private fun MapLibreMapView(
                 // Phase 10.8.0g (traffic): apply overlay on fresh style.
                 ensureTraffic(style, trafficEnabled)
                 lastTrafficApplied = trafficEnabled
+                // Map layers (Oct 2026): transit vector (offline-safe) +
+                // AQI raster (token-gated) on fresh style.
+                ensureTransitLayer(style, transitLayerOn)
+                lastTransitApplied = transitLayerOn
+                ensureAqiLayer(style, aqiLayerOn, aqiToken)
+                lastAqiApplied = aqiLayerOn to aqiToken
                 symbolManager = SymbolManager(mapView, map, style).apply {
                     iconAllowOverlap = true
                 }
-                refreshMarker(selectedLatLng)
+                refreshMarker(selectedLatLng, viaPoints)
                 val initial = selectedLatLng?.let {
                     MapLibreLatLng(it.latitude, it.longitude)
                 } ?: DefaultCairoLibre
@@ -1112,6 +1254,16 @@ private fun MapLibreMapView(
                 ensureTraffic(style, trafficEnabled)
                 lastTrafficApplied = trafficEnabled
             }
+            // Map layers (Oct 2026): re-apply on toggle or token change.
+            if (style != null && transitLayerOn != lastTransitApplied) {
+                ensureTransitLayer(style, transitLayerOn)
+                lastTransitApplied = transitLayerOn
+            }
+            val aqiState = aqiLayerOn to aqiToken
+            if (style != null && aqiState != lastAqiApplied) {
+                ensureAqiLayer(style, aqiLayerOn, aqiToken)
+                lastAqiApplied = aqiState
+            }
             // Phase 10.4.3.1: My Location jump — camera only, no selection.
             if (recenterTarget != null && recenterTarget != lastRecenterApplied) {
                 lastRecenterApplied = recenterTarget
@@ -1124,7 +1276,7 @@ private fun MapLibreMapView(
                     600,
                 )
             }
-            refreshMarker(selectedLatLng)
+            refreshMarker(selectedLatLng, viaPoints)
             val target = selectedLatLng?.let {
                 MapLibreLatLng(it.latitude, it.longitude)
             } ?: DefaultCairoLibre
@@ -1198,13 +1350,148 @@ private fun applyRoute(style: Style, geoJson: String?) {
     }
 }
 
+/**
+ * Map layers sheet (Oct 2026): three switch rows — traffic (online),
+ * transit metro (offline-safe), air quality (online, WAQI BYOK).
+ * Material3, 48dp+ targets, RTL-safe, all strings resourced.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MapLayersSheet(
+    trafficOn: Boolean,
+    onTraffic: (Boolean) -> Unit,
+    transitOn: Boolean,
+    onTransit: (Boolean) -> Unit,
+    aqiOn: Boolean,
+    onAqi: (Boolean) -> Unit,
+    waqiConfigured: Boolean,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.layers_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            LayerRow(
+                title = stringResource(R.string.layer_traffic),
+                sub = stringResource(R.string.layer_traffic_sub),
+                checked = trafficOn,
+                onChecked = onTraffic,
+            )
+            LayerRow(
+                title = stringResource(R.string.layer_transit),
+                sub = stringResource(R.string.layer_transit_sub),
+                checked = transitOn,
+                onChecked = onTransit,
+            )
+            LayerRow(
+                title = stringResource(R.string.layer_aqi),
+                sub = if (waqiConfigured) {
+                    stringResource(R.string.layer_aqi_sub)
+                } else {
+                    stringResource(R.string.layer_aqi_need_token)
+                },
+                checked = aqiOn && waqiConfigured,
+                onChecked = onAqi,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun LayerRow(
+    title: String,
+    sub: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = sub,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onChecked)
+    }
+}
+
+/**
+ * Via stops row (Oct 2026, offline edit): one chip per stop (✕ removes
+ * that leg) + a clear-all chip. Shown only while stops exist.
+ * Material3, 48dp targets, RTL-safe, all strings resourced.
+ */
+@Composable
+private fun ViaStopsRow(
+    stops: List<ViaPoint>,
+    onRemove: (Int) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(stops, key = { i, s -> "$i|${s.lat}|${s.lng}" }) { i, _ ->
+            FilterChip(
+                selected = true,
+                onClick = { onRemove(i) },
+                label = {
+                    Text(stringResource(R.string.via_stop, i + 1))
+                },
+                trailingIcon = {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.via_remove),
+                    )
+                },
+            )
+        }
+        item {
+            FilterChip(
+                selected = false,
+                onClick = onClear,
+                label = {
+                    Text(stringResource(R.string.via_clear))
+                },
+            )
+        }
+    }
+}
+
+/** Programmatic pin bitmap (white casing layer needs no image). */
+private const val VIA_IMAGE_ID = "via-marker"
+
 /** Programmatic pin bitmap (red dot, white core) — no drawable resource needed. */
-private fun makeMarkerBitmap(): android.graphics.Bitmap {
+private fun makeMarkerBitmap(): android.graphics.Bitmap =
+    makeDotBitmap(android.graphics.Color.parseColor("#D32F2F"))
+
+/** Via-stop dot (Oct 2026, offline edit): blue twin of the red pin. */
+private fun makeViaBitmap(): android.graphics.Bitmap =
+    makeDotBitmap(android.graphics.Color.parseColor("#1976D2"))
+
+private fun makeDotBitmap(outerColor: Int): android.graphics.Bitmap {
     val size = 96
     val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bmp)
     val outer = android.graphics.Paint().apply {
-        color = android.graphics.Color.parseColor("#D32F2F")
+        color = outerColor
         isAntiAlias = true
     }
     val inner = android.graphics.Paint().apply {

@@ -47,6 +47,15 @@ import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 /**
+ * Via stop (Oct 2026, offline edit): an intermediate stop the road
+ * route chains through (long-press on the map). Road modes only.
+ */
+data class ViaPoint(
+    val lat: Double,
+    val lng: Double,
+)
+
+/**
  * Phase 10-Fix: 100% MapLibre — no engine toggle, no Google Places.
  * - Search: Photon keyless autocomplete (real places + coords, one step).
  * - Map taps: Nominatim reverse-geocode (free).
@@ -87,6 +96,92 @@ class MapViewModel @Inject constructor(
     // position to the confirmed destination. Null = none yet.
     private val _routeGeoJson = MutableStateFlow<String?>(null)
     val routeGeoJson: StateFlow<String?> = _routeGeoJson.asStateFlow()
+
+    // Via stops (Oct 2026, offline edit): long-press adds up to 3 stops;
+    // road routes (OSRM online, GraphHopper offline) chain through them.
+    // Transit modes ignore via (station plans can't detour).
+    private val _viaPoints = MutableStateFlow<List<ViaPoint>>(emptyList())
+    val viaPoints: StateFlow<List<ViaPoint>> = _viaPoints.asStateFlow()
+
+    // Map layers (Oct 2026): transit vector (offline-safe) + AQI raster
+    // (online, WAQI BYOK) — persisted like traffic, restored on launch.
+    private val _isTransitLayer = MutableStateFlow(false)
+    val isTransitLayer: StateFlow<Boolean> = _isTransitLayer.asStateFlow()
+
+    private val _isAqiLayer = MutableStateFlow(false)
+    val isAqiLayer: StateFlow<Boolean> = _isAqiLayer.asStateFlow()
+
+    private val _waqiKey = MutableStateFlow("")
+    val waqiKey: StateFlow<String> = _waqiKey.asStateFlow()
+
+    fun refreshLayerPrefs() {
+        viewModelScope.launch {
+            // Token first — AQI restores only when one is stored.
+            runCatching { settingsRepository.waqiApiKey.first() }
+                .onSuccess { _waqiKey.value = it }
+            runCatching { settingsRepository.isTransitLayerEnabled.first() }
+                .onSuccess { _isTransitLayer.value = it }
+            runCatching { settingsRepository.isAqiLayerEnabled.first() }
+                .onSuccess {
+                    _isAqiLayer.value = it && _waqiKey.value.isNotBlank()
+                }
+        }
+    }
+
+    fun setTransitLayer(enabled: Boolean) {
+        _isTransitLayer.value = enabled
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTransitLayerEnabled(enabled) }
+                .onFailure { Log.e(TAG, "persist transit layer failed: ${it.message}") }
+        }
+    }
+
+    fun setAqiLayer(enabled: Boolean) {
+        if (enabled && _waqiKey.value.isBlank()) {
+            // No token → refuse with guidance (Settings holds the field).
+            viewModelScope.launch {
+                _events.emit(msg(R.string.layer_aqi_need_token))
+            }
+            return
+        }
+        if (enabled && isOfflineMode.value) {
+            viewModelScope.launch {
+                _events.emit(msg(R.string.map_traffic_offline))
+            }
+        }
+        _isAqiLayer.value = enabled
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAqiLayerEnabled(enabled) }
+                .onFailure { Log.e(TAG, "persist aqi layer failed: ${it.message}") }
+        }
+    }
+
+    fun addViaPoint(lat: Double, lng: Double) {
+        if (_viaPoints.value.size >= MAX_VIA_POINTS) {
+            viewModelScope.launch {
+                _events.emit(msg(R.string.via_max, MAX_VIA_POINTS))
+            }
+            return
+        }
+        _viaPoints.value = _viaPoints.value + ViaPoint(lat, lng)
+        viewModelScope.launch {
+            _events.emit(msg(R.string.via_added, _viaPoints.value.size))
+            refreshRouteAndEta()
+        }
+    }
+
+    fun removeViaPoint(index: Int) {
+        val cur = _viaPoints.value
+        if (index !in cur.indices) return
+        _viaPoints.value = cur.filterIndexed { i, _ -> i != index }
+        viewModelScope.launch { refreshRouteAndEta() }
+    }
+
+    fun clearViaPoints() {
+        if (_viaPoints.value.isEmpty()) return
+        _viaPoints.value = emptyList()
+        viewModelScope.launch { refreshRouteAndEta() }
+    }
 
     // Phase 10.4.0: multimodal ETA — user-selected transport mode +
     // live minutes estimate. Null = not computed yet.
@@ -386,6 +481,9 @@ class MapViewModel @Inject constructor(
                 .getOrDefault("CAR")
             _transportMode.value = TransportMode.fromName(saved)
         }
+        // Map layers (Oct 2026): restore persisted transit/AQI toggles +
+        // WAQI token on launch (AQI restores only with a token present).
+        refreshLayerPrefs()
         // True offline mode: react to the flag itself (collecting
         // isOfflineMode guarantees the guard reads below see the fresh
         // value). Offline ON stops all traffic network work; back online
@@ -622,8 +720,13 @@ class MapViewModel @Inject constructor(
         }
         _staticTransitText.value = null
         val profile = _transportMode.value.osrmProfile
+        // Via stops chain server-side (same leg semantics as offline).
+        val viaCoords = _viaPoints.value.map { it.lat to it.lng }
         val route: OsrmRoute? = runCatching {
-            osrm.fetchRoute(start.latitude, start.longitude, destLat, destLng, profile)
+            osrm.fetchRoute(
+                start.latitude, start.longitude, destLat, destLng, profile,
+                via = viaCoords,
+            )
         }.onFailure {
             Log.e(TAG, "route fetch failed: ${it.message}")
         }.getOrNull()
@@ -659,10 +762,20 @@ class MapViewModel @Inject constructor(
         destLat: Double,
         destLng: Double,
     ) {
+        // Via stops (Oct 2026): origin + stops + dest chain through ONE
+        // covering graph; without via the original two-point path runs.
+        val via = _viaPoints.value.map { it.lat to it.lng }
         val routed = runCatching {
-            com.app.wasalna.data.routing.routeOfflineWithAutoSelect(
-                graphManager, ghEngine, startLat, startLng, destLat, destLng,
-            )
+            if (via.isEmpty()) {
+                com.app.wasalna.data.routing.routeOfflineWithAutoSelect(
+                    graphManager, ghEngine, startLat, startLng, destLat, destLng,
+                )
+            } else {
+                com.app.wasalna.data.routing.routeOfflineWithAutoSelectVia(
+                    graphManager, ghEngine,
+                    listOf(startLat to startLng) + via + listOf(destLat to destLng),
+                )
+            }
         }.getOrNull()
         val local = routed?.second
         if (local != null) {
@@ -939,8 +1052,20 @@ class MapViewModel @Inject constructor(
     /** Resolves a user-facing message in the selected app language. */
     private fun msg(resId: Int): String = appContext.getString(resId)
 
+    private fun msg(resId: Int, vararg args: Any): String =
+        appContext.getString(resId, *args)
+
+    /** Voice search fallback (Oct 2026): recognizer missing/failed. */
+    fun voiceNotAvailable() {
+        viewModelScope.launch {
+            _events.emit(msg(R.string.voice_unavailable))
+        }
+    }
+
     companion object {
         private const val TAG = "MapViewModel"
+        /** Via stops cap (Oct 2026, offline edit) — keeps legs fast. */
+        const val MAX_VIA_POINTS = 3
         private const val TRAFFIC_SETTLE_DEBOUNCE_MS = 1_000L
         private const val TRAFFIC_REFRESH_MS = 60_000L
         private const val LOC_TIMEOUT_MS = 8_000L

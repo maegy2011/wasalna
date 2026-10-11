@@ -281,6 +281,33 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.TRAFFIC_ENABLED] = enabled }
     }
 
+    // Map layers (Oct 2026): transit vector + AQI raster toggles persisted
+    // like traffic; WAQI token is BYOK (empty = AQI unavailable).
+    val isTransitLayerEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.TRANSIT_LAYER_ENABLED] ?: false }
+
+    suspend fun setTransitLayerEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.TRANSIT_LAYER_ENABLED] = enabled }
+    }
+
+    val isAqiLayerEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.AQI_LAYER_ENABLED] ?: false }
+
+    suspend fun setAqiLayerEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.AQI_LAYER_ENABLED] = enabled }
+    }
+
+    val waqiApiKey: Flow<String> =
+        dataStore.data.map { it[Keys.WAQI_API_KEY] ?: "" }
+
+    suspend fun setWaqiApiKey(key: String) {
+        val normalized = key.trim().take(128)
+        dataStore.edit {
+            if (normalized.isEmpty()) it.remove(Keys.WAQI_API_KEY)
+            else it[Keys.WAQI_API_KEY] = normalized
+        }
+    }
+
     // In-app language code ("" = follow device, "ar", "en"). Default ""
     // follows the device language automatically — no first-run write needed.
     val appLanguageCode: Flow<String> =
@@ -428,6 +455,9 @@ class SettingsDataStore @Inject constructor(
         val WORK_LNG = doublePreferencesKey("work_lng")
         val WORK_ADDRESS = stringPreferencesKey("work_address")
         val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
+        val TRANSIT_LAYER_ENABLED = booleanPreferencesKey("transit_layer_enabled")
+        val AQI_LAYER_ENABLED = booleanPreferencesKey("aqi_layer_enabled")
+        val WAQI_API_KEY = stringPreferencesKey("waqi_api_key")
         val APP_LANGUAGE_CODE = stringPreferencesKey("app_language_code")
         val ROUTES_API_KEY = stringPreferencesKey("routes_api_key")
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")

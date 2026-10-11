@@ -64,3 +64,22 @@ suspend fun routeOfflineWithAutoSelect(
         ?: return null
     return region to result
 }
+
+/**
+ * Via-route executor (Oct 2026, offline edit): origin + stops +
+ * destination must ALL sit inside one installed graph; legs chain in
+ * the engine. Null on any failure — caller falls back, never fakes.
+ * ── OFFLINE BOUNDARY: no network in this path. ──
+ */
+suspend fun routeOfflineWithAutoSelectVia(
+    manager: RoutingGraphManager,
+    engine: GraphHopperRouteEngine,
+    points: List<Pair<Double, Double>>,
+): Pair<RoutingRegion, RouteResult>? {
+    if (points.size < 2) return null
+    val region = manager.coveringRegionForAll(points) ?: return null
+    val dir = manager.graphDir(region.id)
+    if (!engine.ensureLoadedFor(region.id, dir)) return null
+    val result = engine.calculateRouteVia(points) ?: return null
+    return region to result
+}

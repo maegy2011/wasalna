@@ -131,6 +131,15 @@ interface SettingsRepository {
 
     suspend fun setTrafficEnabled(enabled: Boolean)
 
+    val isTransitLayerEnabled: Flow<Boolean>
+    suspend fun setTransitLayerEnabled(enabled: Boolean)
+
+    val isAqiLayerEnabled: Flow<Boolean>
+    suspend fun setAqiLayerEnabled(enabled: Boolean)
+
+    val waqiApiKey: Flow<String>
+    suspend fun setWaqiApiKey(key: String)
+
     suspend fun setRoutesApiKey(key: String)
 
     suspend fun setAppLanguageCode(code: String)
