@@ -48,6 +48,11 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -114,6 +119,9 @@ fun MyPlacesScreen(
     var showAlarmSetup by remember { mutableStateOf(false) }
     // Phase 10-Fix: local filter + rename dialog state (CRUD).
     var filter by remember { mutableStateOf("") }
+    // Declutter (user order Oct 2026): backup lives in the overflow menu;
+    // Home/Work auto-collapses once both are set.
+    var showMenu by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Location?>(null) }
     // رسائل التأكيد: حذف مكان محفوظ إجراء مُتلِف — يُطلب التأكيد أولًا.
     var pendingDelete by remember { mutableStateOf<Location?>(null) }
@@ -126,6 +134,10 @@ fun MyPlacesScreen(
     val workLat by viewModel.workLat.collectAsState()
     val workLng by viewModel.workLng.collectAsState()
     val workAddress by viewModel.workAddress.collectAsState()
+    // Auto-collapses once both Home & Work are set.
+    var homeWorkExpanded by remember(homeAddress, workAddress) {
+        mutableStateOf(homeAddress.isBlank() || workAddress.isBlank())
+    }
     var quickEditTarget by remember { mutableStateOf<String?>(null) }
     // Phase 10.8.0b: SAF backup launchers (no permissions needed).
     var pendingExport by remember { mutableStateOf<String?>(null) }
@@ -255,6 +267,41 @@ fun MyPlacesScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back_home))
                     }
                 },
+                actions = {
+                    // Backup (export/import) moved here from the content
+                    // column — rare action, no permanent row.
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.myplaces_export),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.myplaces_export)) },
+                            onClick = {
+                                showMenu = false
+                                val json = com.app.wasalna.utils.PlacesBackup.buildJson(
+                                    homeLat, homeLng, homeAddress,
+                                    workLat, workLng, workAddress,
+                                    locations,
+                                )
+                                pendingExport = json
+                                exportLauncher.launch("wasalna-places.json")
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.myplaces_import)) },
+                            onClick = {
+                                showMenu = false
+                                importLauncher.launch(arrayOf("application/json"))
+                            },
+                        )
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -300,30 +347,42 @@ fun MyPlacesScreen(
                 singleLine = true,
             )
             Spacer(modifier = Modifier.height(8.dp))
-            // Map UX fixes: Home & Work quick row below the search box.
-            HomeWorkQuickRow(
-                homeAddress = homeAddress,
-                workAddress = workAddress,
-                onHomeClick = { startQuickTrip(homeLat, homeLng, homeAddress) },
-                onWorkClick = { startQuickTrip(workLat, workLng, workAddress) },
-                onHomeEdit = { quickEditTarget = "home" },
-                onWorkEdit = { quickEditTarget = "work" },
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            // Phase 10.8.0b: backup row — export/import Home/Work + places
-            // via Storage Access Framework (no permissions). 48dp targets.
-            BackupRow(
-                onExport = {
-                    val json = com.app.wasalna.utils.PlacesBackup.buildJson(
-                        homeLat, homeLng, homeAddress,
-                        workLat, workLng, workAddress,
-                        locations,
+            // Collapsible Home & Work (user order Oct 2026): open until
+            // both are set, then folds to one header row.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                onClick = { homeWorkExpanded = !homeWorkExpanded },
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(R.string.myplaces_home_work),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
                     )
-                    pendingExport = json
-                    exportLauncher.launch("wasalna-places.json")
-                },
-                onImportPick = { importLauncher.launch(arrayOf("application/json")) },
-            )
+                    Icon(
+                        if (homeWorkExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = stringResource(R.string.myplaces_home_work),
+                    )
+                }
+            }
+            if (homeWorkExpanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                HomeWorkQuickRow(
+                    homeAddress = homeAddress,
+                    workAddress = workAddress,
+                    onHomeClick = { startQuickTrip(homeLat, homeLng, homeAddress) },
+                    onWorkClick = { startQuickTrip(workLat, workLng, workAddress) },
+                    onHomeEdit = { quickEditTarget = "home" },
+                    onWorkEdit = { quickEditTarget = "work" },
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             if (locations.isEmpty()) {
                 Text(
@@ -482,30 +541,6 @@ fun MyPlacesScreen(
     }
 }
 
-@Composable
-private fun BackupRow(
-    onExport: () -> Unit,
-    onImportPick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        androidx.compose.material3.OutlinedButton(
-            onClick = onExport,
-            modifier = Modifier.weight(1f).height(48.dp),
-        ) {
-            Text(stringResource(R.string.myplaces_export))
-        }
-        androidx.compose.material3.OutlinedButton(
-            onClick = onImportPick,
-            modifier = Modifier.weight(1f).height(48.dp),
-        ) {
-            Text(stringResource(R.string.myplaces_import))
-        }
-    }
-}
-
 /**
  * DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام) — Arabic trip-setup dialog.
  * Segmented DISTANCE/TIME choice + minutes stepper (TIME only) with a
@@ -526,11 +561,14 @@ private fun AlarmSetupDialog(
     onDismiss: () -> Unit,
 ) {
     val isTime = mode == "TIME"
+    // Two-step wizard (user order Oct 2026): 0 = vehicle, 1 = alarm mode.
+    var step by remember { mutableStateOf(0) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.alarm_setup_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                if (step == 0) {
                 // VEHICLE TYPE (user order Oct 2026): big icon cards per
                 // vehicle — one tap selects (persisted, last choice
                 // remembered); Start then begins tracking with it.
@@ -599,6 +637,7 @@ private fun AlarmSetupDialog(
                     TransitApproxNote()
                     Spacer(modifier = Modifier.height(8.dp))
                 }
+                } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -681,16 +720,29 @@ private fun AlarmSetupDialog(
                         }
                     }
                 }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.alarm_setup_start))
+            if (step == 0) {
+                TextButton(onClick = { step = 1 }) {
+                    Text(stringResource(R.string.alarm_setup_next))
+                }
+            } else {
+                TextButton(onClick = onConfirm) {
+                    Text(stringResource(R.string.alarm_setup_start))
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.alarm_setup_cancel))
+            if (step == 0) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.alarm_setup_cancel))
+                }
+            } else {
+                TextButton(onClick = { step = 0 }) {
+                    Text(stringResource(R.string.alarm_setup_back))
+                }
             }
         },
     )

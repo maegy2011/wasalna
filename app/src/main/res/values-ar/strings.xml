@@ -83,6 +83,8 @@
     <string name="alarm_mode_explain_time">يرن قبل الوصول بعدد الدقائق الذي تختاره، ويتكيف مع الزحام والسرعة.</string>
     <string name="alarm_time_minutes_label">قبل الوصول بـ %1$d دقائق</string>
     <string name="alarm_setup_start">بدء التتبع</string>
+    <string name="alarm_setup_next">التالي</string>
+    <string name="alarm_setup_back">رجوع</string>
     <string name="alarm_setup_cancel">إلغاء</string>
     <string name="alarm_notif_mode_distance">وضع التنبيه: حسب المسافة</string>
     <string name="alarm_notif_mode_time">وضع التنبيه: حسب الوقت (مرتبط بالزحام)</string>
@@ -171,6 +173,7 @@
     <string name="common_latitude">خط العرض</string>
     <string name="common_longitude">خط الطول</string>
     <string name="quick_home">البيت</string>
+    <string name="myplaces_home_work">البيت والعمل</string>
     <string name="quick_work">العمل</string>
     <string name="quick_tap_hint">انقر للبدء · اضغط مطولًا للتعيين</string>
     <string name="quick_home_desc">رحلة سريعة إلى البيت</string>

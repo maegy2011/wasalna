@@ -149,6 +149,8 @@
     <string name="alarm_mode_explain_time">Rings N minutes before arrival, adapting to traffic and speed.</string>
     <string name="alarm_time_minutes_label">Minutes before arrival: %1$d</string>
     <string name="alarm_setup_start">Start tracking</string>
+    <string name="alarm_setup_next">Next</string>
+    <string name="alarm_setup_back">Back</string>
     <string name="alarm_setup_cancel">Cancel</string>
     <string name="alarm_notif_mode_distance">Alarm mode: by distance</string>
     <string name="alarm_notif_mode_time">Alarm mode: traffic-aware time</string>
@@ -332,6 +334,7 @@
     <string name="myplaces_rename">Rename place</string>
     <string name="myplaces_name_hint">Place name</string>
     <string name="myplaces_export">Export backup</string>
+    <string name="myplaces_home_work">Home &amp; Work</string>
     <string name="myplaces_import">Import backup</string>
     <string name="myplaces_backup_ok">Backup exported</string>
     <string name="myplaces_backup_unread">Couldn\'t read backup file</string>
