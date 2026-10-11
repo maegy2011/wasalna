@@ -3,6 +3,7 @@ package com.app.wasalna.data.local.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import com.app.wasalna.data.local.entity.TripHistoryEntity
 import com.app.wasalna.data.local.entity.TripStatus
 import kotlinx.coroutines.flow.Flow
@@ -41,4 +42,29 @@ interface TripDao {
 
     @Query("UPDATE trips SET status = '${TripStatus.PAST}', endTime = :endTime WHERE status = '${TripStatus.ACTIVE}'")
     suspend fun closeOpenTrips(endTime: Long)
+
+    // Atomic close-and-insert: closes stale ACTIVE trips and opens a new one
+    // in a single transaction so a process death between the two operations
+    // cannot leave the service with no active trip row.
+    @Transaction
+    suspend fun closeAndStartTrip(
+        name: String,
+        lat: Double,
+        lng: Double,
+        startTime: Long,
+        endTime: Long,
+        mode: String,
+    ): Long {
+        closeOpenTrips(endTime)
+        return insertTrip(
+            TripHistoryEntity(
+                locationName = name,
+                destLat = lat,
+                destLng = lng,
+                startTime = startTime,
+                status = TripStatus.ACTIVE,
+                transportMode = mode,
+            ),
+        )
+    }
 }

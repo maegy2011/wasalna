@@ -171,10 +171,8 @@ class OfflineGazetteer @Inject constructor(
             if (q.length < 2) return@withContext emptyList()
             val snap = mutex.withLock { index.toList() }
             val scored = ArrayList<Pair<Int, GazEntry>>(32)
-            var scanned = 0
             for (e in snap) {
-                if (scored.size >= 400 || scanned >= 60_000) break
-                scanned++
+                if (scored.size >= 400) break
                 val score = matchScore(e.nameNorm, q, e.kind) ?: continue
                 scored.add(score to e)
             }

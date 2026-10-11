@@ -492,6 +492,17 @@
     <string name="search_shortcuts_title">أماكن سريعة</string>
     <string name="alarm_snooze">غفوة ٥ دقائق</string>
     <string name="alarm_dismiss">إيقاف</string>
+    <!-- Transit design system (Oct 2026): swipe slider, badges, timeline (mirrored in values). -->
+    <string name="alarm_swipe_to_stop">← اسحب للإيقاف</string>
+    <string name="badge_active">تتبع نشط 🟢</string>
+    <string name="badge_approaching">اقتراب 🟡</string>
+    <string name="badge_offline">وضع أوفلاين 🛰️</string>
+    <string name="badge_alarm">المنبه يرن 🔔</string>
+    <string name="timeline_boarding">محطة الركوب</string>
+    <string name="timeline_alighting">انزل هنا</string>
+    <string name="timeline_km_left">باقي %1$s كم</string>
+    <string name="start_tracker">ابدأ التتبع</string>
+    <string name="view_live_route">عرض الرحلة المباشرة</string>
     <string name="alarm_phase_vibration">اهتزاز لطيف…</string>
     <string name="alarm_phase_ramp">استيقاظ تدريجي…</string>
     <string name="alarm_phase_full">استيقاظ كامل</string>

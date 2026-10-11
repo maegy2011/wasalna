@@ -591,6 +591,14 @@ fun MapScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 0.dp, vertical = 8.dp),
                 ) {
+            // Transit design system (Oct 2026): sheet status badge.
+            if (isOfflineMode) {
+                com.app.wasalna.ui.components.StatusBadge(
+                    kind = com.app.wasalna.ui.components.BadgeKind.OFFLINE,
+                    text = stringResource(R.string.badge_offline),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             addressLine?.let { line ->
                 Text(
                     text = line,

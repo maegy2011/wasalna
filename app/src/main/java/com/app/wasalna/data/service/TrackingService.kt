@@ -410,6 +410,9 @@ class TrackingService : Service() {
                 .getOrDefault(proactiveEnabled)
             nudgeLeadMinutes = runCatching { modePrefs.nudgeLeadMinutes.first() }
                 .getOrDefault(nudgeLeadMinutes)
+            // OFFLINE BOUNDARY: mid-trip offline toggle applies by next fix.
+            forceOffline = runCatching { modePrefs.isForceOffline.first() }
+                .getOrDefault(forceOffline)
         }
         // DYNAMIC WAKE-UP: DISTANCE mode fires on the radius here; TIME mode
         // never fires on distance alone — evaluated below on Default.
@@ -451,9 +454,6 @@ class TrackingService : Service() {
             // (DataStore, IO scope) so a mid-trip toggle applies at once —
             // when ON, osrm.fetchRoute below is never reached: GPS fixes +
             // local GraphHopper engine + straight-line fallback only.
-            forceOffline = runCatching {
-                kotlinx.coroutines.runBlocking { SettingsDataStore(applicationContext).isForceOffline.first() }
-            }.getOrDefault(forceOffline)
             // Phase 10.4.3.7: while offline, silence the radio — one probe
             // per minute max, pure GPS distance on every tick meanwhile.
             val mayProbe = !forceOffline && (!isOfflineMode ||

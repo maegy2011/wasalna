@@ -55,3 +55,25 @@ val WasalnaElderlyTypography = Typography(
     bodyMedium = WasalnaTypography.bodyMedium.copy(fontSize = 20.sp, lineHeight = 28.sp),
     labelLarge = WasalnaTypography.labelLarge.copy(fontSize = 20.sp, lineHeight = 26.sp)
 )
+
+/**
+ * Transit design system (Oct 2026): station names + ETA hero.
+ * Extra-large bold so a waking user reads them instantly.
+ * Standalone styles (M3 Typography has no custom slots).
+ */
+val StopDisplayStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 32.sp,
+    lineHeight = 40.sp
+)
+
+val EtaDisplayStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 40.sp,
+    lineHeight = 48.sp
+)
+
+val ElderlyStopDisplayStyle = StopDisplayStyle.copy(fontSize = 40.sp, lineHeight = 48.sp)
+val ElderlyEtaDisplayStyle = EtaDisplayStyle.copy(fontSize = 48.sp, lineHeight = 56.sp)

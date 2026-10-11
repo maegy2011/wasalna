@@ -84,7 +84,7 @@ class HomeViewModel @Inject constructor(
     // there are no saved places yet. Finish/skip persists the flag.
     val isWizardSeen: StateFlow<Boolean> =
         settingsRepository.isWizardSeen
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun markWizardSeen() {
         viewModelScope.launch {

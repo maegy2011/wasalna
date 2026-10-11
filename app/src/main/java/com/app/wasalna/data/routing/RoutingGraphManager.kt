@@ -128,7 +128,7 @@ class RoutingGraphManager @Inject constructor(
         installedRegionIds().associateWith { regionId ->
             val fresh = File(graphDir(regionId), "properties")
             if (fresh.exists()) graphDir(regionId)
-            else File(File(legacyRoot(), regionId), "properties").let { File(legacyRoot(), regionId) }
+            else File(legacyRoot(), regionId)
         }
 
     /**

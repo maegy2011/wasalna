@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Singleton DataStore for the entire process. Prefer `.first()` for one-shot
+// reads; long-lived `collect{}` on derived flows must be scoped (e.g. WhileSubscribed).
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "wasalna_settings",
 )

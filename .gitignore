@@ -12,6 +12,9 @@ google-services.json
 *.jks
 *.keystore
 
+# opencode local state
+.opencode/
+
 # Android / IDE
 .idea/
 *.iml

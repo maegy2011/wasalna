@@ -73,7 +73,7 @@ import kotlinx.coroutines.cancel
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -216,51 +216,55 @@ class AlarmActivity : ComponentActivity() {
             // — no sound, no vibration on the phone. The screen still shows
             // so the destination is visible if the user picks up the phone.
             Log.i(TAG, "watch-only: phone stays silent, watch is alerting")
-        } else if (headphoneOnlyMode) {
-            val device = HeadphoneMonitor(this).findHeadphoneDevice()
-            if (device != null) {
-                headphoneActive = true
-                Log.i(TAG, "headphone-only: pinned to ${device.productName} type=${device.type}")
-                val gradual = readGradualConfig()
-                if (gradual != null) {
-                    Log.i(TAG, "onCreate: headphone-only gradual alarm $gradual")
-                    val uri = resolveGradualUri()
-                    if (uri != null) {
-                        val controller = GradualAlarmController(this)
-                        gradualController = controller
-                        controller.start(uri, gradual, device, headphoneOnly = true)
+        } else {
+            lifecycleScope.launch {
+                if (headphoneOnlyMode) {
+                    val device = HeadphoneMonitor(this@AlarmActivity).findHeadphoneDevice()
+                    if (device != null) {
+                        headphoneActive = true
+                        Log.i(TAG, "headphone-only: pinned to ${device.productName} type=${device.type}")
+                        val gradual = readGradualConfig()
+                        if (gradual != null) {
+                            Log.i(TAG, "onCreate: headphone-only gradual alarm $gradual")
+                            val uri = resolveGradualUri()
+                            if (uri != null) {
+                                val controller = GradualAlarmController(this@AlarmActivity)
+                                gradualController = controller
+                                controller.start(uri, gradual, device, headphoneOnly = true)
+                            } else {
+                                startHeadphoneOnlySound(device)
+                            }
+                        } else {
+                            startHeadphoneOnlySound(device)
+                        }
                     } else {
-                        startHeadphoneOnlySound(device)
+                        // Fallback guarantee: headphones gone → normal loud phone
+                        // alarm. Missing the stop is worse than waking others.
+                        headphoneFallback = true
+                        Log.w(TAG, "headphone-only: none connected → loud fallback")
+                        maxAlarmVolume()
+                        startAlarmSound()
+                    }
+                } else if (silentMode) {
+                    if (isHeadsetConnected()) {
+                        Log.i(TAG, "silent: headset on → earphones route")
+                        startSilentEarphoneSound()
+                    } else {
+                        Log.i(TAG, "silent: no headset → vibrate-only")
+                        startVibrateOnly()
                     }
                 } else {
-                    startHeadphoneOnlySound(device)
+                    // Phase 10.9.x: gradual escalation when enabled (OFF by
+                    // default → legacy instant full-volume path unchanged).
+                    val gradual = readGradualConfig()
+                    if (gradual != null) {
+                        Log.i(TAG, "onCreate: gradual alarm $gradual")
+                        startGradualAlarm(gradual)
+                    } else {
+                        maxAlarmVolume()
+                        startAlarmSound()
+                    }
                 }
-            } else {
-                // Fallback guarantee: headphones gone → normal loud phone
-                // alarm. Missing the stop is worse than waking others.
-                headphoneFallback = true
-                Log.w(TAG, "headphone-only: none connected → loud fallback")
-                maxAlarmVolume()
-                startAlarmSound()
-            }
-        } else if (silentMode) {
-            if (isHeadsetConnected()) {
-                Log.i(TAG, "silent: headset on → earphones route")
-                startSilentEarphoneSound()
-            } else {
-                Log.i(TAG, "silent: no headset → vibrate-only")
-                startVibrateOnly()
-            }
-        } else {
-            // Phase 10.9.x: gradual escalation when enabled (OFF by
-            // default → legacy instant full-volume path unchanged).
-            val gradual = readGradualConfig()
-            if (gradual != null) {
-                Log.i(TAG, "onCreate: gradual alarm $gradual")
-                startGradualAlarm(gradual)
-            } else {
-                maxAlarmVolume()
-                startAlarmSound()
             }
         }
 
@@ -338,19 +342,18 @@ class AlarmActivity : ComponentActivity() {
      * Phase 10.4.3.1: premium custom ringtone wins; every failure (no URI,
      * unreadable file, non-premium) falls back to the system alarm tone.
      */
-    private fun resolveAlarmUri(isPremium: Boolean): android.net.Uri? {
+    private suspend fun resolveAlarmUri(isPremium: Boolean): android.net.Uri? {
         val fallback = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         if (!isPremium) return fallback
         return runCatching {
-            val custom = runBlocking(Dispatchers.IO) {
+            val custom = withContext(Dispatchers.IO) {
                 withTimeoutOrNull(2_000L) {
                     SettingsDataStore(this@AlarmActivity).customRingtoneUri.first()
                 }
             }.orEmpty()
             if (custom.isBlank()) return fallback
             val uri = android.net.Uri.parse(custom)
-            // Verify the file is actually readable before trusting it.
             contentResolver.openInputStream(uri)?.close()
             uri
         }.onFailure {
@@ -358,7 +361,7 @@ class AlarmActivity : ComponentActivity() {
         }.getOrNull() ?: fallback
     }
 
-    private fun startSilentEarphoneSound() {
+    private suspend fun startSilentEarphoneSound() {
         val uri = resolveAlarmUri(premiumMode)
         if (uri == null) {
             Log.e(TAG, "silent: no ringtone, vibrate fallback")
@@ -400,9 +403,9 @@ class AlarmActivity : ComponentActivity() {
      * 2 s cap). Null = feature disabled or settings unreadable → the
      * caller falls back to the legacy instant path. Never throws.
      */
-    private fun readGradualConfig(): GradualAlarmConfig? {
+    private suspend fun readGradualConfig(): GradualAlarmConfig? {
         return runCatching {
-            runBlocking(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 withTimeoutOrNull(2_000L) {
                     val store = SettingsDataStore(this@AlarmActivity)
                     if (!store.isGradualAlarmEnabled.first()) {
@@ -422,9 +425,9 @@ class AlarmActivity : ComponentActivity() {
      * Phase 10.9.x: gradual tone wins when set + readable; otherwise the
      * existing chain applies (premium custom tone → system default).
      */
-    private fun resolveGradualUri(): Uri? {
+    private suspend fun resolveGradualUri(): Uri? {
         runCatching {
-            val custom = runBlocking(Dispatchers.IO) {
+            val custom = withContext(Dispatchers.IO) {
                 withTimeoutOrNull(2_000L) {
                     SettingsDataStore(this@AlarmActivity).gradualRingtoneUri.first()
                 }
@@ -440,7 +443,7 @@ class AlarmActivity : ComponentActivity() {
         return resolveAlarmUri(premiumMode)
     }
 
-    private fun startGradualAlarm(config: GradualAlarmConfig) {
+    private suspend fun startGradualAlarm(config: GradualAlarmConfig) {
         val uri = resolveGradualUri()
         if (uri == null) {
             Log.e(TAG, "startGradualAlarm: no ringtone, legacy fallback")
@@ -461,7 +464,7 @@ class AlarmActivity : ComponentActivity() {
      * STREAM_MUSIC to connected headphones, so exclusivity holds there
      * by platform routing. Vibration stays on (haptic, not a speaker).
      */
-    private fun startHeadphoneOnlySound(device: AudioDeviceInfo) {
+    private suspend fun startHeadphoneOnlySound(device: AudioDeviceInfo) {
         val uri = resolveAlarmUri(premiumMode)
         if (uri == null) {
             Log.e(TAG, "headphone-only: no ringtone, vibrate fallback")
@@ -544,7 +547,7 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
-    private fun startAlarmSound() {
+    private suspend fun startAlarmSound() {
         val uri = resolveAlarmUri(premiumMode)
         if (uri == null) {
             Log.e(TAG, "startAlarmSound: no ringtone URI")
@@ -956,19 +959,13 @@ private fun AlarmScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(8.dp))
-            // ONE primary action: huge dismiss (72dp, full width).
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.alarm_dismiss),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+            // Transit design system (Oct 2026): swipe-to-stop slider —
+            // deliberate 80% drag prevents accidental dismissals.
+            com.app.wasalna.ui.components.SwipeToStopSlider(
+                onStop = onDismiss,
+                label = stringResource(R.string.alarm_swipe_to_stop),
+                modifier = Modifier.fillMaxWidth(),
+            )
             OutlinedButton(
                 onClick = onSnooze,
                 modifier = Modifier

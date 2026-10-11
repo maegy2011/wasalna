@@ -156,6 +156,8 @@ class TrafficRepository @Inject constructor() {
     fun tileFor(lat: Double, lng: Double, zoom: Int): Pair<Int, Int> {
         val z = zoom.coerceIn(MIN_ZOOM, MAX_ZOOM)
         val n = 1 shl z
+        // coerceIn guards against out-of-range lat/lng producing negative or
+        // overflowing tile coords (e.g. lat=90 at zoom 0 → n=1, so x/y must be 0).
         val x = floor((lng + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
         val latRad = (lat.coerceIn(-MAX_LAT, MAX_LAT) * PI / 180.0)
         val y = floor((1.0 - asinh(tan(latRad)) / PI) / 2.0 * n).toInt()

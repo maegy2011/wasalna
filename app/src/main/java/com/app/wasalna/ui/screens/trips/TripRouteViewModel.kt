@@ -79,9 +79,12 @@ class TripRouteViewModel @Inject constructor(
      */
     fun finishTrip(onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            runCatching { tripRepository.finishTrip(tripId) }
-            _trip.value = runCatching { tripRepository.tripById(tripId) }
-                .getOrNull()
+            val existing = runCatching { tripRepository.tripById(tripId) }.getOrNull()
+            if (existing != null) {
+                runCatching { tripRepository.finishTrip(tripId) }
+                _trip.value = runCatching { tripRepository.tripById(tripId) }
+                    .getOrNull()
+            }
             onDone()
         }
     }

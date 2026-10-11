@@ -39,16 +39,13 @@ class TripRepositoryImpl @Inject constructor(
         mode: TransportMode,
     ): Long {
         val now = System.currentTimeMillis()
-        tripDao.closeOpenTrips(now)
-        return tripDao.insertTrip(
-            TripHistoryEntity(
-                locationName = name,
-                destLat = lat,
-                destLng = lng,
-                startTime = now,
-                status = TripStatus.ACTIVE,
-                transportMode = mode.name,
-            ),
+        return tripDao.closeAndStartTrip(
+            name = name,
+            lat = lat,
+            lng = lng,
+            startTime = now,
+            endTime = now,
+            mode = mode.name,
         )
     }
 

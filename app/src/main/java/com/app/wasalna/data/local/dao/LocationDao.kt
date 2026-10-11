@@ -23,6 +23,7 @@ interface LocationDao {
     suspend fun deleteLocation(location: LocationEntity)
 
     // Phase 10.4.1: duplicate detection (same name OR nearby coords).
+    // Tolerance is in degrees (~55m at the equator, less at higher latitudes).
     @Query("SELECT * FROM locations WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) LIMIT 1")
     suspend fun findByName(name: String): LocationEntity?
 

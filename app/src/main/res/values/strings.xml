@@ -502,6 +502,17 @@
     <string name="search_shortcuts_title">Quick places</string>
     <string name="alarm_snooze">Snooze 5 min</string>
     <string name="alarm_dismiss">Dismiss</string>
+    <!-- Transit design system (Oct 2026): swipe slider, badges, timeline (mirrored in values-ar). -->
+    <string name="alarm_swipe_to_stop">Swipe to stop →</string>
+    <string name="badge_active">Active Tracker 🟢</string>
+    <string name="badge_approaching">Approaching 🟡</string>
+    <string name="badge_offline">Offline Fallback 🛰️</string>
+    <string name="badge_alarm">Alarm ringing 🔔</string>
+    <string name="timeline_boarding">Boarding</string>
+    <string name="timeline_alighting">Get off here</string>
+    <string name="timeline_km_left">%1$s km left</string>
+    <string name="start_tracker">Start Tracker</string>
+    <string name="view_live_route">View live route</string>
     <string name="alarm_phase_vibration">Gentle vibration…</string>
     <string name="alarm_phase_ramp">Waking up gently…</string>
     <string name="alarm_phase_full">Fully awake</string>

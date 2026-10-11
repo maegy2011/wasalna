@@ -26,7 +26,14 @@ data class WasalnaDimens(
     val iconSize: Dp = 24.dp,
     val spacingSmall: Dp = 8.dp,
     val spacingMedium: Dp = 16.dp,
-    val spacingLarge: Dp = 24.dp
+    val spacingLarge: Dp = 24.dp,
+    // Transit design system (Oct 2026): cards, sheets, FAB, sliders.
+    val cardCorner: Dp = 20.dp,
+    val sheetCorner: Dp = 24.dp,
+    val fabHeight: Dp = 56.dp,
+    val trackHeight: Dp = 4.dp,
+    val slideHeight: Dp = 56.dp,
+    val thumbDiameter: Dp = 48.dp
 )
 
 val NormalDimens = WasalnaDimens()
@@ -37,7 +44,13 @@ val ElderlyDimens = WasalnaDimens(
     iconSize = 32.dp,
     spacingSmall = 12.dp,
     spacingMedium = 20.dp,
-    spacingLarge = 32.dp
+    spacingLarge = 32.dp,
+    cardCorner = 20.dp,
+    sheetCorner = 24.dp,
+    fabHeight = 64.dp,
+    trackHeight = 4.dp,
+    slideHeight = 64.dp,
+    thumbDiameter = 64.dp
 )
 
 val LocalWasalnaDimens = compositionLocalOf { NormalDimens }

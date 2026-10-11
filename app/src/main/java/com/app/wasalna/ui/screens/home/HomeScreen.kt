@@ -170,7 +170,16 @@ fun HomeScreen(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        // Transit design system (Oct 2026): status badge +
+                        // scannable destination + ETA hero.
+                        com.app.wasalna.ui.components.StatusBadge(
+                            kind = com.app.wasalna.ui.components.BadgeKind.ACTIVE,
+                            text = stringResource(R.string.badge_active),
+                        )
                         Text(
                             text = stringResource(
                                 R.string.home_current_trip,
@@ -179,12 +188,16 @@ fun HomeScreen(
                             ),
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = trip.etaMinutes?.let { stringResource(R.string.trips_eta, it) }
                                 ?: stringResource(R.string.trips_tracking_live),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            text = stringResource(R.string.view_live_route),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }

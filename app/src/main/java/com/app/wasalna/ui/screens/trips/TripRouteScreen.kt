@@ -272,6 +272,21 @@ fun TripRouteScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        // Transit design system (Oct 2026): live status badge.
+                        val badgeKind = when {
+                            points.size < 2 -> com.app.wasalna.ui.components.BadgeKind.OFFLINE
+                            progress >= 0.8f -> com.app.wasalna.ui.components.BadgeKind.APPROACHING
+                            else -> com.app.wasalna.ui.components.BadgeKind.ACTIVE
+                        }
+                        val badgeText = when {
+                            points.size < 2 -> stringResource(R.string.badge_offline)
+                            progress >= 0.8f -> stringResource(R.string.badge_approaching)
+                            else -> stringResource(R.string.badge_active)
+                        }
+                        com.app.wasalna.ui.components.StatusBadge(
+                            kind = badgeKind,
+                            text = badgeText,
+                        )
                         Text(
                             text = "${t.transportMode.icon} ${t.locationName}",
                             style = MaterialTheme.typography.titleLarge,
@@ -317,6 +332,33 @@ fun TripRouteScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // Transit design system (Oct 2026): vertical route
+                        // timeline with green progress + vehicle icon.
+                        if (points.size >= 2) {
+                            val origin = points.firstOrNull()
+                            com.app.wasalna.ui.components.RouteTimeline(
+                                boardingName = origin?.let {
+                                    String.format(
+                                        java.util.Locale.US,
+                                        "%.4f, %.4f",
+                                        it.lat,
+                                        it.lng,
+                                    )
+                                } ?: "—",
+                                alightingName = t.locationName,
+                                progress = progress,
+                                mode = vehicle,
+                                remainingText = remainingKm?.let {
+                                    stringResource(
+                                        R.string.timeline_km_left,
+                                        String.format(java.util.Locale.US, "%.1f", it),
+                                    )
+                                },
+                                etaText = t.etaMinutes?.let {
+                                    stringResource(R.string.trip_hero_remaining_time, it)
+                                },
+                            )
+                        }
                         // VEHICLE mid-trip switch (user order Oct 2026):
                         // 48dp+ chips, 8dp spacing, RTL-safe. Persists to
                         // DataStore; TrackingService picks it up live and
@@ -367,8 +409,8 @@ fun TripRouteScreen(
                         if (vehicle == TransportMode.TRANSIT) {
                             val dest = trip
                             if (dest != null) {
-                                val guide = remember(points, dest) {
-                                    val origin = points.firstOrNull()
+                                val origin = points.firstOrNull()
+                                val guide = remember(origin?.lat, origin?.lng, dest) {
                                     CairoTransitStations.buildGuide(
                                         originLat = origin?.lat ?: dest.destLat,
                                         originLng = origin?.lng ?: dest.destLng,
