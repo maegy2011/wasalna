@@ -551,7 +551,6 @@ fun MainContainerScreen() {
                 composable(Screen.Settings.route) {
                     SettingsScreen(
                         onBack = { smartBack() },
-                        onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                         onOpenOfflineMaps = { navigateTab(Screen.OfflineMaps.route) },
                         onOpenRestrictions = { navigateTab(Screen.DeviceRestrictions.route) },
                     )

@@ -35,21 +35,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.wasalna.R
 import com.app.wasalna.data.wear.WatchAlertSender
+import com.app.wasalna.ui.components.PremiumMark
 
 /**
  * Phase 10.10: "الساعة الذكية" settings section (Arabic-first).
  *
  * - Connection status via CapabilityClient node discovery (refresh + on-open).
  * - Test-vibration button (48dp+ target, disabled while busy / not connected).
- * - Watch-only alert toggle, PREMIUM-gated: free users see an upsell card
- *   pointing at the Paywall instead of the toggle.
+ * - Watch-only alert toggle, PREMIUM-gated: free users see a static
+ *   PremiumMark instead of the toggle (no paywall navigation).
  * - Graceful states: no watch paired / watch app missing / free plan, each
  *   with a clear Arabic explanation + action.
  */
 @Composable
 fun WatchSettingsSection(
     viewModel: SettingsViewModel,
-    onOpenPaywall: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -176,21 +176,8 @@ fun WatchSettingsSection(
             }
 
             if (!isPremium) {
-                // Free plan → upsell card pointing at the Paywall (reuses the
-                // existing paywall flow, no duplicate purchase logic).
-                OutlinedButton(
-                    onClick = onOpenPaywall,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.Lock,
-                        contentDescription = null,
-                    )
-                    Spacer(modifier = Modifier.padding(horizontal = 4.dp))
-                    Text(text = stringResource(R.string.settings_watch_upsell))
-                }
+                // Free plan → static mark only (no paywall navigation).
+                PremiumMark()
                 Text(
                     text = stringResource(R.string.settings_watch_premium_only),
                     style = MaterialTheme.typography.bodySmall,

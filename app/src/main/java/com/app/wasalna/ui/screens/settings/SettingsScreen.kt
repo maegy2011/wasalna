@@ -72,6 +72,7 @@ import com.app.wasalna.utils.AutoStartUtils
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
+import com.app.wasalna.ui.components.PremiumMark
 import com.app.wasalna.domain.audio.HeadphoneState
 import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.utils.DndChoice
@@ -88,7 +89,6 @@ import com.app.wasalna.utils.DndPolicy
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
-    onOpenPaywall: () -> Unit = {},
     onOpenOfflineMaps: () -> Unit = {},
     onOpenRestrictions: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -488,10 +488,14 @@ fun SettingsScreen(
                         modifier = Modifier.padding(end = 12.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_silent_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.settings_silent_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            PremiumMark()
+                        }
                         Text(
                             text = if (isPremium) {
                                 stringResource(R.string.settings_silent_sub)
@@ -518,9 +522,6 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                onClick = {
-                    if (!isPremium) onOpenPaywall()
-                },
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -542,10 +543,14 @@ fun SettingsScreen(
                                 .weight(1f)
                                 .padding(horizontal = 12.dp),
                         ) {
-                            Text(
-                                text = stringResource(R.string.settings_headphone_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.settings_headphone_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                PremiumMark()
+                            }
                             Text(
                                 text = if (isPremium) {
                                     stringResource(R.string.settings_headphone_sub)
@@ -600,7 +605,6 @@ fun SettingsScreen(
             // status + test vibration + premium-gated watch-only alert toggle.
             WatchSettingsSection(
                 viewModel = viewModel,
-                onOpenPaywall = onOpenPaywall,
             )
 
         }
@@ -762,9 +766,8 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 onClick = {
-                    if (!isPremium) {
-                        onOpenPaywall()
-                    } else {
+                    // Locked = static mark only, no paywall navigation.
+                    if (isPremium) {
                         runCatching {
                             val existing: Uri? = customRingtoneUri.ifBlank { null }?.let {
                                 runCatching { Uri.parse(it) }.getOrNull()
@@ -799,10 +802,14 @@ fun SettingsScreen(
                         modifier = Modifier.padding(end = 12.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_ringtone_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.settings_ringtone_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            PremiumMark()
+                        }
                         Text(
                             text = if (!isPremium) {
                                 stringResource(R.string.settings_premium_only)
@@ -1009,7 +1016,8 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 onClick = {
-                    if (isPremium) onOpenOfflineMaps() else onOpenPaywall()
+                    // Locked = static mark only, no paywall navigation.
+                    if (isPremium) onOpenOfflineMaps()
                 },
             ) {
                 Row(
@@ -1026,10 +1034,14 @@ fun SettingsScreen(
                         modifier = Modifier.padding(end = 12.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_offline_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.settings_offline_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            PremiumMark()
+                        }
                         Text(
                             text = if (isPremium) {
                                 stringResource(R.string.settings_offline_sub)
