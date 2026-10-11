@@ -255,6 +255,18 @@ fun MapScreen(
     // Save uses this address as the Location name for map taps.
     val addressLine: String? = selectedAddress ?: selectedName
 
+    // Smart back (user order Oct 2026): while the search UI, the trip
+    // sheet, or the Home/Work sheet is open, back dismisses THEM first
+    // (registered later = takes precedence over the container handler);
+    // otherwise the container's smart back returns to the last screen.
+    BackHandler(enabled = searchActive || tripSheetOpen || homeWorkSheetPoint != null) {
+        when {
+            homeWorkSheetPoint != null -> homeWorkSheetPoint = null
+            tripSheetOpen -> tripSheetOpen = false
+            searchActive -> searchActive = false
+        }
+    }
+
     Scaffold(
         topBar = {
             androidx.compose.material3.TopAppBar(

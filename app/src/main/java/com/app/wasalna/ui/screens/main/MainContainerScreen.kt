@@ -1,7 +1,10 @@
 package com.app.wasalna.ui.screens.main
 
 import android.content.Intent
+import android.app.Activity
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -124,6 +127,51 @@ fun MainContainerScreen() {
 
     fun isSelected(route: String): Boolean =
         currentHierarchy?.any { it.route == route } == true
+
+    // Smart back (user order Oct 2026): remembers the visit history and
+    // returns to the LAST screen instead of fixed destinations. Drawer
+    // closes first; pushed screens pop naturally; at a root the previous
+    // visited destination opens; Home requires a double-press to exit.
+    val visitHistory = remember { mutableStateListOf<String>() }
+    var lastBackPress by remember { mutableLongStateOf(0L) }
+    val currentRoute = backStack?.destination?.route
+    LaunchedEffect(currentRoute) {
+        currentRoute?.let { route ->
+            if (visitHistory.lastOrNull() != route) {
+                visitHistory.add(route)
+                if (visitHistory.size > 20) visitHistory.removeAt(0)
+            }
+        }
+    }
+    fun smartBack() {
+        if (drawerState.isOpen) {
+            closeDrawer()
+            return
+        }
+        if (innerNav.popBackStack()) return
+        val cur = innerNav.currentDestination?.route
+        while (visitHistory.isNotEmpty() && visitHistory.last() == cur) {
+            visitHistory.removeLast()
+        }
+        val target = visitHistory.removeLastOrNull()
+        if (target != null) {
+            navigateTab(target)
+        } else if (cur != Screen.Home.route) {
+            navigateTab(Screen.Home.route)
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPress < 2_000) {
+                (context as? Activity)?.finish()
+            } else {
+                lastBackPress = now
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.common_back_exit),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
 
     fun openDrawer() = scope.launch { drawerState.open() }
     fun closeDrawer() = scope.launch { drawerState.close() }
@@ -423,6 +471,10 @@ fun MainContainerScreen() {
             }
         },
         ) {
+            // Smart back owns the system back button everywhere in the
+            // container (Map's own handler takes precedence while its
+            // search/sheet states are open — see MapScreen).
+            BackHandler(onBack = ::smartBack)
             NavHost(
                 navController = innerNav,
                 startDestination = Screen.Home.route,
@@ -444,7 +496,7 @@ fun MainContainerScreen() {
                 }
                 composable(Screen.MyPlaces.route) {
                     MyPlacesScreen(
-                        onBack = { navigateTab(Screen.Home.route) },
+                        onBack = { smartBack() },
                         onAddDestination = { openMapFullScreen() },
                         viewModel = hiltViewModel(),
                     )
@@ -462,7 +514,7 @@ fun MainContainerScreen() {
                     MapScreen(
                         viewModel = hiltViewModel(),
                         onSaved = { navigateTab(Screen.MyPlaces.route) },
-                        onBack = { navigateTab(Screen.MyPlaces.route) },
+                        onBack = { smartBack() },
                         tripName = entry.arguments?.getString("name")?.ifBlank { null },
                         tripLat = entry.arguments?.getString("lat")?.toDoubleOrNull(),
                         tripLng = entry.arguments?.getString("lng")?.toDoubleOrNull(),
@@ -471,7 +523,7 @@ fun MainContainerScreen() {
                 }
                 composable(Screen.TripsHistory.route) {
                     TripsHistoryScreen(
-                        onBack = { navigateTab(Screen.Home.route) },
+                        onBack = { smartBack() },
                         // Phase 10.4.3.8: past trip tap opens its route map.
                         onOpenTripRoute = { tripId ->
                             innerNav.navigate(Screen.TripRoute.routeFor(tripId))
@@ -486,13 +538,13 @@ fun MainContainerScreen() {
                     ),
                 ) {
                     TripRouteScreen(
-                        onBack = { innerNav.popBackStack() },
+                        onBack = { smartBack() },
                     )
                 }
                 composable(Screen.Paywall.route) { PaywallScreen(onMenuClick = { openDrawer() }) }
                 composable(Screen.Settings.route) {
                     SettingsScreen(
-                        onBack = { navigateTab(Screen.Home.route) },
+                        onBack = { smartBack() },
                         onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                         onOpenOfflineMaps = { navigateTab(Screen.OfflineMaps.route) },
                         onOpenRestrictions = { navigateTab(Screen.DeviceRestrictions.route) },
@@ -506,13 +558,13 @@ fun MainContainerScreen() {
                 }
                 composable(Screen.OfflineMaps.route) {
                     OfflineMapsScreen(
-                        onBack = { navigateTab(Screen.Settings.route) },
+                        onBack = { smartBack() },
                         onOpenOfflineRouting = { navigateTab(Screen.OfflineRouting.route) },
                     )
                 }
                 composable(Screen.OfflineRouting.route) {
                     OfflineRoutingScreen(
-                        onBack = { navigateTab(Screen.OfflineMaps.route) },
+                        onBack = { smartBack() },
                     )
                 }
             }

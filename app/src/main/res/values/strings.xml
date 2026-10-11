@@ -458,6 +458,7 @@
     <string name="settings_advanced_sub">Developer tools and experimental features</string>
     <string name="drawer_section_general">General</string>
     <string name="drawer_section_more">More</string>
+    <string name="common_back_exit">Press back again to exit</string>
     <string name="tracking_paused_title">Paused — %1$s</string>
     <string name="tracking_heading_title">Heading to: %1$s</string>
     <string name="tracking_paused_body">Trip paused — tap Resume to continue</string>
