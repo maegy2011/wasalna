@@ -166,6 +166,7 @@
     <string name="trip_need_bg">Allow background location so the alarm survives — opening settings</string>
     <string name="trip_need_battery">Remove battery restriction so tracking survives — opening settings</string>
     <string name="trip_sim_prefix">[SIM]</string>
+    <string name="nav_start_trip">Start a new trip</string>
     <string name="sim_blocked_by_trip">A real trip is running — stop it before simulating</string>
     <string name="routing_gaz_title">Street &amp; place search</string>
     <string name="routing_gaz_hint">Offline names for this region</string>

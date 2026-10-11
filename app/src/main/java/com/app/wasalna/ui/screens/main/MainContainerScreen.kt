@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,12 +26,14 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -253,65 +256,75 @@ fun MainContainerScreen() {
     // still dims them while open — tap there closes the drawer per M3.)
     Scaffold(
         bottomBar = {
-                NavigationBar {
-                    // Icon-only bottom bar (user order Oct 2026): no text
-                    // labels — the icon contentDescription keeps TalkBack.
-                    // Drawer entry FIRST (mirrored to the opposite end per
-                    // user order) — works on every tab, incl. Map where
-                    // edge-swipe is locked. No navigation, no state change.
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = { openDrawer() },
-                        icon = {
-                            Icon(
-                                painterResource(R.drawable.ic_svg_menu),
-                                contentDescription = stringResource(R.string.nav_menu_desc),
-                            )
-                        },
-                    )
-                    NavigationBarItem(
-                        selected = isSelected(Screen.Home.route),
-                        onClick = { navigateTab(Screen.Home.route) },
-                        icon = {
-                            Icon(
-                                painterResource(R.drawable.ic_svg_home),
-                                contentDescription = stringResource(R.string.nav_home),
-                            )
-                        },
-                    )
-                    NavigationBarItem(
-                        selected = isSelected(Screen.MyPlaces.route),
-                        onClick = { navigateTab(Screen.MyPlaces.route) },
-                        icon = {
-                            Icon(
-                                painterResource(R.drawable.ic_svg_place),
-                                contentDescription = stringResource(R.string.myplaces_title),
-                            )
-                        },
-                    )
-                    // Elderly: First Class promo tab hidden (simpler bar).
-                    if (!elderly) {
+                // Bottom bar v2 (user order Oct 2026): menu | home |
+                // CENTER start-trip | places | settings. Trips history
+                // lives in the drawer only. Icon-only items (TalkBack
+                // kept); the center FAB opens the Map = every trip
+                // starts by picking a destination.
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    NavigationBar {
                         NavigationBarItem(
-                            selected = isSelected(Screen.Paywall.route),
-                            onClick = { navigateTab(Screen.Paywall.route) },
+                            selected = false,
+                            onClick = { openDrawer() },
                             icon = {
                                 Icon(
-                                    painterResource(R.drawable.ic_svg_diamond),
-                                    contentDescription = stringResource(R.string.paywall_title),
+                                    painterResource(R.drawable.ic_svg_menu),
+                                    contentDescription = stringResource(R.string.nav_menu_desc),
+                                )
+                            },
+                        )
+                        NavigationBarItem(
+                            selected = isSelected(Screen.Home.route),
+                            onClick = { navigateTab(Screen.Home.route) },
+                            icon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_svg_home),
+                                    contentDescription = stringResource(R.string.nav_home),
+                                )
+                            },
+                        )
+                        // Center slot: spacer under the overlaid FAB so
+                        // the four real items stay evenly distributed.
+                        NavigationBarItem(
+                            selected = false,
+                            onClick = { openMapFullScreen() },
+                            icon = { Spacer(modifier = Modifier.size(24.dp)) },
+                        )
+                        NavigationBarItem(
+                            selected = isSelected(Screen.MyPlaces.route),
+                            onClick = { navigateTab(Screen.MyPlaces.route) },
+                            icon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_svg_place),
+                                    contentDescription = stringResource(R.string.myplaces_title),
+                                )
+                            },
+                        )
+                        NavigationBarItem(
+                            selected = isSelected(Screen.Settings.route),
+                            onClick = { navigateTab(Screen.Settings.route) },
+                            icon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_svg_settings),
+                                    contentDescription = stringResource(R.string.settings_title),
                                 )
                             },
                         )
                     }
-                    NavigationBarItem(
-                        selected = isSelected(Screen.TripsHistory.route),
-                        onClick = { navigateTab(Screen.TripsHistory.route) },
-                        icon = {
-                            Icon(
-                                painterResource(R.drawable.ic_svg_history),
-                                contentDescription = stringResource(R.string.nav_trips_desc),
-                            )
-                        },
-                    )
+                    FloatingActionButton(
+                        onClick = { openMapFullScreen() },
+                        modifier = Modifier
+                            .align(androidx.compose.ui.Alignment.TopCenter)
+                            .size(64.dp),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(R.string.nav_start_trip),
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
                 }
         },
     ) { scaffoldPadding ->

@@ -100,6 +100,7 @@
     <string name="trip_need_bg">اسمح بالموقع في الخلفية ليعمل المنبه — جارٍ فتح الإعدادات</string>
     <string name="trip_need_battery">أزل قيد البطارية ليعمل التتبع — جارٍ فتح الإعدادات</string>
     <string name="trip_sim_prefix">[محاكاة]</string>
+    <string name="nav_start_trip">بدء رحلة جديدة</string>
     <string name="sim_blocked_by_trip">توجد رحلة حقيقية تعمل — أوقفها قبل المحاكاة</string>
     <string name="routing_gaz_title">البحث في الشوارع والأماكن</string>
     <string name="routing_gaz_hint">أسماء المنطقة دون إنترنت</string>
