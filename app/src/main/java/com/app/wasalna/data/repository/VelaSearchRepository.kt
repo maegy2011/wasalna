@@ -52,7 +52,10 @@ class VelaSearchRepository @Inject constructor() {
             lastWasOffline = false
             runCatching {
                 val bias = if (lat != null && lon != null) "&lat=$lat&lon=$lon" else ""
-                val url = PHOTON_URL + "?q=${encode(query)}$bias&limit=10&lang=en"
+                // Egypt-only (Oct 2026, user order): server-side bbox +
+                // client-side backstop — Wasalna? serves Egypt, so Paris
+                // or Dubai matches must never appear in the list.
+                val url = PHOTON_URL + "?q=${encode(query)}$bias&limit=10&lang=en&bbox=$EGYPT_BBOX"
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", NominatimRepository.USER_AGENT)
@@ -80,6 +83,9 @@ class VelaSearchRepository @Inject constructor() {
             val lng = coords?.optDouble(0)
             val lat = coords?.optDouble(1)
             if (props == null || lat == null || lng == null) return@List null
+            // Backstop: Photon honors bbox, but a misbehaving mirror or
+            // future API change must not leak foreign results into the UI.
+            if (!inEgypt(lat, lng)) return@List null
             SearchResult(
                 name = displayName(props),
                 lat = lat,
@@ -102,5 +108,12 @@ class VelaSearchRepository @Inject constructor() {
     companion object {
         private const val TAG = "VelaSearch"
         const val PHOTON_URL = "https://photon.komoot.io/api/"
+
+        /** Egypt bbox (minLon,minLat,maxLon,maxLat) — mirrors EGYPT_FULL. */
+        const val EGYPT_BBOX = "24.5,21.5,35.0,31.8"
+
+        /** True inside Egypt (inclusive) — client-side result guard. */
+        fun inEgypt(lat: Double, lng: Double): Boolean =
+            lat in 21.5..31.8 && lng in 24.5..35.0
     }
 }

@@ -28,13 +28,17 @@ class NominatimRepository @Inject constructor() {
 
     /**
      * Forward search: query → up to 5 results with display_name + lat/lon.
+     * Egypt-only (Oct 2026, user order): countrycodes + bounded viewbox
+     * (same EGYPT_FULL bbox as the Photon path). Currently used by no
+     * UI path (Map uses Photon; this stays for fallback) — kept correct.
      * Runs on Dispatchers.IO — never blocks the UI thread.
      */
     suspend fun searchPlaces(query: String): List<OsmSearchResult> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val url = HttpUrlBuilder.SEARCH +
-                    "?q=${encode(query)}&format=json&limit=5&addressdetails=0"
+                    "?q=${encode(query)}&format=json&limit=5&addressdetails=0" +
+                    "&countrycodes=eg&viewbox=24.5,31.8,35.0,21.5&bounded=1"
                 val body = get(url) ?: return@runCatching emptyList<OsmSearchResult>()
                 val arr = JSONArray(body)
                 List(arr.length()) { i ->
