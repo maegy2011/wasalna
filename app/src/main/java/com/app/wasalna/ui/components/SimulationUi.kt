@@ -408,6 +408,12 @@ fun TripSimulationPanel(
                         scope.launch {
                             starting = true
                             error = null
+                            // SIM SEPARATION (Oct 2026): refuse while a REAL
+                            // trip runs — the two modes never mix.
+                            if (!com.app.wasalna.data.service.TripStarter.checkSimReady(context)) {
+                                starting = false
+                                return@launch
+                            }
                             val origin = runCatching { originProvider() }.getOrNull()
                             if (origin == null) {
                                 error = noFixMessage

@@ -158,6 +158,15 @@
     <string name="settings_voice_engine_note">Uses your device text-to-speech engine</string>
     <string name="alarm_arrived_voice">You have arrived at %1$s</string>
     <string name="settings_autograph_title">Auto-download trip maps</string>
+    <string name="trip_started">Real trip started: %1$s</string>
+    <string name="trip_blocked_by_sim">Stop the simulation first, then start your real trip</string>
+    <string name="trip_already_running">A trip is already running</string>
+    <string name="trip_need_location">Location permission needed — opening settings</string>
+    <string name="trip_need_gps">Turn on GPS first — opening location settings</string>
+    <string name="trip_need_bg">Allow background location so the alarm survives — opening settings</string>
+    <string name="trip_need_battery">Remove battery restriction so tracking survives — opening settings</string>
+    <string name="trip_sim_prefix">[SIM]</string>
+    <string name="sim_blocked_by_trip">A real trip is running — stop it before simulating</string>
     <string name="routing_gaz_title">Street &amp; place search</string>
     <string name="routing_gaz_hint">Offline names for this region</string>
     <string name="routing_gaz_ready">Search ready (%1$d KB on device)</string>

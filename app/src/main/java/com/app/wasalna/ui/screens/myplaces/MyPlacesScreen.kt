@@ -889,17 +889,14 @@ private fun hasLocationPermission(context: Context): Boolean {
 private fun walkKm(distanceM: Float): String =
     String.format(java.util.Locale.US, "%.1f", distanceM / 1000f)
 
+// Real-trip upgrade (Oct 2026): all starts funnel through TripStarter —
+// pre-flight gate (GPS/permission/battery) + sim conflict refusal.
 private fun startTracking(
     context: Context,
     location: Location,
     mode: TransportMode,
 ) {
-    val intent = Intent(context, TrackingService::class.java).apply {
-        action = TrackingService.ACTION_START
-        putExtra(TrackingService.EXTRA_LAT, location.latitude)
-        putExtra(TrackingService.EXTRA_LNG, location.longitude)
-        putExtra(TrackingService.EXTRA_NAME, location.name)
-        putExtra(TrackingService.EXTRA_MODE, mode.name)
-    }
-    ContextCompat.startForegroundService(context, intent)
+    com.app.wasalna.data.service.TripStarter.startRealTrip(
+        context, location.latitude, location.longitude, location.name, mode,
+    )
 }

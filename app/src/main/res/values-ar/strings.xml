@@ -92,6 +92,15 @@
     <string name="settings_voice_engine_note">يستخدم محرك تحويل النص إلى كلام في جهازك</string>
     <string name="alarm_arrived_voice">لقد وصلت إلى %1$s</string>
     <string name="settings_autograph_title">تنزيل خرائط الرحلة تلقائيًا</string>
+    <string name="trip_started">بدأت الرحلة الحقيقية: %1$s</string>
+    <string name="trip_blocked_by_sim">أوقف المحاكاة أولًا، ثم ابدأ رحلتك الحقيقية</string>
+    <string name="trip_already_running">توجد رحلة تعمل بالفعل</string>
+    <string name="trip_need_location">يلزم إذن الموقع — جارٍ فتح الإعدادات</string>
+    <string name="trip_need_gps">شغّل GPS أولًا — جارٍ فتح إعدادات الموقع</string>
+    <string name="trip_need_bg">اسمح بالموقع في الخلفية ليعمل المنبه — جارٍ فتح الإعدادات</string>
+    <string name="trip_need_battery">أزل قيد البطارية ليعمل التتبع — جارٍ فتح الإعدادات</string>
+    <string name="trip_sim_prefix">[محاكاة]</string>
+    <string name="sim_blocked_by_trip">توجد رحلة حقيقية تعمل — أوقفها قبل المحاكاة</string>
     <string name="routing_gaz_title">البحث في الشوارع والأماكن</string>
     <string name="routing_gaz_hint">أسماء المنطقة دون إنترنت</string>
     <string name="routing_gaz_ready">البحث جاهز (%1$d ك.ب على الجهاز)</string>

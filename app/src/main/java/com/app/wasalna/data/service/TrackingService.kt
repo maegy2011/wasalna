@@ -230,16 +230,20 @@ class TrackingService : Service() {
         isPaused = false
         isStopping = false
         acquireWakeLock()
-        // Persist BEFORE any early return below so a process death at
-        // any point can still resume this exact trip.
-        persistActiveTrip()
-        scheduleWatchdog()
-        // Dynamic routing data (Oct 2026): when no installed graph covers
-        // origin→destination but a known region does, fetch it in the
-        // background (Wi-Fi only, storage-checked inside). Mid-trip the
-        // existing auto-select picks it up; until then the straight-line
-        // fallback stands — the alarm never waits for a download.
-        ensureTripGraph()
+        // SIM SEPARATION (Oct 2026): simulated trips never persist,
+        // never arm the watchdog, never auto-fetch graphs — a dead sim
+        // must never resurrect itself. Only REAL trips get survival +
+        // dynamic graphs (persist BEFORE any early return below so a
+        // process death at any point can still resume a real trip).
+        val isSimTrip = TripSimulationController.isActive
+        if (!isSimTrip) {
+            persistActiveTrip()
+            scheduleWatchdog()
+            // Dynamic routing data: fetch covering graph in background
+            // (Wi-Fi only). Until it lands, the straight-line fallback
+            // stands — the alarm never waits for a download.
+            ensureTripGraph()
+        }
         // Phase 10.4.3.3/10.4.3.4: one-shot reads (never collect{} in a service).
         hasFiredProactiveAlert = false
         hasFiredAlarm = false
@@ -309,6 +313,7 @@ class TrackingService : Service() {
         }
 
         startTracking(force = true)
+        isServiceRunning = true
         return START_STICKY
     }
 
@@ -574,7 +579,14 @@ class TrackingService : Service() {
 
     /** Builds the rich notification; null fix = static (start/pause/silent). */
     private fun buildNotification(fix: Location?): NotificationCompat.Builder {
-        val title = if (isPaused) getString(R.string.tracking_paused_title, targetName) else getString(R.string.tracking_heading_title, targetName)
+        // SIM SEPARATION: the notification names the mode — a simulated
+        // trip can never masquerade as a real one.
+        val simTag = if (TripSimulationController.isActive) {
+            getString(R.string.trip_sim_prefix) + " "
+        } else {
+            ""
+        }
+        val title = if (isPaused) getString(R.string.tracking_paused_title, targetName) else simTag + getString(R.string.tracking_heading_title, targetName)
         val body = if (isPaused) {
             getString(R.string.tracking_paused_body)
         } else if (fix != null) {
@@ -1127,6 +1139,7 @@ class TrackingService : Service() {
     }
 
     override fun onDestroy() {
+        isServiceRunning = false
         isStopping = true
         simFeedJob?.cancel()
         simFeedJob = null
@@ -1172,7 +1185,8 @@ class TrackingService : Service() {
                         .putExtra(EXTRA_MODE, mode.name),
                 )
             }.onFailure { Log.w(TAG, "onTaskRemoved restart failed: ${it.message}") }
-            scheduleWatchdog(delayMs = 5_000L)
+            // SIM SEPARATION: sims never arm the watchdog.
+            if (!TripSimulationController.isActive) scheduleWatchdog(delayMs = 5_000L)
         }
         super.onTaskRemoved(rootIntent)
     }
@@ -1297,6 +1311,11 @@ class TrackingService : Service() {
 
     companion object {
         private const val TAG = "TrackingService"
+
+        // Real/sim separation (Oct 2026): UI gates read this — a second
+        // trip (real or sim) can never start while one runs.
+        @Volatile var isServiceRunning: Boolean = false
+            private set
 
         const val ACTION_START = "com.app.wasalna.action.START_TRACKING"
         const val ACTION_STOP = "com.app.wasalna.action.STOP_TRACKING"
