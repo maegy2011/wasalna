@@ -43,6 +43,9 @@ interface SettingsRepository {
     val isVoiceAnnounceEnabled: Flow<Boolean>
     val voiceName: Flow<String>
 
+    // Dynamic routing data (Oct 2026): Wi-Fi auto-fetch of trip graphs.
+    val isAutoGraphDownloadEnabled: Flow<Boolean>
+
     val isForceOffline: Flow<Boolean>
 
     val isWizardSeen: Flow<Boolean>
@@ -110,6 +113,7 @@ interface SettingsRepository {
 
     suspend fun setVoiceAnnounceEnabled(enabled: Boolean)
     suspend fun setVoiceName(name: String)
+    suspend fun setAutoGraphDownloadEnabled(enabled: Boolean)
 
     suspend fun setHome(lat: Double?, lng: Double?, address: String)
 

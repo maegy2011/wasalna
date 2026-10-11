@@ -2,6 +2,7 @@ package com.app.wasalna.ui.screens.trips
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.app.wasalna.R

@@ -86,6 +86,10 @@ class SettingsDataStore @Inject constructor(
     val voiceName: Flow<String> =
         dataStore.data.map { it[Keys.VOICE_NAME] ?: "" }
 
+    // Dynamic routing data (Oct 2026): Wi-Fi auto-fetch of trip graphs.
+    val isAutoGraphDownloadEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.AUTO_GRAPH_DOWNLOAD] ?: true }
+
     // Phase 10.4.3.3: adaptive trigger distance per transport mode.
     val isAdaptiveAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.ADAPTIVE_ALARM_ENABLED] ?: true }
@@ -201,6 +205,10 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setVoiceName(name: String) {
         dataStore.edit { it[Keys.VOICE_NAME] = name }
+    }
+
+    suspend fun setAutoGraphDownloadEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.AUTO_GRAPH_DOWNLOAD] = enabled }
     }
 
     suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {
@@ -406,6 +414,8 @@ class SettingsDataStore @Inject constructor(
         // Voice announcements (Oct 2026): Google/system TTS, custom voice.
         val VOICE_ANNOUNCE_ENABLED = booleanPreferencesKey("voice_announce_enabled")
         val VOICE_NAME = stringPreferencesKey("voice_name")
+        // Dynamic routing data (Oct 2026): auto-fetch covering graph.
+        val AUTO_GRAPH_DOWNLOAD = booleanPreferencesKey("auto_graph_download")
         val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
         val ALARM_MODE = stringPreferencesKey("alarm_mode")
         val ALARM_TIME_MINUTES = intPreferencesKey("alarm_time_minutes")

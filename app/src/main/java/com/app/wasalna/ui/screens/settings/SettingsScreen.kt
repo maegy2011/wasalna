@@ -101,6 +101,7 @@ fun SettingsScreen(
     val elderlyMode by viewModel.elderlyMode.collectAsState()
     // Voice announcements (Oct 2026): system TTS + custom voice picker.
     val voiceAnnounce by viewModel.voiceAnnounce.collectAsState()
+    val autoGraphDownload by viewModel.autoGraphDownload.collectAsState()
     val voiceName by viewModel.voiceName.collectAsState()
     val systemVoices by viewModel.voices.collectAsState()
     var showVoicePicker by remember { mutableStateOf(false) }
@@ -1124,6 +1125,42 @@ fun SettingsScreen(
                         if (!isPremium) Icons.Filled.Lock else Icons.Filled.Download,
                         contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_offline_open),
                     )
+                }
+            }
+            // Dynamic routing data (Oct 2026): Wi-Fi auto-fetch toggle.
+            if (match("autograph", "download", "تنزيل", "offline", "خرائط", "routing", "توجيه")) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_svg_map),
+                            contentDescription = stringResource(R.string.settings_autograph_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_autograph_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_autograph_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(
+                            checked = autoGraphDownload,
+                            onCheckedChange = viewModel::setAutoGraphDownload,
+                        )
+                    }
                 }
             }
 

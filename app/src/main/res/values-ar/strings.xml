@@ -91,6 +91,8 @@
     <string name="settings_voice_none">لا توجد أصوات في النظام</string>
     <string name="settings_voice_engine_note">يستخدم محرك تحويل النص إلى كلام في جهازك</string>
     <string name="alarm_arrived_voice">لقد وصلت إلى %1$s</string>
+    <string name="settings_autograph_title">تنزيل خرائط الرحلة تلقائيًا</string>
+    <string name="settings_autograph_sub">جلب التوجيه دون إنترنت عبر Wi-Fi عند الحاجة</string>
     <string name="alarm_setup_cancel">إلغاء</string>
     <string name="alarm_notif_mode_distance">وضع التنبيه: حسب المسافة</string>
     <string name="alarm_notif_mode_time">وضع التنبيه: حسب الوقت (مرتبط بالزحام)</string>

@@ -40,6 +40,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * Phase 5: background location engine (foreground service, type `location`).
@@ -232,6 +234,12 @@ class TrackingService : Service() {
         // any point can still resume this exact trip.
         persistActiveTrip()
         scheduleWatchdog()
+        // Dynamic routing data (Oct 2026): when no installed graph covers
+        // origin→destination but a known region does, fetch it in the
+        // background (Wi-Fi only, storage-checked inside). Mid-trip the
+        // existing auto-select picks it up; until then the straight-line
+        // fallback stands — the alarm never waits for a download.
+        ensureTripGraph()
         // Phase 10.4.3.3/10.4.3.4: one-shot reads (never collect{} in a service).
         hasFiredProactiveAlert = false
         hasFiredAlarm = false
@@ -1220,6 +1228,31 @@ class TrackingService : Service() {
             .putExtra(EXTRA_MODE, prefs.getString(KEY_MODE, null))
         onStartCommand(restart, 0, startId)
         return true
+    }
+
+    private fun ensureTripGraph() {
+        serviceScope.launch {
+            val auto = runCatching {
+                SettingsDataStore(applicationContext).isAutoGraphDownloadEnabled.first()
+            }.getOrDefault(true)
+            if (!auto) return@launch
+            val origin = runCatching {
+                suspendCancellableCoroutine<Location?> { cont ->
+                    fusedClient.lastLocation
+                        .addOnSuccessListener { cont.resume(it) }
+                        .addOnFailureListener { cont.resume(null) }
+                }
+            }.getOrNull() ?: return@launch
+            if (origin == null) return@launch
+            val known = runCatching {
+                graphManager.knownRegionFor(
+                    origin.latitude, origin.longitude, targetLat, targetLng,
+                )
+            }.getOrNull() ?: return@launch
+            if (known == null || graphManager.isInstalled(known.id)) return@launch
+            Log.i(TAG, "trip graph missing: auto-fetching ${known.id}")
+            runCatching { graphManager.downloadIfNeeded(known, requireUnmetered = true) }
+        }
     }
 
     /**

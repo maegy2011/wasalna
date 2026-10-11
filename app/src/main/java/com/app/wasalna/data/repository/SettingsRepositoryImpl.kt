@@ -69,6 +69,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val voiceName: Flow<String>
         get() = settingsDataStore.voiceName
 
+    override val isAutoGraphDownloadEnabled: Flow<Boolean>
+        get() = settingsDataStore.isAutoGraphDownloadEnabled
+
     override val homeLat: Flow<Double?>
         get() = settingsDataStore.homeLat
     override val homeLng: Flow<Double?>
@@ -191,6 +194,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setVoiceName(name: String) {
         settingsDataStore.setVoiceName(name)
+    }
+
+    override suspend fun setAutoGraphDownloadEnabled(enabled: Boolean) {
+        settingsDataStore.setAutoGraphDownloadEnabled(enabled)
     }
 
     override suspend fun setHome(lat: Double?, lng: Double?, address: String) {

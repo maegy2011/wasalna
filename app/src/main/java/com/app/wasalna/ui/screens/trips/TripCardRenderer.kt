@@ -109,7 +109,7 @@ object TripCardRenderer {
             }
             c.drawRoundRect(cardRect, CARD_RADIUS, CARD_RADIUS, cardPaint)
 
-            var y = CARD_MARGIN + PAD
+            var y = (CARD_MARGIN + PAD).toFloat()
             fun draw(l: StaticLayout) {
                 c.save()
                 c.translate((CARD_MARGIN + PAD).toFloat(), y)

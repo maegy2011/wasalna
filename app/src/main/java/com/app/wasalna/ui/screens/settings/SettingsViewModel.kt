@@ -118,6 +118,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Dynamic routing data (Oct 2026): Wi-Fi auto-fetch of trip graphs.
+    val autoGraphDownload: StateFlow<Boolean> =
+        settingsRepository.isAutoGraphDownloadEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = true,
+        )
+
+    fun setAutoGraphDownload(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setAutoGraphDownloadEnabled(enabled) }
+        }
+    }
+
     fun setCustomRingtoneUri(uri: String) {
         viewModelScope.launch {
             runCatching { settingsRepository.setCustomRingtoneUri(uri) }

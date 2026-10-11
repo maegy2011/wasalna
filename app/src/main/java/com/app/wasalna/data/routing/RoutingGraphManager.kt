@@ -1,6 +1,8 @@
 package com.app.wasalna.data.routing
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import com.app.wasalna.utils.AppLinks
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -182,6 +184,47 @@ class RoutingGraphManager @Inject constructor(
      * Downloads [region]'s `.ghz`/ZIP, extracts, validates, installs.
      * Returns true on success. Never throws. Never touches the UI thread.
      */
+    /** True on unmetered transport (Wi-Fi/Ethernet) — metered needs consent. */
+    fun isUnmetered(): Boolean = runCatching {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+            ?: return false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }.getOrDefault(false)
+
+    /** Free bytes where graphs live (external app-private dir). */
+    fun freeBytes(): Long = runCatching { graphsRoot().usableSpace }.getOrDefault(0L)
+
+    /** Installed size of one region (0 when absent). */
+    fun installedBytes(regionId: String): Long = runCatching {
+        graphDir(regionId).walkTopDown().filter { it.isFile }
+            .sumOf { it.length() }
+    }.getOrDefault(0L)
+
+    /**
+     * Dynamic fetch (Oct 2026): background-safe entry — skips when the
+     * graph is already installed, refuses metered networks and tight
+     * storage, otherwise delegates to [download] (which retries once).
+     * Never throws; false = caller keeps the straight-line fallback.
+     */
+    suspend fun downloadIfNeeded(
+        region: RoutingRegion,
+        requireUnmetered: Boolean = true,
+    ): Boolean {
+        if (isInstalled(region.id)) return true
+        if (requireUnmetered && !isUnmetered()) {
+            Log.i(TAG, "graph ${region.id}: metered link, auto-fetch deferred")
+            return false
+        }
+        val need = region.sizeMb.toLong() * 1024L * 1024L * 2L // zip + extracted
+        if (freeBytes() < need) {
+            Log.w(TAG, "graph ${region.id}: low storage, need ~${need / 1048576}MB")
+            emit(region.id, OfflineGraphState.Error("not enough storage"))
+            return false
+        }
+        return download(region)
+    }
+
     suspend fun download(
         region: RoutingRegion,
         onProgress: (Int) -> Unit = {},
@@ -191,6 +234,30 @@ class RoutingGraphManager @Inject constructor(
         ) {
             return@withContext false
         }
+        // Explicit user downloads also refuse impossible storage upfront.
+        val need = region.sizeMb.toLong() * 1024L * 1024L * 2L
+        if (freeBytes() < need) {
+            emit(region.id, OfflineGraphState.Error("not enough storage"))
+            return@withContext false
+        }
+        // One silent retry — mobile links drop mid-stream; the second
+        // attempt resumes nothing (fresh tmp) but usually succeeds.
+        var attempt = 0
+        while (true) {
+            if (downloadOnce(region, onProgress)) return@withContext true
+            attempt++
+            if (attempt >= 2) return@withContext false
+            Log.i(TAG, "graph ${region.id}: retrying (attempt 2)")
+        }
+        // Unreachable — keeps the compiler happy.
+        @Suppress("UNREACHABLE_CODE")
+        false
+    }
+
+    private suspend fun downloadOnce(
+        region: RoutingRegion,
+        onProgress: (Int) -> Unit = {},
+    ): Boolean = withContext(Dispatchers.IO) {
         emit(region.id, OfflineGraphState.Downloading(0))
         val dest = graphDir(region.id)
         val tmpZip = File(graphsRoot(), "${region.id}.ghz.tmp")
