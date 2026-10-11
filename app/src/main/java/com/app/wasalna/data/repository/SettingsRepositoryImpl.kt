@@ -64,6 +64,11 @@ class SettingsRepositoryImpl @Inject constructor(
     override val customRingtoneUri: Flow<String>
         get() = settingsDataStore.customRingtoneUri
 
+    override val isVoiceAnnounceEnabled: Flow<Boolean>
+        get() = settingsDataStore.isVoiceAnnounceEnabled
+    override val voiceName: Flow<String>
+        get() = settingsDataStore.voiceName
+
     override val homeLat: Flow<Double?>
         get() = settingsDataStore.homeLat
     override val homeLng: Flow<Double?>
@@ -178,6 +183,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setCustomRingtoneUri(uri: String) {
         settingsDataStore.setCustomRingtoneUri(uri)
+    }
+
+    override suspend fun setVoiceAnnounceEnabled(enabled: Boolean) {
+        settingsDataStore.setVoiceAnnounceEnabled(enabled)
+    }
+
+    override suspend fun setVoiceName(name: String) {
+        settingsDataStore.setVoiceName(name)
     }
 
     override suspend fun setHome(lat: Double?, lng: Double?, address: String) {

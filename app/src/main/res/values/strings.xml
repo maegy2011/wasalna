@@ -151,6 +151,12 @@
     <string name="alarm_setup_start">Start tracking</string>
     <string name="alarm_setup_next">Next</string>
     <string name="alarm_setup_back">Back</string>
+    <string name="settings_voice_title">Voice announcements</string>
+    <string name="settings_voice_sub">Speaks the arrival alert aloud</string>
+    <string name="settings_voice_pick">Choose voice</string>
+    <string name="settings_voice_none">No system voices found</string>
+    <string name="settings_voice_engine_note">Uses your device text-to-speech engine</string>
+    <string name="alarm_arrived_voice">You have arrived at %1$s</string>
     <string name="alarm_setup_cancel">Cancel</string>
     <string name="alarm_notif_mode_distance">Alarm mode: by distance</string>
     <string name="alarm_notif_mode_time">Alarm mode: traffic-aware time</string>
@@ -335,6 +341,7 @@
     <string name="myplaces_name_hint">Place name</string>
     <string name="myplaces_export">Export backup</string>
     <string name="myplaces_home_work">Home &amp; Work</string>
+    <string name="myplaces_card_menu">Place options</string>
     <string name="myplaces_import">Import backup</string>
     <string name="myplaces_backup_ok">Backup exported</string>
     <string name="myplaces_backup_unread">Couldn\'t read backup file</string>

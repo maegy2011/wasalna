@@ -107,6 +107,8 @@ fun TripRouteScreen(
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var styleRef by remember { mutableStateOf<Style?>(null) }
     var cameraFitted by remember { mutableStateOf(false) }
+    // Reduced motion (Oct 2026, elderly): read in composition, used below.
+    val reducedMotion = com.app.wasalna.ui.theme.LocalElderlyMode.current
     // Phase 10.11: dynamic destination share sheet (re-queries on open).
     var showDestinationShare by remember { mutableStateOf(false) }
     // REDESIGN 10 Oct 2026: snackbar for share-as-image failures.
@@ -135,7 +137,10 @@ fun TripRouteScreen(
             val bounds = LatLngBounds.Builder()
                 .include(LatLng(dest.destLat, dest.destLng))
             points.forEach { bounds.include(LatLng(it.lat, it.lng)) }
-            map.easeCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 120))
+            val update = CameraUpdateFactory.newLatLngBounds(bounds.build(), 120)
+            // Reduced motion (Oct 2026, elderly): jump instead of easing.
+            if (reducedMotion) map.moveCamera(update)
+            else map.easeCamera(update)
             cameraFitted = true
         }
     }

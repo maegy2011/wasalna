@@ -39,6 +39,10 @@ interface SettingsRepository {
 
     val customRingtoneUri: Flow<String>
 
+    // Voice announcements (Oct 2026): system TTS + custom voice.
+    val isVoiceAnnounceEnabled: Flow<Boolean>
+    val voiceName: Flow<String>
+
     val isForceOffline: Flow<Boolean>
 
     val isWizardSeen: Flow<Boolean>
@@ -103,6 +107,9 @@ interface SettingsRepository {
     suspend fun setAlarmTimeMinutes(minutes: Int)
 
     suspend fun setCustomRingtoneUri(uri: String)
+
+    suspend fun setVoiceAnnounceEnabled(enabled: Boolean)
+    suspend fun setVoiceName(name: String)
 
     suspend fun setHome(lat: Double?, lng: Double?, address: String)
 

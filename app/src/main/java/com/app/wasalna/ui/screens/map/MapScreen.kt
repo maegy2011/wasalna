@@ -970,15 +970,26 @@ private fun MapLibreMapView(
         }
     }
 
+    // Reduced motion (Oct 2026, elderly): camera jumps instead of flying.
+    val reducedMotion = com.app.wasalna.ui.theme.LocalElderlyMode.current
+    fun glideCamera(
+        map: MapLibreMap,
+        update: org.maplibre.android.camera.CameraUpdate,
+        durationMs: Int,
+    ) {
+        runCatching {
+            if (reducedMotion) map.moveCamera(update)
+            else map.animateCamera(update, durationMs)
+        }
+    }
     fun moveCameraIfChanged(map: MapLibreMap, target: MapLibreLatLng, zoom: Double) {
         if (lastCameraTarget != target) {
             lastCameraTarget = target
-            runCatching {
-                map.animateCamera(
-                    MapLibreCameraUpdateFactory.newLatLngZoom(target, zoom),
-                    600,
-                )
-            }
+            glideCamera(
+                map,
+                MapLibreCameraUpdateFactory.newLatLngZoom(target, zoom),
+                600,
+            )
         }
     }
 
@@ -1090,15 +1101,14 @@ private fun MapLibreMapView(
             // Phase 10.4.3.1: My Location jump — camera only, no selection.
             if (recenterTarget != null && recenterTarget != lastRecenterApplied) {
                 lastRecenterApplied = recenterTarget
-                runCatching {
-                    map.animateCamera(
-                        MapLibreCameraUpdateFactory.newLatLngZoom(
-                            MapLibreLatLng(recenterTarget.latitude, recenterTarget.longitude),
-                            15.0,
-                        ),
-                        600,
-                    )
-                }
+                glideCamera(
+                    map,
+                    MapLibreCameraUpdateFactory.newLatLngZoom(
+                        MapLibreLatLng(recenterTarget.latitude, recenterTarget.longitude),
+                        15.0,
+                    ),
+                    600,
+                )
             }
             refreshMarker(selectedLatLng)
             val target = selectedLatLng?.let {
@@ -1109,15 +1119,14 @@ private fun MapLibreMapView(
             if (cameraZoom != lastZoomApplied) {
                 lastZoomApplied = cameraZoom
                 lastCameraTarget = target
-                runCatching {
-                    map.animateCamera(
-                        MapLibreCameraUpdateFactory.newLatLngZoom(
-                            target,
-                            cameraZoom.toDouble(),
-                        ),
-                        300,
-                    )
-                }
+                glideCamera(
+                    map,
+                    MapLibreCameraUpdateFactory.newLatLngZoom(
+                        target,
+                        cameraZoom.toDouble(),
+                    ),
+                    300,
+                )
             } else {
                 moveCameraIfChanged(map, target, cameraZoom.toDouble())
             }

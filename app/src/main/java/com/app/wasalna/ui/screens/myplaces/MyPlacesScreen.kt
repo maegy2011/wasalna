@@ -335,17 +335,28 @@ fun MyPlacesScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            // Phase 10-Fix: local search over saved places.
-            OutlinedTextField(
-                value = filter,
-                onValueChange = { filter = it },
+            // Search + count in one row (user order Oct 2026).
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.myplaces_search)) },
-                leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = null)
-                },
-                singleLine = true,
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = filter,
+                    onValueChange = { filter = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(R.string.myplaces_search)) },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Search, contentDescription = null)
+                    },
+                    singleLine = true,
+                )
+                Text(
+                    text = "${visiblePlaces.size}/${locations.size}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             // Collapsible Home & Work (user order Oct 2026): open until
             // both are set, then folds to one header row.
@@ -794,11 +805,33 @@ private fun SavedPlaceCard(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.place_rename_desc))
+                // Card overflow (user order Oct 2026): rename/delete hide
+                // behind ⋮ — the big activate button keeps the stage.
+                var cardMenu by remember { mutableStateOf(false) }
+                IconButton(onClick = { cardMenu = true }) {
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        contentDescription = stringResource(R.string.myplaces_card_menu),
+                    )
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.place_delete_desc))
+                DropdownMenu(
+                    expanded = cardMenu,
+                    onDismissRequest = { cardMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.myplaces_rename)) },
+                        onClick = {
+                            cardMenu = false
+                            onEdit()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.myplaces_delete_confirm)) },
+                        onClick = {
+                            cardMenu = false
+                            onDelete()
+                        },
+                    )
                 }
             }
             Text(

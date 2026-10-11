@@ -80,6 +80,12 @@ class SettingsDataStore @Inject constructor(
     val customRingtoneUri: Flow<String> =
         dataStore.data.map { it[Keys.CUSTOM_RINGTONE_URI] ?: "" }
 
+    // Voice announcements (Oct 2026): spoken arrival prompt via system TTS.
+    val isVoiceAnnounceEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.VOICE_ANNOUNCE_ENABLED] ?: false }
+    val voiceName: Flow<String> =
+        dataStore.data.map { it[Keys.VOICE_NAME] ?: "" }
+
     // Phase 10.4.3.3: adaptive trigger distance per transport mode.
     val isAdaptiveAlarmEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.ADAPTIVE_ALARM_ENABLED] ?: true }
@@ -187,6 +193,14 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setCustomRingtoneUri(uri: String) {
         dataStore.edit { it[Keys.CUSTOM_RINGTONE_URI] = uri }
+    }
+
+    suspend fun setVoiceAnnounceEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.VOICE_ANNOUNCE_ENABLED] = enabled }
+    }
+
+    suspend fun setVoiceName(name: String) {
+        dataStore.edit { it[Keys.VOICE_NAME] = name }
     }
 
     suspend fun setAdaptiveAlarmEnabled(enabled: Boolean) {
@@ -389,6 +403,9 @@ class SettingsDataStore @Inject constructor(
         val NUDGE_LEAD_MINUTES = intPreferencesKey("nudge_lead_minutes")
         val HAS_SEEN_AUTOSTART_GUIDANCE = booleanPreferencesKey("has_seen_autostart_guidance")
         val CUSTOM_RINGTONE_URI = stringPreferencesKey("custom_ringtone_uri")
+        // Voice announcements (Oct 2026): Google/system TTS, custom voice.
+        val VOICE_ANNOUNCE_ENABLED = booleanPreferencesKey("voice_announce_enabled")
+        val VOICE_NAME = stringPreferencesKey("voice_name")
         val ADAPTIVE_ALARM_ENABLED = booleanPreferencesKey("adaptive_alarm_enabled")
         val ALARM_MODE = stringPreferencesKey("alarm_mode")
         val ALARM_TIME_MINUTES = intPreferencesKey("alarm_time_minutes")

@@ -78,6 +78,46 @@ class SettingsViewModel @Inject constructor(
             initialValue = "",
         )
 
+    // Voice announcements (Oct 2026): system TTS + custom voice picker.
+    val voiceAnnounce: StateFlow<Boolean> =
+        settingsRepository.isVoiceAnnounceEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+    val voiceName: StateFlow<String> =
+        settingsRepository.voiceName.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+    private val _voices = MutableStateFlow<List<android.speech.tts.Voice>>(emptyList())
+    val voices: StateFlow<List<android.speech.tts.Voice>> = _voices
+
+    fun refreshVoices() {
+        viewModelScope.launch {
+            _voices.value = runCatching {
+                com.app.wasalna.data.speech.SpeechAnnouncer.availableVoices()
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    fun setVoiceAnnounce(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setVoiceAnnounceEnabled(enabled) }
+        }
+    }
+
+    fun setVoiceName(name: String) {
+        viewModelScope.launch {
+            runCatching {
+                settingsRepository.setVoiceName(name)
+                com.app.wasalna.data.speech.SpeechAnnouncer.applyVoice(name)
+                refreshVoices()
+            }
+        }
+    }
+
     fun setCustomRingtoneUri(uri: String) {
         viewModelScope.launch {
             runCatching { settingsRepository.setCustomRingtoneUri(uri) }

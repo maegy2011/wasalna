@@ -70,6 +70,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -156,6 +157,22 @@ class AlarmActivity : ComponentActivity() {
         alarmModeName = intent.getStringExtra(EXTRA_ALARM_MODE)?.takeIf { it == "TIME" } ?: "DISTANCE"
         destinationName = intent.getStringExtra(EXTRA_DESTINATION_NAME).orEmpty()
         Log.i(TAG, "onCreate: alarm firing silent=$silentMode headphoneOnly=$headphoneOnlyMode watchOnly=$watchOnlyMode fallback=$watchFallback")
+        // Voice announcement (Oct 2026): speak the arrival aloud via the
+        // system TTS engine — skipped for silent mode (vibrate only) and
+        // watch-only (the watch owns the alert).
+        if (!silentMode && !watchOnlyMode && destinationName.isNotBlank()) {
+            lifecycleScope.launch {
+                val speak = runCatching {
+                    com.app.wasalna.data.local.datastore.SettingsDataStore(this@AlarmActivity)
+                        .isVoiceAnnounceEnabled.first()
+                }.getOrDefault(false)
+                if (speak) {
+                    com.app.wasalna.data.speech.SpeechAnnouncer.speak(
+                        getString(R.string.alarm_arrived_voice, destinationName),
+                    )
+                }
+            }
+        }
         // Phase 10.10: watch-side dismissal lands here as a package-scoped
         // broadcast (PhoneWatchDismissService) — dismissing from either
         // side stops everything.

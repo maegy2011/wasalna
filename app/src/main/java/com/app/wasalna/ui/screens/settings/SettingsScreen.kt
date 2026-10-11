@@ -50,7 +50,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Slider
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -95,6 +99,11 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val elderlyMode by viewModel.elderlyMode.collectAsState()
+    // Voice announcements (Oct 2026): system TTS + custom voice picker.
+    val voiceAnnounce by viewModel.voiceAnnounce.collectAsState()
+    val voiceName by viewModel.voiceName.collectAsState()
+    val systemVoices by viewModel.voices.collectAsState()
+    var showVoicePicker by remember { mutableStateOf(false) }
     val leadTime by viewModel.leadTimeMinutes.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
     val silentAlarm by viewModel.silentAlarm.collectAsState()
@@ -292,6 +301,66 @@ fun SettingsScreen(
                         checked = elderlyMode,
                         onCheckedChange = viewModel::setElderlyMode,
                     )
+                }
+            }
+            // Voice announcements (Oct 2026): arrival spoken aloud via
+            // the device TTS engine (usually Google) + custom voice.
+            if (match("voice", "صوت", "tts", "speak", "speech", "نطق", "قراءة")) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.ic_svg_headphones),
+                                contentDescription = stringResource(R.string.settings_voice_title),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 12.dp),
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_voice_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_voice_sub),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Switch(
+                                checked = voiceAnnounce,
+                                onCheckedChange = viewModel::setVoiceAnnounce,
+                            )
+                        }
+                        if (voiceAnnounce) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(
+                                onClick = {
+                                    viewModel.refreshVoices()
+                                    showVoicePicker = true
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text(
+                                    text = if (voiceName.isBlank()) {
+                                        stringResource(R.string.settings_voice_pick)
+                                    } else {
+                                        voiceName
+                                    },
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.settings_voice_engine_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1343,6 +1412,57 @@ fun SettingsScreen(
                     }
                 }
                 .padding(16.dp),
+        )
+    }
+    // Voice picker dialog (Oct 2026): system TTS voices, Arabic first.
+    if (showVoicePicker) {
+        AlertDialog(
+            onDismissRequest = { showVoicePicker = false },
+            title = { Text(stringResource(R.string.settings_voice_pick)) },
+            text = {
+                if (systemVoices.isEmpty()) {
+                    Text(stringResource(R.string.settings_voice_none))
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                        items(systemVoices.take(40), key = { it.name }) { voice ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clickable {
+                                        viewModel.setVoiceName(voice.name)
+                                        showVoicePicker = false
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = voiceName == voice.name,
+                                    onClick = {
+                                        viewModel.setVoiceName(voice.name)
+                                        showVoicePicker = false
+                                    },
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text(
+                                        text = voice.locale?.getDisplayName().orEmpty(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = voice.name,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showVoicePicker = false }) {
+                    Text(stringResource(R.string.alarm_setup_cancel))
+                }
+            },
         )
     }
     }

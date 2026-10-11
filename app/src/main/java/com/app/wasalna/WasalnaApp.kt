@@ -51,6 +51,14 @@ class WasalnaApp : Application() {
             Log.e(TAG, "MobileAds init failed: ${e.message}")
         }
         // 100% MapLibre — no Google Places / Maps SDK in use.
+        // Voice announcements (Oct 2026): system TTS engine, saved voice.
+        runCatching {
+            val savedVoice = runBlocking {
+                settingsDataStore.voiceName.first()
+            }
+            com.app.wasalna.data.speech.SpeechAnnouncer.init(this, savedVoice)
+            Log.i(TAG, "SpeechAnnouncer initialized")
+        }.onFailure { Log.w(TAG, "SpeechAnnouncer init failed: ${it.message}") }
     }
 
     companion object {
