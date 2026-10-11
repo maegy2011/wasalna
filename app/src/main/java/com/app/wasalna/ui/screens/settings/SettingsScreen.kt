@@ -258,7 +258,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
         if (match("elderly", "كبار", "السن", "aged", "font", "خط")) {
             Card(
@@ -372,7 +372,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
         if (match("dnd", "silent", "صامت", "disturb", "إزعاج", "bypass", "تجاوز")) {
             // Silent-mode (DND) bypass choice — persisted, default RESPECT.
@@ -966,7 +966,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
         if (match("battery", "بطارية", "autostart", "تشغيل تلقائي", "xiaomi", "شاومي", "oppo", "restrictions")) {
             // Phase 10.4.3.6: strict-OEM revisit entry (hidden on lenient devices).
@@ -1204,7 +1204,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
         if (match("account", "حساب", "google", "sign", "دخول")) {
             // Phase 10.13-exp: Google account sign-in (EXPERIMENTAL, local-only).
