@@ -6,7 +6,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/** Base typography (normal mode). Elderly mode scales key styles up. */
+/** Base typography (normal mode). Elderly mode scales key styles up.
+ * Design spec: clean geometric sans — Inter / Roboto with Cairo for
+ * Arabic. FontFamily.Default resolves to Roboto on Android with system
+ * Arabic fallback (Cairo-compatible), so no bundled font needed. */
 val WasalnaTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.Default,

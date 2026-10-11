@@ -13,10 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -181,18 +179,14 @@ fun HomeScreen(
                             text = stringResource(R.string.badge_active),
                         )
                         Text(
-                            text = stringResource(
-                                R.string.home_current_trip,
-                                trip.transportMode.icon,
-                                trip.locationName,
-                            ),
-                            style = MaterialTheme.typography.titleMedium,
+                            text = trip.locationName,
+                            style = if (elderly) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
                         )
                         Text(
                             text = trip.etaMinutes?.let { stringResource(R.string.trips_eta, it) }
                                 ?: stringResource(R.string.trips_tracking_live),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = if (elderly) com.app.wasalna.ui.theme.ElderlyEtaDisplayStyle else com.app.wasalna.ui.theme.EtaDisplayStyle,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
                             text = stringResource(R.string.view_live_route),
@@ -227,22 +221,12 @@ fun HomeScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(32.dp))
-            Button(
+            // Transit design system: prominent Wasalna Green FAB CTA.
+            com.app.wasalna.ui.components.TrackerFAB(
+                label = stringResource(R.string.home_add_cta),
                 onClick = { handleAddDestination() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-            ) {
-                Icon(
-                    Icons.Filled.Add,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Text(
-                    text = stringResource(R.string.home_add_cta),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         }
     }
