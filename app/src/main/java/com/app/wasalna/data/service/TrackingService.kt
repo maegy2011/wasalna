@@ -1,9 +1,11 @@
 package com.app.wasalna.data.service
 
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
@@ -152,8 +154,20 @@ class TrackingService : Service() {
         createChannel()
     }
 
+    // Background-survival (Oct 2026 fix): the process can die (OEM kill,
+    // crash, reboot) and START_STICKY restarts us with a null intent.
+    // The old code treated that as "unknown action" and STOPPED —
+    // silently killing the trip. Now we resume from the persisted trip.
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        if (intent?.action == null) {
+            val resumed = resumePersistedTrip(startId)
+            if (!resumed) {
+                Log.w(TAG, "onStartCommand: null intent, no saved trip — stopping")
+                stopSelf(startId)
+            }
+            return START_STICKY
+        }
+        when (intent.action) {
             // STOP from the notification (incl. during simulation):
             // onDestroy() ends the controller too, so virtual fixes halt
             // and real fused GPS is restored on the next START.
@@ -214,6 +228,10 @@ class TrackingService : Service() {
         isPaused = false
         isStopping = false
         acquireWakeLock()
+        // Persist BEFORE any early return below so a process death at
+        // any point can still resume this exact trip.
+        persistActiveTrip()
+        scheduleWatchdog()
         // Phase 10.4.3.3/10.4.3.4: one-shot reads (never collect{} in a service).
         hasFiredProactiveAlert = false
         hasFiredAlarm = false
@@ -752,6 +770,8 @@ class TrackingService : Service() {
 
     private fun stopForegroundAndSelf() {
         isStopping = true
+        clearActiveTrip()
+        cancelWatchdog()
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -771,11 +791,16 @@ class TrackingService : Service() {
         } catch (e: SecurityException) {
             Log.e(TAG, "removeLocationUpdates failed: ${e.message}")
         }
+        // Background fix (Oct 2026): HIGH_ACCURACY — BALANCED leans on
+        // Wi-Fi/cell and starves outdoors/at speed, and Doze already
+        // batches aggressively. Distance floor keeps fixes flowing even
+        // when the interval bucket is wide (3 min far away).
         val request = LocationRequest.Builder(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            Priority.PRIORITY_HIGH_ACCURACY,
             intervalMs,
         ).setMinUpdateIntervalMillis(intervalMs)
             .setMaxUpdateDelayMillis(intervalMs * 2)
+            .setMinUpdateDistanceMeters(25f)
             .build()
         try {
             fusedClient.requestLocationUpdates(
@@ -983,6 +1008,9 @@ class TrackingService : Service() {
         sendBroadcast(
             Intent(ACTION_DESTINATION_REACHED).setPackage(packageName),
         )
+        // Trip over — the watchdog/persisted state must die with it,
+        // or a reboot would resurrect a finished trip.
+        clearActiveTrip()
         stopSelf()
     }
 
@@ -1119,6 +1147,119 @@ class TrackingService : Service() {
         super.onDestroy()
     }
 
+    // Background fix (Oct 2026): swiping the app from recents must NOT
+    // kill the trip. Restart the foreground service with the live target;
+    // the AlarmManager fallback covers the case where startForegroundService
+    // is rejected from the background.
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (!isStopping && !targetLat.isNaN() && !targetLng.isNaN()) {
+            Log.i(TAG, "onTaskRemoved: restarting trip after swipe-away")
+            runCatching {
+                ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, TrackingService::class.java).setAction(ACTION_START)
+                        .putExtra(EXTRA_LAT, targetLat)
+                        .putExtra(EXTRA_LNG, targetLng)
+                        .putExtra(EXTRA_NAME, targetName)
+                        .putExtra(EXTRA_MODE, mode.name),
+                )
+            }.onFailure { Log.w(TAG, "onTaskRemoved restart failed: ${it.message}") }
+            scheduleWatchdog(delayMs = 5_000L)
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
+    /**
+     * Background-survival persistence: the live trip (target + mode +
+     * timestamp) in private SharedPreferences so a dead process — restart
+     * with null intent, watchdog fire, or BOOT_COMPLETED — can resume the
+     * exact same trip instead of dropping it.
+     */
+    private fun activeTripPrefs() =
+        getSharedPreferences(PREFS_ACTIVE_TRIP, Context.MODE_PRIVATE)
+
+    private fun persistActiveTrip() {
+        runCatching {
+            activeTripPrefs().edit()
+                .putLong(KEY_STARTED_AT, System.currentTimeMillis())
+                .putString(KEY_LAT, targetLat.toString())
+                .putString(KEY_LNG, targetLng.toString())
+                .putString(KEY_NAME, targetName)
+                .putString(KEY_MODE, mode.name)
+                .apply()
+        }.onFailure { Log.w(TAG, "persistActiveTrip failed: ${it.message}") }
+    }
+
+    private fun clearActiveTrip() {
+        runCatching { activeTripPrefs().edit().clear().apply() }
+        cancelWatchdog()
+    }
+
+    /**
+     * Null-intent restart path: re-enter the normal START flow from the
+     * persisted trip. Rejects stale saves (>12h) so an ancient trip can
+     * never resurrect itself after a reboot days later.
+     */
+    private fun resumePersistedTrip(startId: Int): Boolean {
+        val prefs = activeTripPrefs()
+        val startedAt = prefs.getLong(KEY_STARTED_AT, 0L)
+        if (startedAt == 0L) return false
+        if (System.currentTimeMillis() - startedAt > TRIP_MAX_AGE_MS) {
+            Log.i(TAG, "resumePersistedTrip: stale save, clearing")
+            clearActiveTrip()
+            return false
+        }
+        val lat = prefs.getString(KEY_LAT, null)?.toDoubleOrNull()
+        val lng = prefs.getString(KEY_LNG, null)?.toDoubleOrNull()
+        if (lat == null || lng == null) return false
+        Log.i(TAG, "resumePersistedTrip: resuming ${prefs.getString(KEY_NAME, "?")}")
+        val restart = Intent(this, TrackingService::class.java).setAction(ACTION_START)
+            .putExtra(EXTRA_LAT, lat)
+            .putExtra(EXTRA_LNG, lng)
+            .putExtra(EXTRA_NAME, prefs.getString(KEY_NAME, null))
+            .putExtra(EXTRA_MODE, prefs.getString(KEY_MODE, null))
+        onStartCommand(restart, 0, startId)
+        return true
+    }
+
+    /**
+     * Watchdog (Oct 2026): an inexact RTC wakeup that re-fires while a
+     * trip is saved. [TripWatchdogReceiver] restarts the service if the
+     * process died, then re-chains. Inexact = no SCHEDULE_EXACT_ALARM
+     * permission needed; 15 min is the survival net, not the fix cadence.
+     */
+    private fun scheduleWatchdog(delayMs: Long = WATCHDOG_INTERVAL_MS) {
+        runCatching {
+            val am = getSystemService(AlarmManager::class.java) ?: return
+            val pi = PendingIntent.getBroadcast(
+                this,
+                REQ_WATCHDOG,
+                Intent(this, TripWatchdogReceiver::class.java)
+                    .setAction(TripWatchdogReceiver.ACTION_WATCHDOG),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            am.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + delayMs,
+                pi,
+            )
+        }.onFailure { Log.w(TAG, "scheduleWatchdog failed: ${it.message}") }
+    }
+
+    private fun cancelWatchdog() {
+        runCatching {
+            val am = getSystemService(AlarmManager::class.java) ?: return
+            val pi = PendingIntent.getBroadcast(
+                this,
+                REQ_WATCHDOG,
+                Intent(this, TripWatchdogReceiver::class.java)
+                    .setAction(TripWatchdogReceiver.ACTION_WATCHDOG),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            am.cancel(pi)
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
@@ -1219,6 +1360,18 @@ class TrackingService : Service() {
         private const val REQ_PAUSE = 11
         private const val REQ_SILENT = 12
         private const val REQ_STOP = 13
+
+        // Background-survival keys (Oct 2026): persisted live trip +
+        // 15-min watchdog chain + 12h max age.
+        private const val PREFS_ACTIVE_TRIP = "wasalna_active_trip"
+        private const val KEY_STARTED_AT = "started_at"
+        private const val KEY_LAT = "lat"
+        private const val KEY_LNG = "lng"
+        private const val KEY_NAME = "name"
+        private const val KEY_MODE = "mode"
+        private const val REQ_WATCHDOG = 21
+        private const val WATCHDOG_INTERVAL_MS = 15L * 60L * 1000L
+        private const val TRIP_MAX_AGE_MS = 12L * 60L * 60L * 1000L
 
         /** Adaptive buckets: >10 km → 3 min, >5 km → 1 min, else 10 s. */
         fun intervalFor(distanceM: Float): Long = when {

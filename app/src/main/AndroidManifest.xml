@@ -23,6 +23,9 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Phase 10.4.2.1: CPU Partial WakeLock so tracking survives screen-off sleep. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Background-survival watchdog (Oct 2026 fix): resume a mid-trip
+         after reboot. Normal permission, auto-granted. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- DND bypass: declaring this is what makes the app APPEAR in the
          system "Do Not Disturb access" list. Without it the list never
          shows Wasalna? and the bypass grant cannot be given. The grant
@@ -85,6 +88,16 @@
             android:name=".data.service.TrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
+        <!-- Background-survival watchdog (Oct 2026 fix): restarts a saved
+             trip after process death; BOOT_COMPLETED resumes post-reboot. -->
+        <receiver
+            android:name=".data.service.TripWatchdogReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.app.wasalna.action.TRIP_WATCHDOG" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"
