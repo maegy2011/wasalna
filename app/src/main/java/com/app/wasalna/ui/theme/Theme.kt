@@ -49,7 +49,12 @@ fun WasalnaTheme(
     content: @Composable () -> Unit
 ) {
     var elderly by remember(elderlyMode) { mutableStateOf(elderlyMode) }
-    val colors = if (darkTheme) WasalnaDarkColors else WasalnaLightColors
+    // Elderly high-contrast (user order Oct 2026): dedicated schemes.
+    val colors = if (elderly) {
+        if (darkTheme) WasalnaElderlyDarkColors else WasalnaElderlyLightColors
+    } else {
+        if (darkTheme) WasalnaDarkColors else WasalnaLightColors
+    }
     val typography = if (elderly) WasalnaElderlyTypography else WasalnaTypography
     val dimens = if (elderly) ElderlyDimens else NormalDimens
 

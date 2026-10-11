@@ -125,7 +125,9 @@
     <string name="wizard_review_alarm">المنبه</string>
     <!-- MyPlaces delete confirm — one language per locale. Mirrored in values. -->
     <string name="myplaces_delete_title">حذف المكان؟</string>
-    <string name="myplaces_delete_msg">سيتم حذف “%1$s” نهائيًا ولا يمكن استعادته.</string>
+    <string name="myplaces_delete_msg">سيتم حذف “%1$s”. يمكنك التراجع فورًا.</string>
+    <string name="myplaces_deleted">تم حذف “%1$s”</string>
+    <string name="common_undo">تراجع</string>
     <string name="myplaces_delete_confirm">احذف</string>
     <string name="home_tracking_started">بدأ التتبع: %1$s</string>
     <string name="home_tracking_started_toast">بدأ التتبع</string>

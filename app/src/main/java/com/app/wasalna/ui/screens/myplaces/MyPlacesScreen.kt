@@ -43,8 +43,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -95,6 +97,8 @@ fun MyPlacesScreen(
     val context = LocalContext.current
     val locations by viewModel.locations.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
+    // Elderly simplification (user order Oct 2026): no ads.
+    val elderly = com.app.wasalna.ui.theme.LocalElderlyMode.current
     // Phase 10.4.2: persisted mode rides along into the tracking service.
     val transportMode by viewModel.transportMode.collectAsState()
     // DYNAMIC WAKE-UP: persisted alarm mode + minutes (trip-setup dialog).
@@ -255,12 +259,17 @@ fun MyPlacesScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddDestination) {
+            // Elderly: bigger add button (64dp) via dimens.
+            FloatingActionButton(
+                onClick = onAddDestination,
+                modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight + 8.dp),
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.common_add_destination))
             }
         },
         bottomBar = {
-            if (!isPremium) {
+            // Elderly: ads hidden — fewer distractions, calmer screen.
+            if (!isPremium && !elderly) {
                 AdBanner()
             }
         },
@@ -427,6 +436,17 @@ fun MyPlacesScreen(
             onConfirm = {
                 viewModel.deleteLocation(target)
                 pendingDelete = null
+                // Elderly safety net: undo via snackbar action.
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.myplaces_deleted, target.name),
+                        actionLabel = context.getString(R.string.common_undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.restoreLocation(target)
+                    }
+                }
             },
             onDismiss = { pendingDelete = null },
         )

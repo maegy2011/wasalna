@@ -1212,7 +1212,8 @@ fun SettingsScreen(
 
         }
         }
-        if (showAdv) {
+        // Elderly simplification: developer/experimental tools hidden.
+        if (showAdv && !elderlyMode) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

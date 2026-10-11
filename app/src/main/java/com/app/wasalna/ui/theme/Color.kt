@@ -37,3 +37,41 @@ val WasalnaDarkColors = darkColorScheme(
     surface = Color(0xFF1A1F1D),
     error = Color(0xFFFFB4AB)
 )
+
+// Elderly high-contrast (user order Oct 2026): pure black-on-white text,
+// darker primary, solid containers — no pastels, no low-contrast greys.
+val WasalnaElderlyLightColors = lightColorScheme(
+    primary = Color(0xFF0A4D2E),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF0A4D2E),
+    onPrimaryContainer = Color.White,
+    secondary = Color(0xFF7A4A00),
+    onSecondary = Color.White,
+    background = Color.White,
+    onBackground = Color.Black,
+    surface = Color.White,
+    onSurface = Color.Black,
+    surfaceVariant = Color(0xFFE8E8E8),
+    onSurfaceVariant = Color(0xFF1A1A1A),
+    outline = Color.Black,
+    error = Color(0xFF8B0000),
+    onError = Color.White
+)
+
+val WasalnaElderlyDarkColors = darkColorScheme(
+    primary = Color(0xFF7DFFCE),
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF7DFFCE),
+    onPrimaryContainer = Color.Black,
+    secondary = Color(0xFFFFC94D),
+    onSecondary = Color.Black,
+    background = Color.Black,
+    onBackground = Color.White,
+    surface = Color.Black,
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF2A2A2A),
+    onSurfaceVariant = Color.White,
+    outline = Color.White,
+    error = Color(0xFFFF8A80),
+    onError = Color.Black
+)

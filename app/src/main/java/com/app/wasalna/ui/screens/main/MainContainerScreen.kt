@@ -124,6 +124,8 @@ fun MainContainerScreen() {
 
     val backStack by innerNav.currentBackStackEntryAsState()
     val currentHierarchy = backStack?.destination?.hierarchy
+    // Elderly simplification (user order Oct 2026): First Class tab hidden.
+    val elderly = com.app.wasalna.ui.theme.LocalElderlyMode.current
 
     fun isSelected(route: String): Boolean =
         currentHierarchy?.any { it.route == route } == true
@@ -287,16 +289,19 @@ fun MainContainerScreen() {
                             )
                         },
                     )
-                    NavigationBarItem(
-                        selected = isSelected(Screen.Paywall.route),
-                        onClick = { navigateTab(Screen.Paywall.route) },
-                        icon = {
-                            Icon(
-                                painterResource(R.drawable.ic_svg_diamond),
-                                contentDescription = stringResource(R.string.paywall_title),
-                            )
-                        },
-                    )
+                    // Elderly: First Class promo tab hidden (simpler bar).
+                    if (!elderly) {
+                        NavigationBarItem(
+                            selected = isSelected(Screen.Paywall.route),
+                            onClick = { navigateTab(Screen.Paywall.route) },
+                            icon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_svg_diamond),
+                                    contentDescription = stringResource(R.string.paywall_title),
+                                )
+                            },
+                        )
+                    }
                     NavigationBarItem(
                         selected = isSelected(Screen.TripsHistory.route),
                         onClick = { navigateTab(Screen.TripsHistory.route) },

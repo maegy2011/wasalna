@@ -66,6 +66,8 @@ fun HomeScreen(
     val context = LocalContext.current
     val locations by viewModel.locations.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
+    // Elderly simplification (user order Oct 2026): no ads, no promos.
+    val elderly = com.app.wasalna.ui.theme.LocalElderlyMode.current
     // Phase 10.4.2.1: live active trip for the top widget.
     val activeTrip by viewModel.activeTrip.collectAsState()
     // True offline mode: same StateFlow the Map header writes (two-way synced).
@@ -136,7 +138,8 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             // Phase 8: banner above BottomAppBar (BottomAppBar lives in MainContainer).
-            if (!isPremium) {
+            // Elderly: ads hidden — fewer distractions, calmer screen.
+            if (!isPremium && !elderly) {
                 AdBanner()
             }
         },

@@ -217,6 +217,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Elderly safety net (user order Oct 2026): re-adds a just-deleted place. */
+    fun restoreLocation(location: Location) {
+        viewModelScope.launch {
+            runCatching { savePlace(location.name, location.latitude, location.longitude) }
+                .onFailure { Log.e(TAG, "restoreLocation failed: ${it.message}") }
+        }
+    }
+
     /** Phase 10-Fix: rename a saved place (My Places Edit dialog). */
     fun renameLocation(location: Location, newName: String) {
         val trimmed = newName.trim()

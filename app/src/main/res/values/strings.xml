@@ -21,7 +21,9 @@
     <string name="wizard_review_alarm">Alarm</string>
     <!-- MyPlaces delete confirm — one language per locale. Mirrored in values-ar. -->
     <string name="myplaces_delete_title">Delete place?</string>
-    <string name="myplaces_delete_msg">“%1$s” will be deleted permanently and cannot be restored.</string>
+    <string name="myplaces_delete_msg">“%1$s” will be deleted. You can undo right after.</string>
+    <string name="myplaces_deleted">Deleted “%1$s”</string>
+    <string name="common_undo">Undo</string>
     <string name="myplaces_delete_confirm">Delete</string>
     <string name="home_heading">Where are we going today?</string>
     <string name="home_empty">No places saved yet. Let\'s add one!</string>

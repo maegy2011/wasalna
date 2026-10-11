@@ -555,15 +555,16 @@ fun MapScreen(
                             modifier = Modifier.padding(4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
+                            // Elderly: touch targets grow to 64dp via dimens.
                             FilledTonalIconButton(
                                 onClick = { viewModel.zoomIn() },
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight),
                             ) {
                                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.map_zoom_in))
                             }
                             FilledTonalIconButton(
                                 onClick = { viewModel.zoomOut() },
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(com.app.wasalna.ui.theme.LocalWasalnaDimens.current.buttonHeight),
                             ) {
                                 Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.map_zoom_out))
                             }
