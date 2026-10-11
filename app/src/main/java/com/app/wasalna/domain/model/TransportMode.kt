@@ -103,17 +103,26 @@ enum class TransportMode(
         }
 
     companion object {
-        /** All vehicles offered in the pre-trip picker. */
+        /**
+         * The ONLY four choices (user order Oct 2026): car, motorcycle,
+         * public transit, walk. Retired entries (BICYCLE/METRO/MONORAIL/
+         * TRAIN) stay in the enum so stored values + history keep
+         * resolving — they are just never offered anymore.
+         */
         val pickerEntries: List<TransportMode> =
-            listOf(CAR, MOTORCYCLE, BICYCLE, WALK, TRANSIT, METRO, MONORAIL, TRAIN)
+            listOf(CAR, MOTORCYCLE, TRANSIT, WALK)
 
-        /** Road subset (Map segmented row; transit has its own row). */
+        /** The four primary choices (Map segmented row, user order). */
+        val primaryEntries: List<TransportMode> =
+            listOf(CAR, MOTORCYCLE, TRANSIT, WALK)
+
+        /** Road subset (kept for compat; UI uses [primaryEntries]). */
         val roadEntries: List<TransportMode> =
-            listOf(CAR, MOTORCYCLE, BICYCLE, WALK)
+            listOf(CAR, MOTORCYCLE, WALK)
 
-        /** Transit subset (Map transit chip row). */
+        /** Transit subset (kept for compat; UI uses [primaryEntries]). */
         val transitEntries: List<TransportMode> =
-            listOf(TRANSIT, METRO, MONORAIL, TRAIN)
+            listOf(TRANSIT)
 
         /** Static-data systems (TransitPlanner; TRANSIT uses its own path). */
         val staticTransitEntries: List<TransportMode> =

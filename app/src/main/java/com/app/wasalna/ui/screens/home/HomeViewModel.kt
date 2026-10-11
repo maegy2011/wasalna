@@ -39,8 +39,13 @@ class HomeViewModel @Inject constructor(
     // Phase 10.4.2: persisted transport mode for notification icon +
     // alarm setup continuity (chosen on Map, used when tracking starts).
     val transportMode: StateFlow<TransportMode> =
-        settingsRepository.transportMode.map { TransportMode.fromName(it) }
-            .stateIn(
+        settingsRepository.transportMode.map {
+            // Four-choices migration (Oct 2026): retired stored modes
+            // fall back to CAR until the user re-picks.
+            TransportMode.fromName(it)
+                .takeIf { mode -> mode in TransportMode.primaryEntries }
+                ?: TransportMode.CAR
+        }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = TransportMode.CAR,

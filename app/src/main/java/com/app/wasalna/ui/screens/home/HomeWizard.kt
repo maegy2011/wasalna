@@ -391,7 +391,9 @@ private fun WizardVehicleStep(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
-        TransportMode.entries.forEach { mode ->
+        // Four choices only (user order Oct 2026): car, motorcycle,
+        // public transit, walk.
+        TransportMode.pickerEntries.forEach { mode ->
             WizardPlaceCard(
                 title = vehicleLabel(mode),
                 subtitle = "",

@@ -717,14 +717,14 @@ fun MapScreen(
             // Phase 10.4.0: Vela-style multimodal ETA selector. Changing
             // the mode recomputes route + ETA in the ViewModel.
             if (selectedLatLng != null) {
-                // Road vehicles (segmented, max 4) + transit systems
-                // (chips row below) — 8 modes total (Oct 2026).
+                // Four choices only (user order Oct 2026): car,
+                // motorcycle, public transit, walk — one segmented row.
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
                 ) {
-                    val roadOptions = TransportMode.roadEntries
+                    val roadOptions = TransportMode.primaryEntries
                     roadOptions.forEachIndexed { index, mode ->
                         SegmentedButton(
                             selected = transportMode == mode,
@@ -750,38 +750,10 @@ fun MapScreen(
                         )
                     }
                 }
-                // Transit systems row (Oct 2026): generic live/approx
-                // TRANSIT + static-data METRO / MONORAIL / LRT train.
-                // Horizontal scroll keeps 48dp+ targets (RTL-safe).
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TransportMode.transitEntries.forEach { mode ->
-                        FilterChip(
-                            selected = transportMode == mode,
-                            onClick = { viewModel.setTransportMode(mode) },
-                            label = {
-                                Text(
-                                    when (mode) {
-                                        TransportMode.TRANSIT -> stringResource(R.string.vehicle_transit)
-                                        TransportMode.METRO -> stringResource(R.string.vehicle_metro)
-                                        TransportMode.MONORAIL -> stringResource(R.string.vehicle_monorail)
-                                        TransportMode.TRAIN -> stringResource(R.string.vehicle_train_lrt)
-                                        else -> stringResource(R.string.vehicle_title)
-                                    },
-                                )
-                            },
-                            modifier = Modifier.heightIn(min = 48.dp),
-                        )
-                    }
-                }
-                // Static transit preview card (METRO/MONORAIL/TRAIN):
-                // planner summary + honesty label (ViewModel text).
-                if (transportMode in TransportMode.staticTransitEntries) {
+                // Public-transit preview card: the ViewModel plans the
+                // best system (live when keyed, else static metro/monorail/
+                // LRT) — summary + honesty label (ViewModel text).
+                if (transportMode == TransportMode.TRANSIT) {
                     val staticText by viewModel.staticTransitText.collectAsState()
                     staticText?.let { summary ->
                         Card(

@@ -479,7 +479,11 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             val saved = runCatching { settingsRepository.transportMode.first() }
                 .getOrDefault("CAR")
+            // Four-choices migration (Oct 2026): a retired stored mode
+            // (bicycle/metro/…) falls back to CAR until the user re-picks.
             _transportMode.value = TransportMode.fromName(saved)
+                .takeIf { it in TransportMode.primaryEntries }
+                ?: TransportMode.CAR
         }
         // Map layers (Oct 2026): restore persisted transit/AQI toggles +
         // WAQI token on launch (AQI restores only with a token present).
@@ -710,9 +714,30 @@ class MapViewModel @Inject constructor(
         } else {
             _transitPlan.value = null
         }
-        // Static transit (METRO/MONORAIL/TRAIN): station-to-station plan
-        // on embedded data (TransitPlanner) + OSRM foot for the walk legs
-        // only — ride legs never touch OSRM/GraphHopper. Returns here.
+        // Public transit (Oct 2026, four-choices): the generic TRANSIT
+        // pick plans the BEST system — live when keyed (above), else the
+        // best static itinerary across metro/monorail/LRT (below), else
+        // the driving corridor fallback (existing code path further down).
+        if (_transportMode.value == TransportMode.TRANSIT && _transitPlan.value == null) {
+            val best = withContext(Dispatchers.Default) {
+                runCatching {
+                    TransportMode.staticTransitEntries.mapNotNull { sys ->
+                        val it = TransitPlanner.plan(
+                            start.latitude, start.longitude, destLat, destLng, sys,
+                        ).takeIf { plan -> plan.kind != "NONE" }
+                        it?.let { sys to it }
+                    }.minByOrNull { (_, it) -> it.totalMin }?.first
+                }.getOrNull()
+            }
+            if (best != null) {
+                refreshStaticTransit(
+                    start.latitude, start.longitude, destLat, destLng, best,
+                )
+                return
+            }
+        }
+        // Legacy stored modes (METRO/MONORAIL/TRAIN — retired from the
+        // picker but still resolvable): plan their system directly.
         if (_transportMode.value.isTransit && _transportMode.value != TransportMode.TRANSIT) {
             _transitPlan.value = null
             refreshStaticTransit(start.latitude, start.longitude, destLat, destLng)
@@ -809,8 +834,10 @@ class MapViewModel @Inject constructor(
         startLng: Double,
         destLat: Double,
         destLng: Double,
+        // Winning system (Oct 2026 four-choices: best-of-breed for
+        // TRANSIT, the mode itself for legacy stored transit modes).
+        mode: TransportMode = _transportMode.value,
     ) {
-        val mode = _transportMode.value
         val plan = withContext(Dispatchers.Default) {
             runCatching {
                 TransitPlanner.plan(startLat, startLng, destLat, destLng, mode)
