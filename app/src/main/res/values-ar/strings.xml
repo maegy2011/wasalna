@@ -374,8 +374,6 @@
     <string name="myplaces_search">ابحث في الأماكن المحفوظة</string>
     <string name="myplaces_empty">لا توجد أماكن محفوظة بعد. انقر + لإضافة واحد!</string>
     <string name="myplaces_no_match">لا توجد أماكن محفوظة تطابق "%1$s".</string>
-    <string name="myplaces_battery_title">يلزم بطارية غير مقيدة</string>
-    <string name="myplaces_battery_text">يجب السماح باستخدام البطارية دون قيود ليعمل المنبه في الخلفية، وإلا قد يوقف النظام التتبع أثناء إغلاق الشاشة.</string>
     <string name="myplaces_rename">إعادة تسمية المكان</string>
     <string name="myplaces_name_hint">اسم المكان</string>
     <string name="myplaces_export">تصدير نسخة احتياطية</string>
@@ -385,7 +383,6 @@
     <string name="myplaces_backup_invalid">ملف النسخة الاحتياطية غير صالح</string>
     <string name="myplaces_restored">تمت استعادة %1$d من الأماكن</string>
     <string name="myplaces_set_first">عيّن هذا المكان أولًا (اضغط مطولًا).</string>
-    <string name="myplaces_battery_manual">افتح إعدادات البطارية يدويًا</string>
     <string name="settings_ringtone_saved">تم حفظ النغمة المخصصة</string>
     <string name="settings_ringtone_bad">تعذر استخدام هذا الملف الصوتي</string>
     <string name="settings_gradual_saved">تم حفظ النغمة التدريجية</string>

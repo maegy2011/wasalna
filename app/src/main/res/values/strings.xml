@@ -377,8 +377,6 @@
     <string name="myplaces_search">Search saved places</string>
     <string name="myplaces_empty">No places saved yet. Tap + to add one!</string>
     <string name="myplaces_no_match">No saved places match "%1$s".</string>
-    <string name="myplaces_battery_title">Unrestricted battery needed</string>
-    <string name="myplaces_battery_text">You must allow unrestricted battery usage for the alarm to work in the background. Otherwise the system may kill tracking while the screen is off.</string>
     <string name="myplaces_rename">Rename place</string>
     <string name="myplaces_name_hint">Place name</string>
     <string name="myplaces_export">Export backup</string>
@@ -390,7 +388,6 @@
     <string name="myplaces_backup_invalid">Invalid backup file</string>
     <string name="myplaces_restored">Restored %1$d place(s)</string>
     <string name="myplaces_set_first">Set this place first (long-press).</string>
-    <string name="myplaces_battery_manual">Open battery settings manually</string>
     <string name="settings_ringtone_saved">Custom ringtone saved</string>
     <string name="settings_ringtone_bad">Couldn\'t use that audio file</string>
     <string name="settings_gradual_saved">Gradual tone saved</string>
