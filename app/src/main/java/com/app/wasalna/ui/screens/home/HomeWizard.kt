@@ -2,11 +2,7 @@ package com.app.wasalna.ui.screens.home
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.PowerManager
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
+import com.app.wasalna.data.service.TripStarter
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
@@ -94,7 +91,10 @@ fun HomeWizard(
     var alarmMode by remember(savedAlarmMode) { mutableStateOf(savedAlarmMode) }
     var alarmMinutes by remember(savedAlarmMinutes) { mutableIntStateOf(savedAlarmMinutes) }
     var leadMinutes by remember(savedLeadMinutes) { mutableIntStateOf(savedLeadMinutes) }
-    var showBatteryDialog by remember { mutableStateOf(false) }
+    // Soft gate (Oct 2026 fix): background/battery warn instead of
+    // blocking — accepted once per attempt.
+    var showSoftWarn by remember { mutableStateOf(false) }
+    var softWarnAccepted by remember { mutableStateOf(false) }
 
     fun finish() {
         viewModel.setTransportMode(vehicle)
@@ -108,37 +108,49 @@ fun HomeWizard(
         val dest = picked ?: return
         // Grant-first (Oct 2026): missing permissions are requested now;
         // the trip runs right after the grant (TripStarter re-checks).
+        // Soft blockers warn instead of blocking (soft-warn dialog).
         permGate.runTripGated {
-            if (!isBatteryUnrestricted(context)) {
-                showBatteryDialog = true
+            if (TripStarter.softBlockers(context).isNotEmpty() && !softWarnAccepted) {
+                showSoftWarn = true
                 return@runTripGated
             }
             finish()
-            fun go() = startTracking(context, dest, vehicle)
+            fun go() = startTracking(context, dest, vehicle, allowReduced = softWarnAccepted)
             if (!isPremium) {
                 InterstitialHelper.showInterstitial(context) { go() }
             } else {
                 go()
             }
+            softWarnAccepted = false
         }
     }
 
-    if (showBatteryDialog) {
+    if (showSoftWarn) {
         AlertDialog(
-            onDismissRequest = { showBatteryDialog = false },
-            title = { Text(stringResource(R.string.myplaces_battery_title)) },
-            text = { Text(stringResource(R.string.myplaces_battery_text)) },
+            onDismissRequest = { showSoftWarn = false },
+            title = { Text(stringResource(R.string.trip_soft_warn_title)) },
+            text = { Text(stringResource(R.string.trip_soft_warn_msg)) },
             confirmButton = {
                 TextButton(onClick = {
-                    showBatteryDialog = false
-                    openBatterySettings(context)
+                    showSoftWarn = false
+                    softWarnAccepted = true
+                    scope.launch { startTrip() }
                 }) {
-                    Text(stringResource(R.string.common_open_settings))
+                    Text(stringResource(R.string.trip_start_anyway))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showBatteryDialog = false }) {
-                    Text(stringResource(R.string.common_cancel))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        TripStarter.softBlockers(context).firstOrNull()?.let {
+                            TripStarter.openSettingsFor(context, it)
+                        }
+                    }) {
+                        Text(stringResource(R.string.common_open_settings))
+                    }
+                    TextButton(onClick = { showSoftWarn = false }) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
                 }
             },
         )
@@ -556,23 +568,6 @@ private fun WizardReviewRow(label: String, value: String) {
     }
 }
 
-private fun isBatteryUnrestricted(context: Context): Boolean {
-    val pm = context.getSystemService(PowerManager::class.java) ?: return false
-    return pm.isIgnoringBatteryOptimizations(context.packageName)
-}
-
-private fun openBatterySettings(context: Context) {
-    runCatching {
-        val intent = Intent(
-            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-            Uri.parse("package:${context.packageName}"),
-        )
-        context.startActivity(intent)
-    }.onFailure {
-        Toast.makeText(context, context.getString(R.string.myplaces_battery_manual), Toast.LENGTH_LONG).show()
-    }
-}
-
 private fun hasLocationPermission(context: Context): Boolean {
     val fine = ContextCompat.checkSelfPermission(
         context,
@@ -586,13 +581,16 @@ private fun hasLocationPermission(context: Context): Boolean {
 }
 
 // Real-trip upgrade (Oct 2026): all starts funnel through TripStarter —
-// pre-flight gate (GPS/permission/battery) + sim conflict refusal.
+// pre-flight gate (GPS/permission) + sim conflict refusal. Returns the
+// verdict; soft blockers need allowReduced (warned upstream).
 private fun startTracking(
     context: Context,
     location: Location,
     mode: TransportMode,
-) {
-    com.app.wasalna.data.service.TripStarter.startRealTrip(
+    allowReduced: Boolean = false,
+): Boolean {
+    return TripStarter.startRealTrip(
         context, location.latitude, location.longitude, location.name, mode,
+        allowReduced = allowReduced,
     )
 }

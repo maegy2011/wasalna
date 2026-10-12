@@ -104,6 +104,14 @@
     <string name="trip_need_gps">شغّل GPS أولًا — جارٍ فتح إعدادات الموقع</string>
     <string name="trip_need_bg">اسمح بالموقع في الخلفية ليعمل المنبه — جارٍ فتح الإعدادات</string>
     <string name="trip_need_battery">أزل قيد البطارية ليعمل التتبع — جارٍ فتح الإعدادات</string>
+    <string name="trip_soft_warn_title">موثوقية منخفضة</string>
+    <string name="trip_soft_warn_msg">إذن الموقع في الخلفية أو البطارية غير المقيدة مفقود، فقد لا يعمل المنبه والشاشة مغلقة. يمكنك البدء على أي حال بموثوقية أقل، أو فتح الإعدادات للإصلاح.</string>
+    <string name="trip_start_anyway">بدء على أي حال</string>
+    <string name="trip_replace_title">توجد رحلة تعمل بالفعل</string>
+    <string name="trip_replace_msg">توجد رحلة تعمل بالفعل. هل تريد إيقافها وبدء الرحلة الجديدة؟</string>
+    <string name="trip_replace_confirm">إيقاف القديمة وبدء الجديدة</string>
+    <string name="trip_reduced_started">بدأت الرحلة بموثوقية أقل: %1$s</string>
+    <string name="trip_stop">إيقاف</string>
     <string name="trip_sim_prefix">[محاكاة]</string>
     <string name="nav_start_trip">بدء رحلة جديدة</string>
     <string name="via_added">أُضيفت توقفة %1$d — حُدّث المسار</string>

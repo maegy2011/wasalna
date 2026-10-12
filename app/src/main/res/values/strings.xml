@@ -165,6 +165,14 @@
     <string name="trip_need_gps">Turn on GPS first — opening location settings</string>
     <string name="trip_need_bg">Allow background location so the alarm survives — opening settings</string>
     <string name="trip_need_battery">Remove battery restriction so tracking survives — opening settings</string>
+    <string name="trip_soft_warn_title">Reduced reliability</string>
+    <string name="trip_soft_warn_msg">Background location or unrestricted battery is missing, so the alarm may not fire with the screen off. Start anyway with reduced reliability, or open settings to fix it.</string>
+    <string name="trip_start_anyway">Start anyway</string>
+    <string name="trip_replace_title">Trip already running</string>
+    <string name="trip_replace_msg">A trip is already running. Stop it and start the new trip instead?</string>
+    <string name="trip_replace_confirm">Stop old &amp; start new</string>
+    <string name="trip_reduced_started">Trip started with reduced reliability: %1$s</string>
+    <string name="trip_stop">Stop</string>
     <string name="trip_sim_prefix">[SIM]</string>
     <string name="nav_start_trip">Start a new trip</string>
     <string name="via_added">Stop %1$d added — route updated</string>

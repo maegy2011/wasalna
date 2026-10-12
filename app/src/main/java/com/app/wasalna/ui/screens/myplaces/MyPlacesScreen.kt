@@ -6,10 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
-import android.os.PowerManager
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -72,6 +69,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
+import com.app.wasalna.data.service.TripStarter
 import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.NearestStation
@@ -85,6 +83,7 @@ import com.app.wasalna.ui.components.ConfirmDialog
 import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import com.app.wasalna.ui.screens.home.HomeViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -115,8 +114,12 @@ fun MyPlacesScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var trackingName by remember { mutableStateOf<String?>(null) }
-    // Phase 10.4.2.1: battery-optimization gate dialog state.
-    var showBatteryDialog by remember { mutableStateOf(false) }
+    // Soft gate (Oct 2026 fix): background/battery warn instead of
+    // blocking — accepted once per trip attempt, reset on success.
+    var showSoftWarn by remember { mutableStateOf(false) }
+    var softWarnAccepted by remember { mutableStateOf(false) }
+    // AlreadyRunning recovery: offer stop-old + start-new.
+    var showReplaceDialog by remember { mutableStateOf(false) }
     // DYNAMIC WAKE-UP: trip-setup dialog state (pending place + visibility).
     var pendingTrip by remember { mutableStateOf<Location?>(null) }
     var showAlarmSetup by remember { mutableStateOf(false) }
@@ -186,8 +189,10 @@ fun MyPlacesScreen(
             }
         }
     }
-    // DYNAMIC WAKE-UP: trip-setup gate — permission/battery checks, then the
+    // DYNAMIC WAKE-UP: trip-setup gate — permission check, then the
     // Arabic mode dialog (per-trip choice, persisted); confirm starts tracking.
+    // Soft blockers (background location, battery) do NOT gate here —
+    // confirmTrip() warns with a start-anyway path instead.
     fun requestTrip(place: Location) {
         if (!hasLocationPermission(context)) {
             Toast.makeText(
@@ -195,10 +200,6 @@ fun MyPlacesScreen(
                 context.getString(R.string.home_location_required),
                 Toast.LENGTH_LONG,
             ).show()
-            return
-        }
-        if (!isBatteryUnrestricted(context)) {
-            showBatteryDialog = true
             return
         }
         pendingTrip = place
@@ -225,12 +226,31 @@ fun MyPlacesScreen(
         // Grant-first (Oct 2026): missing permissions are requested now;
         // the trip runs right after the grant (TripStarter re-checks).
         permGate.runTripGated {
-            fun go() {
-                startTracking(context, place, transportMode)
-                trackingName = place.name
+            // Soft gate: warn once per attempt, never silently block.
+            if (TripStarter.softBlockers(context).isNotEmpty() && !softWarnAccepted) {
+                showSoftWarn = true
+                return@runTripGated
             }
-            showAlarmSetup = false
-            pendingTrip = null
+            fun go() {
+                val ok = startTracking(
+                    context, place, transportMode,
+                    allowReduced = softWarnAccepted,
+                )
+                if (ok) {
+                    // Success ONLY: close the dialog + disable buttons.
+                    // A refusal keeps everything open so the start button
+                    // never gets stuck disabled (Oct 2026 stuck-button fix).
+                    trackingName = place.name
+                    showAlarmSetup = false
+                    pendingTrip = null
+                    softWarnAccepted = false
+                } else if (
+                    TripStarter.checkRealReady(context) ==
+                    TripStarter.RealBlocker.AlreadyRunning
+                ) {
+                    showReplaceDialog = true
+                }
+            }
             if (!isPremium) {
                 InterstitialHelper.showInterstitial(context) { go() }
             } else {
@@ -246,15 +266,24 @@ fun MyPlacesScreen(
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
-                if (intent?.action == TrackingService.ACTION_DESTINATION_REACHED) {
-                    trackingName = null
-                    scope.launch {
-                        snackbarHostState.showSnackbar(context.getString(R.string.home_destination_reached))
+                when (intent?.action) {
+                    TrackingService.ACTION_DESTINATION_REACHED -> {
+                        trackingName = null
+                        scope.launch {
+                            snackbarHostState.showSnackbar(context.getString(R.string.home_destination_reached))
+                        }
+                    }
+                    // Stuck-button recovery net: any service stop
+                    // re-enables the start buttons, no stale state.
+                    TrackingService.ACTION_TRIP_STOPPED -> {
+                        trackingName = null
                     }
                 }
             }
         }
-        val filter = IntentFilter(TrackingService.ACTION_DESTINATION_REACHED)
+        val filter = IntentFilter(TrackingService.ACTION_DESTINATION_REACHED).apply {
+            addAction(TrackingService.ACTION_TRIP_STOPPED)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -335,11 +364,25 @@ fun MyPlacesScreen(
                 .padding(16.dp),
         ) {
             trackingName?.let { name ->
-                Text(
-                    text = stringResource(R.string.home_tracking_started, name),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                // Manual stop (Oct 2026 stuck-button fix): the user can
+                // always kill a stale/running trip from here — no dead end.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_tracking_started, name),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = {
+                        TripStarter.stopTrip(context)
+                        trackingName = null
+                    }) {
+                        Text(stringResource(R.string.trip_stop))
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
             // Search + count in one row (user order Oct 2026).
@@ -462,27 +505,71 @@ fun MyPlacesScreen(
             },
         )
     }
-    // Phase 10.4.2.1: blocking battery gate — no unrestricted battery,
-    // no background alarm (OEMs would silently kill it).
-    if (showBatteryDialog) {
+    // Soft gate (Oct 2026 fix): warns instead of blocking — the user
+    // picks "start anyway" (reduced reliability) or opens settings.
+    // The trip-setup dialog stays open behind, so a cancel never
+    // strands the user without a start button.
+    if (showSoftWarn) {
         AlertDialog(
-            onDismissRequest = { showBatteryDialog = false },
-            title = { Text(stringResource(R.string.myplaces_battery_title)) },
-            text = {
-                Text(
-                    stringResource(R.string.myplaces_battery_text),
-                )
-            },
+            onDismissRequest = { showSoftWarn = false },
+            title = { Text(stringResource(R.string.trip_soft_warn_title)) },
+            text = { Text(stringResource(R.string.trip_soft_warn_msg)) },
             confirmButton = {
                 TextButton(onClick = {
-                    showBatteryDialog = false
-                    openBatterySettings(context)
+                    showSoftWarn = false
+                    softWarnAccepted = true
+                    confirmTrip()
                 }) {
-                    Text(stringResource(R.string.common_open_settings))
+                    Text(stringResource(R.string.trip_start_anyway))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showBatteryDialog = false }) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        TripStarter.softBlockers(context).firstOrNull()?.let {
+                            TripStarter.openSettingsFor(context, it)
+                        }
+                    }) {
+                        Text(stringResource(R.string.common_open_settings))
+                    }
+                    TextButton(onClick = { showSoftWarn = false }) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                }
+            },
+        )
+    }
+    // AlreadyRunning recovery (Oct 2026 fix): stop the old trip and
+    // start the pending one instead of a dead-end Toast.
+    if (showReplaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showReplaceDialog = false },
+            title = { Text(stringResource(R.string.trip_replace_title)) },
+            text = { Text(stringResource(R.string.trip_replace_msg)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showReplaceDialog = false
+                    val place = pendingTrip ?: return@TextButton
+                    TripStarter.stopTrip(context)
+                    scope.launch {
+                        delay(700)
+                        val ok = startTracking(
+                            context, place, transportMode,
+                            allowReduced = true,
+                        )
+                        if (ok) {
+                            trackingName = place.name
+                            showAlarmSetup = false
+                            pendingTrip = null
+                            softWarnAccepted = false
+                        }
+                    }
+                }) {
+                    Text(stringResource(R.string.trip_replace_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReplaceDialog = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -863,23 +950,6 @@ private fun SavedPlaceCard(
     }
 }
 
-private fun isBatteryUnrestricted(context: Context): Boolean {
-    val pm = context.getSystemService(PowerManager::class.java) ?: return false
-    return pm.isIgnoringBatteryOptimizations(context.packageName)
-}
-
-private fun openBatterySettings(context: Context) {
-    runCatching {
-        val intent = Intent(
-            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-            Uri.parse("package:${context.packageName}"),
-        )
-        context.startActivity(intent)
-    }.onFailure {
-        Toast.makeText(context, context.getString(R.string.myplaces_battery_manual), Toast.LENGTH_LONG).show()
-    }
-}
-
 private fun hasLocationPermission(context: Context): Boolean {
     val fine = ContextCompat.checkSelfPermission(
         context,
@@ -897,13 +967,17 @@ private fun walkKm(distanceM: Float): String =
     String.format(java.util.Locale.US, "%.1f", distanceM / 1000f)
 
 // Real-trip upgrade (Oct 2026): all starts funnel through TripStarter —
-// pre-flight gate (GPS/permission/battery) + sim conflict refusal.
+// pre-flight gate (GPS/permission) + sim conflict refusal. Returns the
+// TripStarter verdict so callers only close dialogs + disable buttons
+// on a REAL start (stuck-button fix). Soft blockers need allowReduced.
 private fun startTracking(
     context: Context,
     location: Location,
     mode: TransportMode,
-) {
-    com.app.wasalna.data.service.TripStarter.startRealTrip(
+    allowReduced: Boolean = false,
+): Boolean {
+    return TripStarter.startRealTrip(
         context, location.latitude, location.longitude, location.name, mode,
+        allowReduced = allowReduced,
     )
 }

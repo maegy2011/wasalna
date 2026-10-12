@@ -50,8 +50,60 @@ object TripStarter {
     }
 
     /**
+     * HARD gate: blockers that make a trip impossible or unsafe to
+     * start at all (no fix source, or a conflicting trip running).
+     * Soft blockers (background location, battery) are excluded —
+     * they only degrade reliability, see [softBlockers].
+     */
+    fun checkHardBlocker(context: Context): RealBlocker? {
+        if (TripSimulationController.isActive) return RealBlocker.SimRunning
+        if (TrackingService.isServiceRunning) return RealBlocker.AlreadyRunning
+        if (!hasFineLocation(context)) return RealBlocker.NoLocation
+        if (!isGpsOn(context)) return RealBlocker.GpsOff
+        return null
+    }
+
+    /**
+     * SOFT gate: present reliability blockers (background location,
+     * battery optimization). The trip CAN start without them — the
+     * alarm just may not survive screen-off. Callers show a warning
+     * with a "start anyway" path instead of refusing.
+     */
+    fun softBlockers(context: Context): List<RealBlocker> = buildList {
+        if (!hasBackgroundLocation(context)) add(RealBlocker.NoBackground)
+        if (!isBatteryIgnored(context)) add(RealBlocker.BatteryOptimized)
+    }
+
+    /** Opens the system screen that fixes [blocker] (no-op for hard conflicts). */
+    fun openSettingsFor(context: Context, blocker: RealBlocker) {
+        when (blocker) {
+            RealBlocker.NoLocation, RealBlocker.NoBackground -> openAppSettings(context)
+            RealBlocker.GpsOff -> openLocationSettings(context)
+            RealBlocker.BatteryOptimized -> openBatterySettings(context)
+            RealBlocker.SimRunning, RealBlocker.AlreadyRunning -> Unit
+        }
+    }
+
+    /** Sends ACTION_STOP to the service (idempotent, never throws). */
+    fun stopTrip(context: Context) {
+        runCatching {
+            context.startService(
+                Intent(context, TrackingService::class.java).apply {
+                    action = TrackingService.ACTION_STOP
+                },
+            )
+        }.onFailure { Log.w(TAG, "stopTrip failed: ${it.message}") }
+    }
+
+    /**
      * Starts a real trip after the gate. Fixable blockers open their
      * system screen; hard conflicts (sim/running) only Toast.
+     *
+     * HARD blockers always refuse. SOFT blockers (background location,
+     * battery) refuse too UNLESS [allowReduced] — the caller shows a
+     * warning dialog first and passes true only after the user picks
+     * "start anyway". Reduced trips run the same service; only the
+     * screen-off survival is degraded.
      */
     fun startRealTrip(
         context: Context,
@@ -59,46 +111,56 @@ object TripStarter {
         lng: Double,
         name: String,
         mode: TransportMode,
+        allowReduced: Boolean = false,
     ): Boolean {
-        return when (val block = checkRealReady(context)) {
-            null -> {
-                fireStart(context, lat, lng, name, mode)
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.trip_started, name),
-                    Toast.LENGTH_SHORT,
-                ).show()
-                true
-            }
+        when (val hard = checkHardBlocker(context)) {
             RealBlocker.SimRunning -> {
                 refuse(context, R.string.trip_blocked_by_sim)
-                false
+                return false
             }
             RealBlocker.AlreadyRunning -> {
                 refuse(context, R.string.trip_already_running)
-                false
+                return false
             }
             RealBlocker.NoLocation -> {
                 refuse(context, R.string.trip_need_location)
                 openAppSettings(context)
-                false
+                return false
             }
             RealBlocker.GpsOff -> {
                 refuse(context, R.string.trip_need_gps)
                 openLocationSettings(context)
-                false
+                return false
             }
-            RealBlocker.NoBackground -> {
-                refuse(context, R.string.trip_need_bg)
-                openAppSettings(context)
-                false
-            }
-            RealBlocker.BatteryOptimized -> {
-                refuse(context, R.string.trip_need_battery)
-                openBatterySettings(context)
-                false
-            }
+            null,
+            RealBlocker.NoBackground,
+            RealBlocker.BatteryOptimized,
+            -> Unit
         }
+        val soft = softBlockers(context)
+        if (soft.isNotEmpty() && !allowReduced) {
+            val first = soft.first()
+            refuse(
+                context,
+                if (first == RealBlocker.NoBackground) {
+                    R.string.trip_need_bg
+                } else {
+                    R.string.trip_need_battery
+                },
+            )
+            openSettingsFor(context, first)
+            return false
+        }
+        fireStart(context, lat, lng, name, mode)
+        Toast.makeText(
+            context,
+            context.getString(
+                if (soft.isNotEmpty()) R.string.trip_reduced_started else R.string.trip_started,
+                name,
+            ),
+            Toast.LENGTH_SHORT,
+        ).show()
+        return true
     }
 
     /**
@@ -118,7 +180,8 @@ object TripStarter {
         return true
     }
 
-    private fun fireStart(
+    /** Fires ACTION_START directly (caller already passed the gate). */
+    fun fireStart(
         context: Context,
         lat: Double,
         lng: Double,

@@ -1141,6 +1141,12 @@ class TrackingService : Service() {
     override fun onDestroy() {
         isServiceRunning = false
         isStopping = true
+        // Stuck-button recovery (Oct 2026 fix): every stop path ends
+        // here — tell the UI the trip is gone so start buttons
+        // re-enable even if the pre-stop state went stale.
+        runCatching {
+            sendBroadcast(Intent(ACTION_TRIP_STOPPED).setPackage(packageName))
+        }
         simFeedJob?.cancel()
         simFeedJob = null
         simWatchJob?.cancel()
@@ -1333,6 +1339,15 @@ class TrackingService : Service() {
         /** Package-scoped broadcast sent when the 2 km radius is entered. */
         const val ACTION_DESTINATION_REACHED =
             "com.app.wasalna.action.DESTINATION_REACHED"
+
+        /**
+         * Package-scoped broadcast sent from onDestroy() on EVERY stop
+         * path (notification Stop, alarm done, system kill + restart).
+         * UI clears its "trip running" state on it — the stuck-button
+         * recovery net.
+         */
+        const val ACTION_TRIP_STOPPED =
+            "com.app.wasalna.action.TRIP_STOPPED"
 
         const val CHANNEL_ID = "wasalna_tracking"
         const val NOTIF_ID = 1001
