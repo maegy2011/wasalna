@@ -65,6 +65,9 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    // Screen-density adaptivity (Oct 2026): WindowSizeClass drives
+    // adaptive dimens (Compact/Medium/Expanded). Version via Compose BOM.
+    implementation(libs.compose.material3.windowsize)
     implementation(libs.compose.material.icons)
 
     implementation(libs.activity.compose)

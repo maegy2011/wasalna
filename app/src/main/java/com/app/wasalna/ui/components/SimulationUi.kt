@@ -42,6 +42,7 @@ import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.domain.model.TransitPlanner
 import com.app.wasalna.domain.model.TransportMode
+import com.app.wasalna.ui.theme.LocalWasalnaDimens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -114,6 +115,7 @@ fun SimulationControlBar(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val dimens = LocalWasalnaDimens.current
     val simulating by TripSimulationController.isSimulating.collectAsState()
     val paused by TripSimulationController.isPaused.collectAsState()
     if (!simulating && onStart == null) return
@@ -127,7 +129,7 @@ fun SimulationControlBar(
                 onClick = start,
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp),
+                    .height(dimens.controlHeight),
             ) {
                 Text(
                     text = stringResource(R.string.sim_explicit_start),
@@ -139,7 +141,7 @@ fun SimulationControlBar(
                 onClick = { TripSimulationController.resume() },
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp),
+                    .height(dimens.controlHeight),
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
@@ -159,7 +161,7 @@ fun SimulationControlBar(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp),
+                    .height(dimens.controlHeight),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Stop,
@@ -175,7 +177,7 @@ fun SimulationControlBar(
                 onClick = { TripSimulationController.pause() },
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp),
+                    .height(dimens.controlHeight),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Pause,
@@ -195,7 +197,7 @@ fun SimulationControlBar(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp),
+                    .height(dimens.controlHeight),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Stop,
@@ -221,6 +223,7 @@ fun TripSimulationPanel(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val dimens = LocalWasalnaDimens.current
     val scope = rememberCoroutineScope()
     val simulating by TripSimulationController.isSimulating.collectAsState()
     val paused by TripSimulationController.isPaused.collectAsState()
@@ -289,7 +292,7 @@ fun TripSimulationPanel(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(dimens.controlHeight),
                     ) {
                         Icon(
                             imageVector = if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
@@ -311,7 +314,7 @@ fun TripSimulationPanel(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(dimens.controlHeight),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Stop,
@@ -465,7 +468,7 @@ fun TripSimulationPanel(
                     enabled = !starting,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(dimens.controlHeight),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,

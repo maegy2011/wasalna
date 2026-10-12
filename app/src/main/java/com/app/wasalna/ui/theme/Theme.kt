@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -23,6 +24,9 @@ data class WasalnaDimens(
     val screenPadding: Dp = 16.dp,
     val cardPadding: Dp = 16.dp,
     val buttonHeight: Dp = 48.dp,
+    // Standard control height (unified Oct 2026: replaces hardcoded
+    // 56.dp buttons scattered across panels).
+    val controlHeight: Dp = 56.dp,
     val iconSize: Dp = 24.dp,
     val spacingSmall: Dp = 8.dp,
     val spacingMedium: Dp = 16.dp,
@@ -41,6 +45,7 @@ val ElderlyDimens = WasalnaDimens(
     screenPadding = 20.dp,
     cardPadding = 20.dp,
     buttonHeight = 64.dp,
+    controlHeight = 64.dp,
     iconSize = 32.dp,
     spacingSmall = 12.dp,
     spacingMedium = 20.dp,
@@ -59,6 +64,10 @@ val LocalWasalnaDimens = compositionLocalOf { NormalDimens }
 fun WasalnaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     elderlyMode: Boolean = false,
+    // Screen-density adaptivity (Oct 2026): width class from
+    // calculateWindowSizeClass() in MainActivity. Defaults to Compact
+    // (legacy phone look) for previews and non-activity callers.
+    widthClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
     content: @Composable () -> Unit
 ) {
     var elderly by remember(elderlyMode) { mutableStateOf(elderlyMode) }
@@ -69,11 +78,13 @@ fun WasalnaTheme(
         if (darkTheme) WasalnaDarkColors else WasalnaLightColors
     }
     val typography = if (elderly) WasalnaElderlyTypography else WasalnaTypography
-    val dimens = if (elderly) ElderlyDimens else NormalDimens
+    val dimens = rememberAdaptiveDimens(elderly, widthClass)
+    val columns = remember(widthClass) { columnsFor(widthClass) }
 
     CompositionLocalProvider(
         LocalElderlyMode provides elderly,
-        LocalWasalnaDimens provides dimens
+        LocalWasalnaDimens provides dimens,
+        LocalColumnCount provides columns
     ) {
         MaterialTheme(
             colorScheme = colors,

@@ -31,6 +31,7 @@ import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.theme.ElderlyEtaDisplayStyle
 import com.app.wasalna.ui.theme.ElderlyStopDisplayStyle
 import com.app.wasalna.ui.theme.EtaDisplayStyle
+import com.app.wasalna.ui.theme.HeroText
 import com.app.wasalna.ui.theme.LocalElderlyMode
 import com.app.wasalna.ui.theme.LocalWasalnaDimens
 import com.app.wasalna.ui.theme.StopDisplayStyle
@@ -90,9 +91,9 @@ fun RouteTimeline(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(
+                    HeroText(
                         text = boardingName,
-                        style = stationStyle,
+                        baseStyle = stationStyle,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     if (remainingText != null) {
@@ -108,15 +109,15 @@ fun RouteTimeline(
                         )
                     }
                     if (etaText != null) {
-                        Text(
+                        HeroText(
                             text = etaText,
-                            style = etaStyle,
+                            baseStyle = etaStyle,
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
-                    Text(
+                    HeroText(
                         text = alightingName,
-                        style = stationStyle,
+                        baseStyle = stationStyle,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }

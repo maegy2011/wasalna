@@ -713,9 +713,9 @@ fun MapScreen(
                 // Transit design: alighting stop — extra-large bold,
                 // instantly scannable for a waking user.
                 val elderlyNow = com.app.wasalna.ui.theme.LocalElderlyMode.current
-                Text(
+                com.app.wasalna.ui.theme.HeroText(
                     text = stringResource(R.string.map_selected, addressLine ?: name),
-                    style = if (elderlyNow) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
+                    baseStyle = if (elderlyNow) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
@@ -828,9 +828,9 @@ fun MapScreen(
                     ) {
                         // Transit design: ETA hero — extra-large bold.
                         val elderlyEta = com.app.wasalna.ui.theme.LocalElderlyMode.current
-                        Text(
+                        com.app.wasalna.ui.theme.HeroText(
                             text = stringResource(R.string.trips_eta, mins),
-                            style = if (elderlyEta) com.app.wasalna.ui.theme.ElderlyEtaDisplayStyle else com.app.wasalna.ui.theme.EtaDisplayStyle,
+                            baseStyle = if (elderlyEta) com.app.wasalna.ui.theme.ElderlyEtaDisplayStyle else com.app.wasalna.ui.theme.EtaDisplayStyle,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         )
@@ -912,9 +912,9 @@ fun MapScreen(
                 ) {
                     // REDESIGN: restyled sheet header — stop-display size.
                     val elderlyHw = com.app.wasalna.ui.theme.LocalElderlyMode.current
-                    Text(
+                    com.app.wasalna.ui.theme.HeroText(
                         text = addressLine ?: selectedName ?: stringResource(R.string.map_selected_point),
-                        style = if (elderlyHw) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
+                        baseStyle = if (elderlyHw) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )

@@ -18,8 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -456,14 +457,19 @@ fun MyPlacesScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             } else {
-                // Audit fix (9 Oct 2026): unconstrained LazyColumn inside a
+                // Audit fix (9 Oct 2026): unconstrained scrolling list inside a
                 // non-scrollable Column could be pushed off-screen — the
                 // saved-places list gets remaining space and scrolls itself.
-                LazyColumn(
+                // Density fix (Oct 2026): columns follow the window width
+                // (1 on phones = legacy look, 2-3 on foldables/tablets).
+                val placeColumns = com.app.wasalna.ui.theme.LocalColumnCount.current
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(placeColumns),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(visiblePlaces, key = { it.id }) { location ->
                         SavedPlaceCard(

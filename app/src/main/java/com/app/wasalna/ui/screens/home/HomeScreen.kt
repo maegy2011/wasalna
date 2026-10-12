@@ -178,14 +178,14 @@ fun HomeScreen(
                             kind = com.app.wasalna.ui.components.BadgeKind.ACTIVE,
                             text = stringResource(R.string.badge_active),
                         )
-                        Text(
+                        com.app.wasalna.ui.theme.HeroText(
                             text = trip.locationName,
-                            style = if (elderly) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
+                            baseStyle = if (elderly) com.app.wasalna.ui.theme.ElderlyStopDisplayStyle else com.app.wasalna.ui.theme.StopDisplayStyle,
                         )
-                        Text(
+                        com.app.wasalna.ui.theme.HeroText(
                             text = trip.etaMinutes?.let { stringResource(R.string.trips_eta, it) }
                                 ?: stringResource(R.string.trips_tracking_live),
-                            style = if (elderly) com.app.wasalna.ui.theme.ElderlyEtaDisplayStyle else com.app.wasalna.ui.theme.EtaDisplayStyle,
+                            baseStyle = if (elderly) com.app.wasalna.ui.theme.ElderlyEtaDisplayStyle else com.app.wasalna.ui.theme.EtaDisplayStyle,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
