@@ -29,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -95,14 +96,11 @@ fun OfflineMapsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.offline_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
-            )
+            WasalnaTopBar(
+                title = stringResource(R.string.offline_title),
+                showBack = true,
+                onBackClick = onBack,
+)
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(

@@ -55,6 +55,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SmallFloatingActionButton
@@ -300,13 +301,10 @@ fun MapScreen(
 
     Scaffold(
         topBar = {
-            androidx.compose.material3.TopAppBar(
-                title = { Text(stringResource(R.string.map_pick_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
+            WasalnaTopBar(
+                title = stringResource(R.string.map_pick_title),
+                showBack = true,
+                onBackClick = onBack,
                 actions = {
                     // Header cloud button: icon shows the CURRENT mode
                     // (cloud = online, cloud-off = offline); tap toggles

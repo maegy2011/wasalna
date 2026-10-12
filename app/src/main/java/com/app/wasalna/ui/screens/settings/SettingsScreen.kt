@@ -47,6 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Slider
 import androidx.compose.foundation.layout.heightIn
@@ -221,14 +222,11 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
-            )
+            WasalnaTopBar(
+                title = stringResource(R.string.settings_title),
+                showBack = true,
+                onBackClick = onBack,
+)
         },
     ) { padding ->
     // Audit fix (9 Oct 2026): the content Column was NOT scrollable — on

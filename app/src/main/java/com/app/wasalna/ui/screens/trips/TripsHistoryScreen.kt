@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -60,13 +61,11 @@ fun TripsHistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.trips_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back_home))
-                    }
-                },
+            WasalnaTopBar(
+                title = stringResource(R.string.trips_title),
+                subtitle = stringResource(R.string.drawer_impact),
+                showBack = true,
+                onBackClick = onBack,
             )
         },
     ) { padding ->

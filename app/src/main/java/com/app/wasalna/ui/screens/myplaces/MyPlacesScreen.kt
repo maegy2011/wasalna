@@ -41,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -296,14 +297,10 @@ fun MyPlacesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.myplaces_title)) },
-                navigationIcon = {
-                    // Phase 10.4.1: back reliably returns to the Home tab.
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back_home))
-                    }
-                },
+            WasalnaTopBar(
+                title = stringResource(R.string.myplaces_title),
+                showBack = true,
+                onBackClick = onBack,
                 actions = {
                     // Backup (export/import) moved here from the content
                     // column — rare action, no permanent row.

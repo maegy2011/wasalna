@@ -28,6 +28,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -143,13 +144,10 @@ fun TripRouteScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(trip?.locationName ?: stringResource(R.string.trip_share_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
+            WasalnaTopBar(
+                title = trip?.locationName ?: stringResource(R.string.trip_share_title),
+                showBack = true,
+                onBackClick = onBack,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

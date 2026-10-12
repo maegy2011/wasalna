@@ -41,6 +41,7 @@ import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.ui.ads.AdBanner
 import com.app.wasalna.ui.ads.InterstitialHelper
 import com.app.wasalna.ui.components.OfflineModeButton
+import com.app.wasalna.ui.components.WasalnaTopBar
 import kotlinx.coroutines.launch
 
 /**
@@ -104,13 +105,11 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.home_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.home_open_menu))
-                    }
-                },
+            WasalnaTopBar(
+                title = stringResource(R.string.home_title),
+                subtitle = stringResource(R.string.splash_tagline),
+                showMenu = true,
+                onMenuClick = onMenuClick,
                 actions = {
                     // Header cloud button: icon shows the CURRENT mode
                     // (cloud = online, cloud-off = offline); tap toggles

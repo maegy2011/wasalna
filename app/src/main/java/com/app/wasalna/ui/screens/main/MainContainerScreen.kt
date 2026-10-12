@@ -5,44 +5,22 @@ import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.mutableStateListOf
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Diamond
-import androidx.compose.material.icons.filled.Email
-import android.net.Uri
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
@@ -61,11 +39,15 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.app.wasalna.R
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.app.wasalna.ui.components.DrawerSectionTitle
+import com.app.wasalna.ui.components.WasalnaBottomBar
+import com.app.wasalna.ui.components.WasalnaBrandHeader
+import com.app.wasalna.ui.components.WasalnaDrawerItem
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -256,239 +238,94 @@ fun MainContainerScreen() {
     // still dims them while open — tap there closes the drawer per M3.)
     Scaffold(
         bottomBar = {
-                // Bottom bar v2 (user order Oct 2026): menu | home |
-                // CENTER start-trip | places | settings. Trips history
-                // lives in the drawer only. Icon-only items (TalkBack
-                // kept); the center FAB opens the Map = every trip
-                // starts by picking a destination.
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    NavigationBar {
-                        NavigationBarItem(
-                            selected = false,
-                            onClick = { openDrawer() },
-                            icon = {
-                                Icon(
-                                    painterResource(R.drawable.ic_svg_menu),
-                                    contentDescription = stringResource(R.string.nav_menu_desc),
-                                )
-                            },
-                        )
-                        NavigationBarItem(
-                            selected = isSelected(Screen.Home.route),
-                            onClick = { navigateTab(Screen.Home.route) },
-                            icon = {
-                                Icon(
-                                    painterResource(R.drawable.ic_svg_home),
-                                    contentDescription = stringResource(R.string.nav_home),
-                                )
-                            },
-                        )
-                        // Center slot: spacer under the overlaid FAB so
-                        // the four real items stay evenly distributed.
-                        NavigationBarItem(
-                            selected = false,
-                            onClick = { openMapFullScreen() },
-                            icon = { Spacer(modifier = Modifier.size(24.dp)) },
-                        )
-                        NavigationBarItem(
-                            selected = isSelected(Screen.MyPlaces.route),
-                            onClick = { navigateTab(Screen.MyPlaces.route) },
-                            icon = {
-                                Icon(
-                                    painterResource(R.drawable.ic_svg_place),
-                                    contentDescription = stringResource(R.string.myplaces_title),
-                                )
-                            },
-                        )
-                        NavigationBarItem(
-                            selected = isSelected(Screen.Settings.route),
-                            onClick = { navigateTab(Screen.Settings.route) },
-                            icon = {
-                                Icon(
-                                    painterResource(R.drawable.ic_svg_settings),
-                                    contentDescription = stringResource(R.string.settings_title),
-                                )
-                            },
-                        )
-                    }
-                    FloatingActionButton(
-                        onClick = { openMapFullScreen() },
-                        modifier = Modifier
-                            .align(androidx.compose.ui.Alignment.TopCenter)
-                            .size(64.dp),
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ) {
-                        Icon(
-                            Icons.Filled.PlayArrow,
-                            contentDescription = stringResource(R.string.nav_start_trip),
-                            modifier = Modifier.size(32.dp),
-                        )
-                    }
-                }
+            // Unified footer — labels + selected pill + center start-trip FAB.
+            WasalnaBottomBar(
+                currentRoute = currentRoute,
+                onMenuClick = { openDrawer() },
+                onNavigateTab = ::navigateTab,
+                onStartTrip = { openMapFullScreen() },
+            )
         },
     ) { scaffoldPadding ->
         ModalNavigationDrawer(
             gesturesEnabled = !isOnMapRoute,
             drawerState = drawerState,
             drawerContent = {
-            ModalDrawerSheet(
-                // 64dp = M3 Small TopAppBar height: sheet top edge sits
-                // just below the per-screen header.
-                modifier = Modifier.padding(top = 64.dp),
-            ) {
-                DrawerBrandHeader()
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(
-                        text = planLabel(planPremium, planTrialEnd, planNow),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                ModalDrawerSheet(
+                    modifier = Modifier.padding(top = 64.dp),
+                ) {
+                    DrawerBrandHeader()
+                    DrawerSectionTitle(text = stringResource(R.string.drawer_section_general))
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.nav_home),
+                        selected = isSelected(Screen.Home.route),
+                        onClick = { closeDrawer(); navigateTab(Screen.Home.route) },
+                        iconRes = R.drawable.ic_svg_home,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.myplaces_title),
+                        selected = isSelected(Screen.MyPlaces.route),
+                        onClick = { closeDrawer(); navigateTab(Screen.MyPlaces.route) },
+                        iconRes = R.drawable.ic_svg_place,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.settings_title),
+                        selected = isSelected(Screen.Settings.route),
+                        onClick = { closeDrawer(); navigateTab(Screen.Settings.route) },
+                        iconRes = R.drawable.ic_svg_settings,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.trips_title),
+                        selected = isSelected(Screen.TripsHistory.route),
+                        onClick = { closeDrawer(); navigateTab(Screen.TripsHistory.route) },
+                        iconRes = R.drawable.ic_svg_history,
+                        badge = {
+                            if (successfulTrips > 0) {
+                                Text(
+                                    text = successfulTrips.toString(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(4.dp))
+                    DrawerSectionTitle(text = stringResource(R.string.drawer_impact))
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.impact_trips, successfulTrips),
+                        selected = false,
+                        onClick = { closeDrawer(); navigateTab(Screen.TripsHistory.route) },
+                        iconRes = R.drawable.ic_svg_favorite,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.impact_hours, "%.1f".format(timeSavedHours)),
+                        selected = false,
+                        onClick = { closeDrawer(); navigateTab(Screen.TripsHistory.route) },
+                        iconRes = R.drawable.ic_svg_schedule,
+                    )
+                    DrawerSectionTitle(text = stringResource(R.string.drawer_section_more))
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.common_share),
+                        selected = false,
+                        onClick = { closeDrawer(); shareApp() },
+                        iconRes = R.drawable.ic_svg_share,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.drawer_rate),
+                        selected = false,
+                        onClick = { closeDrawer(); rateApp() },
+                        iconRes = R.drawable.ic_svg_star,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.drawer_contact),
+                        selected = false,
+                        onClick = { closeDrawer(); contactUs() },
+                        iconRes = R.drawable.ic_svg_email,
                     )
                 }
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.drawer_section_general),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
-                )
-                NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.settings_title)) },
-                    selected = isSelected(Screen.Settings.route),
-                    onClick = {
-                        closeDrawer()
-                        navigateTab(Screen.Settings.route)
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_settings),
-                            contentDescription = stringResource(R.string.settings_title),
-                        )
-                    },
-                    badge = null,
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-                NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.trips_title)) },
-                    selected = isSelected(Screen.TripsHistory.route),
-                    onClick = {
-                        closeDrawer()
-                        navigateTab(Screen.TripsHistory.route)
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_history),
-                            contentDescription = stringResource(R.string.trips_title),
-                        )
-                    },
-                    badge = {
-                        if (successfulTrips > 0) {
-                            Text(
-                                text = successfulTrips.toString(),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-                // Phase 10.4.2.1: Your Impact — live stats from TripDao.
-                Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.drawer_impact),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
-                )
-                NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.impact_trips, successfulTrips)) },
-                    selected = false,
-                    onClick = {
-                        closeDrawer()
-                        navigateTab(Screen.TripsHistory.route)
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_favorite),
-                            contentDescription = stringResource(R.string.drawer_impact),
-                        )
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-                NavigationDrawerItem(
-                    label = {
-                        Text(stringResource(R.string.impact_hours, "%.1f".format(timeSavedHours)))
-                    },
-                    selected = false,
-                    onClick = {
-                        closeDrawer()
-                        navigateTab(Screen.TripsHistory.route)
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_schedule),
-                            contentDescription = stringResource(R.string.drawer_impact),
-                        )
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-                Text(
-                    text = stringResource(R.string.drawer_section_more),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
-                )
-                NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.common_share)) },
-                    selected = false,
-                    onClick = {
-                        closeDrawer()
-                        shareApp()
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_share),
-                            contentDescription = stringResource(R.string.common_share),
-                        )
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-                NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.drawer_rate)) },
-                    selected = false,
-                    onClick = {
-                        closeDrawer()
-                        rateApp()
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_star),
-                            contentDescription = stringResource(R.string.drawer_rate),
-                        )
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-                NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.drawer_contact)) },
-                    selected = false,
-                    onClick = {
-                        closeDrawer()
-                        contactUs()
-                    },
-                    icon = {
-                        Icon(
-                            painterResource(R.drawable.ic_svg_email),
-                            contentDescription = stringResource(R.string.drawer_contact),
-                        )
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                )
-            }
-        },
+            },
         ) {
             // Smart back owns the system back button everywhere in the
             // container (Map's own handler takes precedence while its
@@ -591,20 +428,25 @@ fun MainContainerScreen() {
 }
 
 /**
- * Drawer brand header — ONE row: reused launcher artwork + app name on the
- * same line, app version (BuildConfig.VERSION_NAME) on the next line
- * beneath. Row + start-padding are RTL-aware (mirrors in Arabic locale);
- * the name comes from strings.xml so the Arabic locale shows the Arabic
- * name. No new assets: the launcher foreground vector is shown on the
- * launcher background color inside a 48dp (8dp-grid, 48dp-min) badge.
+ * Drawer brand header — gradient brand block (AppChrome) with the real
+ * launcher icon + name + version + live plan pill.
  */
 @Composable
 private fun DrawerBrandHeader() {
     val context = LocalContext.current
     val appName = stringResource(id = R.string.app_name)
     val versionName = com.app.wasalna.BuildConfig.VERSION_NAME
-    // The REAL launcher icon (same artwork + same scale as the app icon),
-    // rasterized once from the PackageManager drawable (user order Oct 2026).
+    val planVm: com.app.wasalna.ui.screens.home.HomeViewModel =
+        androidx.hilt.navigation.compose.hiltViewModel()
+    val planPremium by planVm.isPremium.collectAsState()
+    val planTrialEnd by planVm.trialEndTimeMillis.collectAsState()
+    var planNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000)
+            planNow = System.currentTimeMillis()
+        }
+    }
     val appIconBitmap = remember {
         runCatching {
             val drawable = context.packageManager.getApplicationIcon(context.packageName)
@@ -618,43 +460,25 @@ private fun DrawerBrandHeader() {
             bmp
         }.getOrNull()
     }
-    Column(modifier = Modifier.padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    WasalnaBrandHeader(
+        appName = appName,
+        versionName = versionName,
+        planLabel = planLabel(planPremium, planTrialEnd, planNow),
+        isPremium = planPremium,
+        iconContent = {
             appIconBitmap?.let { bmp ->
                 Image(
                     bitmap = bmp.asImageBitmap(),
                     contentDescription = null,
                     modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(14.dp)),
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp)),
                 )
-            } ?: Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colorResource(id = R.color.ic_launcher_background)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            // App name + version on ONE line (user order Oct 2026).
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = appName,
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "v$versionName",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+            } ?: Image(
+                painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+            )
+        },
+    )
 }
