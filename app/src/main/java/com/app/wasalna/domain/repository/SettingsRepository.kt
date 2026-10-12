@@ -50,6 +50,9 @@ interface SettingsRepository {
 
     val isWizardSeen: Flow<Boolean>
 
+    val isSimulationVisible: Flow<Boolean>
+    suspend fun setSimulationVisible(visible: Boolean)
+
     val isGradualAlarmEnabled: Flow<Boolean>
     val gradualVibrationSec: Flow<Int>
     val gradualRampSec: Flow<Int>

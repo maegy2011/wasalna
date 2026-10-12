@@ -568,6 +568,10 @@
     <string name="sim_banner">🧪 وضع تجريبي — رحلة محاكاة جارية</string>
     <string name="sim_banner_desc">المحاكاة نشطة</string>
     <string name="sim_title">محاكاة الرحلة (للتجربة)</string>
+    <string name="common_close">إغلاق</string>
+    <string name="sim_button_desc">فتح محاكي الرحلة</string>
+    <string name="settings_sim_title">محاكي الرحلة</string>
+    <string name="settings_sim_sub">يُظهر زر المحاكي على الخريطة (أداة تجربة، مخفي افتراضيًا)</string>
     <string name="sim_hint">تشغّل مسار المنبه الحقيقي بإحداثيات افتراضية — بلا إنترنت.</string>
     <string name="sim_start">بدء المحاكاة</string>
     <string name="sim_stop">إيقاف المحاكاة</string>

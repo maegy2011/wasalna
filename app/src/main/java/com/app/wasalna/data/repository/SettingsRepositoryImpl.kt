@@ -101,6 +101,13 @@ class SettingsRepositoryImpl @Inject constructor(
     override val isWizardSeen: Flow<Boolean>
         get() = settingsDataStore.isWizardSeen
 
+    override val isSimulationVisible: Flow<Boolean>
+        get() = settingsDataStore.isSimulationVisible
+
+    override suspend fun setSimulationVisible(visible: Boolean) {
+        settingsDataStore.setSimulationVisible(visible)
+    }
+
     override val isGradualAlarmEnabled: Flow<Boolean>
         get() = settingsDataStore.isGradualAlarmEnabled
     override val gradualVibrationSec: Flow<Int>

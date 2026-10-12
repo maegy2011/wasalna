@@ -115,6 +115,8 @@ fun SettingsScreen(
     val proactiveAlert by viewModel.proactiveAlert.collectAsState()
     val nudgeLead by viewModel.nudgeLeadMinutes.collectAsState()
     val forceOffline by viewModel.forceOffline.collectAsState()
+    // Trip-simulator visibility (user order Oct 2026): hidden by default.
+    val simulationVisible by viewModel.simulationVisible.collectAsState()
     val isTrafficEnabled by viewModel.isTrafficEnabled.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
     val gradualEnabled by viewModel.gradualEnabled.collectAsState()
@@ -212,7 +214,8 @@ fun SettingsScreen(
         "osm", "attribution", "openstreetmap", "credit", "نسب")
     val showAccountSec = match("account", "حساب", "google", "sign", "دخول")
     val showAdv = match("advanced", "متقدمة", "dev", "مطور", "developer", "force",
-        "crash", "سجل", "experimental", "تجريبي") && (showDev || searchQ.isNotBlank())
+        "crash", "سجل", "experimental", "تجريبي", "sim", "محاك", "تجربة",
+        "simulation", "simulator") && (showDev || searchQ.isNotBlank())
     // Phase 10.9.x: in-app gradual-alarm tone picker dialog.
     var showGradualPicker by remember { mutableStateOf(false) }
 
@@ -1452,6 +1455,38 @@ fun SettingsScreen(
             }
         }
         if (showAdvanced) {
+        // Trip simulator toggle (user order Oct 2026): ordinary setting
+        // (no 5-tap gate) — enables the simulator map button + screen.
+        if (match("sim", "محاك", "تجربة", "simulation", "simulator",
+                "advanced", "متقدمة", "experimental", "تجريبي")) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_sim_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_sim_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = simulationVisible,
+                        onCheckedChange = viewModel::setSimulationVisible,
+                    )
+                }
+            }
+        }
         if (match("dev", "مطور", "developer", "force", "crash", "سجل")) {
             // Hidden developer section — Force Offline + crash-log share live here.
             if (showDev) {

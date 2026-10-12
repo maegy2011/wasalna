@@ -573,6 +573,10 @@
     <string name="sim_banner">🧪 Test mode — simulated trip running</string>
     <string name="sim_banner_desc">Simulation active</string>
     <string name="sim_title">Trip simulation (test)</string>
+    <string name="common_close">Close</string>
+    <string name="sim_button_desc">Open trip simulator</string>
+    <string name="settings_sim_title">Trip simulator</string>
+    <string name="settings_sim_sub">Shows a simulator button on the map (testing tool, hidden by default)</string>
     <string name="sim_hint">Drives the real alarm path with virtual GPS — no network needed.</string>
     <string name="sim_start">Start simulation</string>
     <string name="sim_stop">Stop simulation</string>

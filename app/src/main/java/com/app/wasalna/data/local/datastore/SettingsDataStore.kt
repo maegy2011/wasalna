@@ -387,6 +387,16 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { it[Keys.GRADUAL_ALARM_ENABLED] = enabled }
     }
 
+    // Trip-simulator visibility (user order Oct 2026): the simulator
+    // screen + its map button stay hidden unless explicitly enabled.
+    // Default false — ordinary users never see a testing tool.
+    val isSimulationVisible: Flow<Boolean> =
+        dataStore.data.map { it[Keys.SIMULATION_VISIBLE] ?: false }
+
+    suspend fun setSimulationVisible(visible: Boolean) {
+        dataStore.edit { it[Keys.SIMULATION_VISIBLE] = visible }
+    }
+
     suspend fun setGradualVibrationSec(seconds: Int) {
         dataStore.edit { it[Keys.GRADUAL_VIBRATION_SEC] = seconds.coerceIn(5, 20) }
     }
@@ -463,6 +473,7 @@ class SettingsDataStore @Inject constructor(
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")
         val WIZARD_SEEN = booleanPreferencesKey("wizard_seen")
         val GRADUAL_ALARM_ENABLED = booleanPreferencesKey("gradual_alarm_enabled")
+        val SIMULATION_VISIBLE = booleanPreferencesKey("simulation_visible")
         val GRADUAL_VIBRATION_SEC = intPreferencesKey("gradual_vibration_sec")
         val GRADUAL_RAMP_SEC = intPreferencesKey("gradual_ramp_sec")
         val GRADUAL_VIBRATION_STRENGTH = intPreferencesKey("gradual_vibration_strength")

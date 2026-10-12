@@ -230,6 +230,11 @@ class MapViewModel @Inject constructor(
     val isOfflineMode: StateFlow<Boolean> = settingsRepository.isForceOffline
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    // Trip-simulator visibility (user order Oct 2026): gates the
+    // simulator map button + screen. Direct repository flow.
+    val isSimulationVisible: StateFlow<Boolean> = settingsRepository.isSimulationVisible
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     fun setOfflineMode(enabled: Boolean) {
         viewModelScope.launch {
             runCatching { settingsRepository.setForceOffline(enabled) }

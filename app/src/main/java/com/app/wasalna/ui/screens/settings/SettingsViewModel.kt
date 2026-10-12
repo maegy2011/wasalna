@@ -251,6 +251,21 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Trip-simulator visibility (user order Oct 2026): hidden by default.
+    val simulationVisible: StateFlow<Boolean> =
+        settingsRepository.isSimulationVisible.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
+    fun setSimulationVisible(visible: Boolean) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setSimulationVisible(visible) }
+                .onFailure { Log.e(TAG, "simulation visibility save failed: ${it.message}") }
+        }
+    }
+
     fun setGradualVibrationSec(seconds: Int) {
         viewModelScope.launch {
             runCatching { settingsRepository.setGradualVibrationSec(seconds) }

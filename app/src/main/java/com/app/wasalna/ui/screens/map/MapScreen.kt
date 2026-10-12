@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,7 +89,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.app.wasalna.data.simulation.TripSimulationController
 import com.app.wasalna.domain.model.CairoTransitStations
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
@@ -98,9 +98,7 @@ import com.app.wasalna.ui.components.TransitLiveCard
 import com.app.wasalna.ui.components.HomeWorkQuickRow
 import com.app.wasalna.ui.components.OfflineModeBanner
 import com.app.wasalna.ui.components.OfflineModeButton
-import com.app.wasalna.ui.components.SimulationBanner
-import com.app.wasalna.ui.components.SimulationControlBar
-import com.app.wasalna.ui.components.TripSimulationPanel
+import com.app.wasalna.ui.screens.simulation.TripSimulatorDialog
 import com.app.wasalna.ui.components.DestinationShareSheet
 import com.app.wasalna.ui.components.QuickPlaceEditDialog
 import kotlinx.coroutines.launch
@@ -189,7 +187,9 @@ fun MapScreen(
     // (single source of truth, two-way synced with Settings).
     val isOfflineMode by viewModel.isOfflineMode.collectAsState()
     // TRIP SIMULATION: banner visibility (controller singleton, no VM change).
-    val isSimulating by TripSimulationController.isSimulating.collectAsState()
+    // Trip simulator (user order Oct 2026): setting-gated visibility.
+    val isSimulationVisible by viewModel.isSimulationVisible.collectAsState()
+    var simOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -347,17 +347,6 @@ fun MapScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-            // TRIP SIMULATION: clearly-labeled test-mode strip +
-            // prominent pause/stop bar (start lives in the panel below
-            // while idle; hidden here while running by state).
-            if (isSimulating) {
-                SimulationBanner(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-                SimulationControlBar(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
             SearchBar(
@@ -611,6 +600,22 @@ fun MapScreen(
                                 contentDescription = stringResource(R.string.layers_title),
                             )
                         }
+                        // Trip simulator (user order Oct 2026): own button,
+                        // standalone screen — visible ONLY when enabled in
+                        // Settings → Advanced, and only with a destination
+                        // selected (the simulator needs one to run).
+                        if (isSimulationVisible && selectedLatLng != null) {
+                            SmallFloatingActionButton(
+                                onClick = { simOpen = true },
+                                modifier = Modifier.size(48.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.75f),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Science,
+                                    contentDescription = stringResource(R.string.sim_button_desc),
+                                )
+                            }
+                        }
                         // Add Destination — icon-only (visible only when a
                         // destination is selected; same save flow as before).
                         if (selectedLatLng != null && selectedName != null) {
@@ -842,19 +847,6 @@ fun MapScreen(
                 ) {
                     Text(stringResource(R.string.share_destination))
                 }
-                // TRIP SIMULATION (وضع محاكاة للرحلة للتجربة):
-                // destination reused from the existing selection state.
-                selectedLatLng?.let { point ->
-                    TripSimulationPanel(
-                        destLat = point.latitude,
-                        destLng = point.longitude,
-                        destName = addressLine ?: selectedName ?: "",
-                        mode = transportMode,
-                        routeGeoJson = routeGeoJson,
-                        originProvider = { viewModel.peekCurrentFix() },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
             }
             // Phase 10.8.0g (traffic): Vela live-traffic raster (Google
             // keyless `/maps/vt` tiles as a MapLibre RasterSource — see
@@ -956,6 +948,25 @@ fun MapScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
+        }
+        // Standalone trip simulator (user order Oct 2026): the dialog
+        // owns banner + controls + panel; destination comes from the
+        // current map selection (button only shows with one).
+        if (simOpen) {
+            val point = selectedLatLng
+            if (point != null) {
+                TripSimulatorDialog(
+                    destLat = point.latitude,
+                    destLng = point.longitude,
+                    destName = addressLine ?: selectedName ?: "",
+                    mode = transportMode,
+                    routeGeoJson = routeGeoJson,
+                    originProvider = { viewModel.peekCurrentFix() },
+                    onDismiss = { simOpen = false },
+                )
+            } else {
+                simOpen = false
             }
         }
         // Map layers sheet (Oct 2026): traffic + transit + air-quality.
