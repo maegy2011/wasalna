@@ -4,6 +4,7 @@ import androidx.compose.ui.res.stringResource
 import com.app.wasalna.R
 import com.app.wasalna.domain.model.displayName
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -236,25 +237,34 @@ fun TripRouteScreen(
             // TRIP SIMULATION: clearly-labeled test-mode strip +
             // prominent pause/resume/stop bar on top (same state-driven
             // bar as MapScreen; stop also ends the service → real GPS).
+                // PRO HERO (Oct 2026): floating journey sheet — grab handle +
+                // badge/title header + dual stat tiles + rounded progress.
+                // Signature: oversized tabular numerals on tinted tiles.
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            start = 16.dp,
-                            end = 16.dp,
-                            top = 16.dp,
-                            bottom = 16.dp,
-                        )
+                        .padding(start = 16.dp, end = 16.dp, top = 12.dp)
                         .align(Alignment.TopCenter),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .fillMaxWidth(0.12f)
+                                .height(4.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.outlineVariant,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                                ),
+                        )
                         // Transit design system (Oct 2026): live status badge.
                         val badgeKind = when {
                             points.size < 2 -> com.app.wasalna.ui.components.BadgeKind.OFFLINE
@@ -277,34 +287,47 @@ fun TripRouteScreen(
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Text(
-                                text = t.etaMinutes?.let {
+                            TripStatTile(
+                                modifier = Modifier.weight(1f),
+                                emoji = "⏱️",
+                                value = t.etaMinutes?.let {
                                     stringResource(R.string.trip_hero_remaining_time, it)
                                 } ?: stringResource(R.string.trip_hero_arrived),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
+                                label = stringResource(R.string.trip_hero_remaining_time_label),
                             )
-                            Text(
-                                text = remainingKm?.let {
+                            TripStatTile(
+                                modifier = Modifier.weight(1f),
+                                emoji = "📍",
+                                value = remainingKm?.let {
                                     stringResource(
                                         R.string.trip_hero_remaining_dist,
                                         String.format(java.util.Locale.US, "%.1f", it),
                                     )
                                 } ?: "—",
-                                style = MaterialTheme.typography.headlineSmall,
+                                label = stringResource(R.string.trip_hero_remaining_dist_label),
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(10.dp),
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp),
-                        )
                         // Mode + failsafe status line (read-only).
                         Text(
                             text = if (points.size < 2) {
@@ -484,13 +507,24 @@ fun TripRouteScreen(
                         }
                     }
                 }
-                // Bottom action bar: ONE primary (end trip) + share image.
+                // Bottom action bar PRO (Oct 2026): floating pill sheet —
+                // ONE destructive-primary (end trip) + share image.
                 // 56dp targets, 8dp spacing, elderly-friendly.
-                Row(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 16.dp)
                         .align(Alignment.BottomCenter),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Button(
@@ -536,6 +570,7 @@ fun TripRouteScreen(
                         )
                     }
                 }
+                }
             }
         }
     }
@@ -561,6 +596,43 @@ fun TripRouteScreen(
             mapRef = null
             styleRef = null
         }
+    }
+}
+
+/**
+ * PRO HERO stat tile (Oct 2026): tinted rounded tile with emoji lead,
+ * oversized tabular value + small caption. Elderly legibility first:
+ * 20sp bold value, 48dp+ touch-free info tile, RTL-safe Column.
+ */
+@Composable
+private fun TripStatTile(
+    modifier: Modifier = Modifier,
+    emoji: String,
+    value: String,
+    label: String,
+) {
+    Column(
+        modifier = modifier
+            .background(
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(text = emoji, style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 1,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

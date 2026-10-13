@@ -519,6 +519,8 @@
     <string name="trip_hero_remaining_dist">باقي %1$s كم</string>
     <string name="trip_hero_arrived">وصلت 🎉</string>
     <string name="trip_hero_progress_desc">تقدم الرحلة</string>
+    <string name="trip_hero_remaining_time_label">الوقت المتبقي</string>
+    <string name="trip_hero_remaining_dist_label">المسافة المتبقية</string>
     <string name="trip_failsafe_offline">أوفلاين — الاعتماد على خط GPS المباشر</string>
     <string name="trip_end">إنهاء الرحلة</string>
     <string name="trip_share_image">🖼️ مشاركة كصورة</string>

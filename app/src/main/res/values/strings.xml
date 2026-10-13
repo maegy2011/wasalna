@@ -522,6 +522,8 @@
     <string name="trip_hero_remaining_dist">%1$s km to go</string>
     <string name="trip_hero_arrived">Arrived 🎉</string>
     <string name="trip_hero_progress_desc">Trip progress</string>
+    <string name="trip_hero_remaining_time_label">Time left</string>
+    <string name="trip_hero_remaining_dist_label">Distance left</string>
     <string name="trip_failsafe_offline">Offline — GPS straight-line fallback</string>
     <string name="trip_end">End trip</string>
     <string name="trip_share_image">🖼️ Share as image</string>
