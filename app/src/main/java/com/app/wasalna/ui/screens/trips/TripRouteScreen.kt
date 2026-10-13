@@ -494,7 +494,7 @@ fun TripRouteScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Button(
-                        onClick = { viewModel.finishTrip(onBack) },
+                        onClick = { viewModel.finishTrip(context, onBack) },
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp),

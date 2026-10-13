@@ -163,14 +163,20 @@ fun TripsHistoryScreen(
                     }
                 }
                 else -> {
-                    if (pastTrips.isEmpty()) {
+                    // BUGFIX Oct 2026: never show the running trip under Past —
+                    // belt-and-braces on top of the DAO status filter, so a stale
+                    // recomposition frame cannot leak the live row here.
+                    val visiblePast = pastTrips.filter {
+                        it.status != "ACTIVE" && it.id != activeTrip?.id
+                    }
+                    if (visiblePast.isEmpty()) {
                         EmptyNote(stringResource(R.string.trips_empty_past))
                     } else {
                         LazyColumn(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            items(pastTrips, key = { it.id }) { trip ->
+                            items(visiblePast, key = { it.id }) { trip ->
                                 Card(
                                     // Phase 10.4.3.8: tap reviews the recorded path.
                                     onClick = { onOpenTripRoute?.invoke(trip.id) },

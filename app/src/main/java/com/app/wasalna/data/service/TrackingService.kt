@@ -1158,10 +1158,14 @@ class TrackingService : Service() {
             Log.w(TAG, "onDestroy removeLocationUpdates: ${e.message}")
         }
         // Phase 10.4.2.1: every stop path ends here — finish the trip row.
+        // BUGFIX Oct 2026: serviceScope is cancelled below, so a finish
+        // launched in it could die before running (row stuck ACTIVE and
+        // re-appearing as Current after restart). Use an independent
+        // scope so the write always lands.
         val id = activeTripId
         activeTripId = null
         if (id != null) {
-            serviceScope.launch {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 runCatching { tripRepo.finishTrip(id) }
             }
         }

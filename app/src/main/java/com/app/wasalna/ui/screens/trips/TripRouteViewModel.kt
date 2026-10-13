@@ -75,9 +75,16 @@ class TripRouteViewModel @Inject constructor(
      * REDESIGN 10 Oct 2026: prominent end-trip action — reuses the
      * existing TripRepository.finishTrip storage (same as the tracking
      * service path). Clears local state, then navigates back via [onDone].
+     * BUGFIX Oct 2026: finishing ONLY the DB row left TrackingService
+     * running (GPS + notification) while the row sat in Past — the
+     * running trip appeared in previous trips. Now the service is
+     * stopped first; its onDestroy finishes the row as the single
+     * source of truth (idempotent double-finish is harmless).
      * No `!!`, no new permissions.
      */
-    fun finishTrip(onDone: () -> Unit = {}) {
+    fun finishTrip(context: android.content.Context, onDone: () -> Unit = {}) {
+        // Stop the live tracker first so the row cannot outlive the trip.
+        com.app.wasalna.data.service.TripStarter.stopTrip(context)
         viewModelScope.launch {
             val existing = runCatching { tripRepository.tripById(tripId) }.getOrNull()
             if (existing != null) {

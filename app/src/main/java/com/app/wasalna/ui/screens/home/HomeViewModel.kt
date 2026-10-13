@@ -145,9 +145,13 @@ class HomeViewModel @Inject constructor(
                 .onFailure { Log.e(TAG, "enforceTrialExpiry failed: ${it.message}") }
         }
         // Phase 10.4.2.1: heal stale ACTIVE trips (killed service, reboot).
+        // BUGFIX Oct 2026: never close while the service is alive — that
+        // moved the RUNNING trip into Past while it was still tracked.
         viewModelScope.launch {
-            runCatching { tripRepository.closeOpenTrips() }
-                .onFailure { Log.e(TAG, "closeOpenTrips failed: ${it.message}") }
+            if (!com.app.wasalna.data.service.TrackingService.isServiceRunning) {
+                runCatching { tripRepository.closeOpenTrips() }
+                    .onFailure { Log.e(TAG, "closeOpenTrips failed: ${it.message}") }
+            }
         }
     }
 
