@@ -41,6 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.core.content.ContextCompat
 import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
@@ -407,15 +410,39 @@ private fun WizardVehicleStep(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
-        // Four choices only (user order Oct 2026): car, motorcycle,
-        // public transit, walk.
-        TransportMode.pickerEntries.forEach { mode ->
-            WizardPlaceCard(
-                title = vehicleLabel(mode),
-                subtitle = "",
-                selected = selected == mode,
-                onClick = { onSelect(mode) },
-            )
+        // Icons-only (user order Oct 2026): car, motorcycle,
+        // public transit, walk — no text labels, icon glyphs only.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TransportMode.pickerEntries.forEach { mode ->
+                val label = vehicleLabel(mode)
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = label },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (selected == mode) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                    ),
+                    onClick = { onSelect(mode) },
+                ) {
+                    Text(
+                        text = mode.icon,
+                        modifier = Modifier
+                            .padding(14.dp)
+                            .fillMaxWidth(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontSize = 28.sp,
+                        textAlign = TextAlign.Center,
+                        fontWeight = if (selected == mode) FontWeight.Bold else FontWeight.Normal,
+                    )
+                }
+            }
         }
     }
 }
