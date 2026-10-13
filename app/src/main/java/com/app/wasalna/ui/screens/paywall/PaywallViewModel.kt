@@ -111,6 +111,10 @@ class PaywallViewModel @Inject constructor(
                         .setProductId("wasalna_first_class_yearly")
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build(),
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId("wasalna_first_class_lifetime")
+                        .setProductType(BillingClient.ProductType.INAPP)
+                        .build(),
                 ),
             ).build()
         client.queryProductDetailsAsync(params) { result, details ->
@@ -119,14 +123,21 @@ class PaywallViewModel @Inject constructor(
     }
 
     /**
-     * Mock purchase — Phase 10.4.1: starts a 3-day First Class trial
-     * (premium ON + expiry timestamp). Replace with real launchBillingFlow.
+     * Mock purchase — user order Oct 2026: 7-day trial on monthly/yearly
+     * (premium ON + expiry), lifetime = premium with NO expiry.
+     * Replace with real launchBillingFlow.
      */
     fun simulatePurchase(plan: String) {
         viewModelScope.launch {
-            runCatching { settingsRepository.startTrial(TRIAL_DAYS) }
-                .onSuccess { Log.i(TAG, "trial started via $plan (mock, $TRIAL_DAYS days)") }
-                .onFailure { Log.e(TAG, "startTrial failed: ${it.message}") }
+            if (plan == "lifetime") {
+                runCatching { settingsRepository.setPremium(true) }
+                    .onSuccess { Log.i(TAG, "lifetime granted via $plan (mock)") }
+                    .onFailure { Log.e(TAG, "lifetime grant failed: ${it.message}") }
+            } else {
+                runCatching { settingsRepository.startTrial(TRIAL_DAYS) }
+                    .onSuccess { Log.i(TAG, "trial started via $plan (mock, $TRIAL_DAYS days)") }
+                    .onFailure { Log.e(TAG, "startTrial failed: ${it.message}") }
+            }
         }
     }
 
@@ -138,6 +149,6 @@ class PaywallViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "PaywallViewModel"
-        const val TRIAL_DAYS = 3
+        const val TRIAL_DAYS = 7
     }
 }

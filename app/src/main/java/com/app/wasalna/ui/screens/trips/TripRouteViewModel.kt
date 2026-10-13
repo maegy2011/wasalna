@@ -43,6 +43,15 @@ class TripRouteViewModel @Inject constructor(
             initialValue = emptyList(),
         )
 
+    // User order Oct 2026: trip sharing is First Class — the screen
+    // gates both share buttons on this.
+    val isPremium: StateFlow<Boolean> =
+        settingsRepository.isPremium.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
     init {
         viewModelScope.launch {
             _trip.value = runCatching { tripRepository.tripById(tripId) }

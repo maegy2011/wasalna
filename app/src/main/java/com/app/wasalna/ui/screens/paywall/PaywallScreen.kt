@@ -66,7 +66,8 @@ import kotlinx.coroutines.delay
  * - Plan MODELS ([PaywallPlan]) mirror the BillingClient SUBS catalogue
  *   (wasalna_first_class_monthly / _yearly) as data + UI only, clearly
  *   marked experimental — no real charge code (purchase stays the
- *   3-day mock trial via [PaywallViewModel.simulatePurchase]).
+ *   7-day mock trial (monthly/yearly) or mock lifetime grant via
+ *   [PaywallViewModel.simulatePurchase]).
  * - Elderly-friendly: headline-size hero, 56dp primary CTA (single),
  *   48dp+ plan rows, scrollable column for small phones.
  * - Premium gates (isPremium checks) untouched in behavior.
@@ -79,6 +80,8 @@ data class PaywallPlan(
     val descRes: Int,
     val badgeRes: Int? = null,
     val experimental: Boolean = true,
+    // User order Oct 2026: lifetime has no trial — one payment, forever.
+    val showTrialBadge: Boolean = true,
 )
 
 private val PAYWALL_PLANS = listOf(
@@ -96,6 +99,14 @@ private val PAYWALL_PLANS = listOf(
         priceRes = R.string.paywall_yearly_price,
         descRes = R.string.paywall_plan_yearly_desc,
         badgeRes = R.string.paywall_yearly_badge,
+    ),
+    PaywallPlan(
+        id = "lifetime",
+        productId = "wasalna_first_class_lifetime",
+        titleRes = R.string.paywall_lifetime,
+        priceRes = R.string.paywall_lifetime_price,
+        descRes = R.string.paywall_plan_lifetime_desc,
+        showTrialBadge = false,
     ),
 )
 
@@ -237,7 +248,11 @@ fun PaywallScreen(
                 price = stringResource(plan.priceRes),
                 desc = stringResource(plan.descRes),
                 badge = plan.badgeRes?.let { stringResource(it) },
-                trialBadge = stringResource(R.string.paywall_trial_badge),
+                trialBadge = if (plan.showTrialBadge) {
+                    stringResource(R.string.paywall_trial_badge)
+                } else {
+                    null
+                },
                 selected = selectedPlan == plan.id,
                 onSelect = { selectedPlan = plan.id },
             )
@@ -262,6 +277,8 @@ fun PaywallScreen(
             Text(
                 text = if (isPremium) {
                     stringResource(R.string.paywall_cta_active)
+                } else if (selectedPlan == "lifetime") {
+                    stringResource(R.string.paywall_cta_lifetime)
                 } else {
                     stringResource(R.string.paywall_cta_start)
                 },
@@ -341,7 +358,7 @@ private fun PlanCard(
     price: String,
     desc: String,
     badge: String?,
-    trialBadge: String,
+    trialBadge: String?,
     selected: Boolean,
     onSelect: () -> Unit,
 ) {
@@ -381,11 +398,13 @@ private fun PlanCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = trialBadge,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                if (trialBadge != null) {
+                    Text(
+                        text = trialBadge,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(8.dp))
             OutlinedButton(onClick = onSelect) {

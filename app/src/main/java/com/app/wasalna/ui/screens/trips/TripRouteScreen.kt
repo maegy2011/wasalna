@@ -97,6 +97,8 @@ fun TripRouteScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val trip by viewModel.trip.collectAsState()
     val points by viewModel.points.collectAsState()
+    // User order Oct 2026: trip sharing is First Class.
+    val isPremium by viewModel.isPremium.collectAsState()
     // VEHICLE (user order Oct 2026): mid-trip switch — persists live;
     // the running service recomputes the route with the new profile.
     val vehicle by viewModel.transportMode.collectAsState()
@@ -500,7 +502,17 @@ fun TripRouteScreen(
                         // Phase 10.11: share the trip destination to the
                         // user's own installed maps / ride apps (dynamic).
                         TextButton(
-                            onClick = { showDestinationShare = true },
+                            onClick = {
+                                if (!isPremium) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        context.getString(R.string.share_premium_only),
+                                        android.widget.Toast.LENGTH_LONG,
+                                    ).show()
+                                } else {
+                                    showDestinationShare = true
+                                }
+                            },
                             modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text(stringResource(R.string.share_destination))
@@ -540,6 +552,15 @@ fun TripRouteScreen(
                     }
                     OutlinedButton(
                         onClick = {
+                            // User order Oct 2026: sharing = First Class.
+                            if (!isPremium) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(R.string.share_premium_only),
+                                    android.widget.Toast.LENGTH_LONG,
+                                ).show()
+                                return@OutlinedButton
+                            }
                             scope.launch {
                                 val distText = context.getString(
                                     R.string.trip_card_distance_km,

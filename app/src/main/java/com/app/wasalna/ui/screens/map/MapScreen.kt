@@ -871,7 +871,18 @@ fun MapScreen(
                 // Phase 10.11: share the picked destination to the
                 // user's own installed maps / ride apps (dynamic list).
                 OutlinedButton(
-                    onClick = { showDestinationShare = true },
+                    // User order Oct 2026: sharing = First Class.
+                    onClick = {
+                        if (!isPremium) {
+                            android.widget.Toast.makeText(
+                                context,
+                                context.getString(R.string.share_premium_only),
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            showDestinationShare = true
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)

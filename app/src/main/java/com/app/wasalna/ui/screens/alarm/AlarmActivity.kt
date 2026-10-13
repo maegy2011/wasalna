@@ -339,13 +339,12 @@ class AlarmActivity : ComponentActivity() {
     }
 
     /**
-     * Phase 10.4.3.1: premium custom ringtone wins; every failure (no URI,
-     * unreadable file, non-premium) falls back to the system alarm tone.
+     * User order Oct 2026: custom ringtone is FREE — every failure
+     * (no URI, unreadable file) falls back to the system alarm tone.
      */
     private suspend fun resolveAlarmUri(isPremium: Boolean): android.net.Uri? {
         val fallback = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        if (!isPremium) return fallback
         return runCatching {
             val custom = withContext(Dispatchers.IO) {
                 withTimeoutOrNull(2_000L) {

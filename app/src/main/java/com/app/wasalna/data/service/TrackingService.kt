@@ -260,9 +260,15 @@ class TrackingService : Service() {
             adaptiveEnabled = runCatching {
                 prefs.isAdaptiveAlarmEnabled.first()
             }.getOrDefault(true)
-            proactiveEnabled = runCatching {
+            // User order Oct 2026: proactive alert is First Class —
+            // free users keep the setting but never fire.
+            val proactiveWanted = runCatching {
                 prefs.isProactiveAlertEnabled.first()
             }.getOrDefault(true)
+            val premiumNow = runCatching {
+                prefs.isPremium.first()
+            }.getOrDefault(false)
+            proactiveEnabled = proactiveWanted && premiumNow
             nudgeLeadMinutes = runCatching {
                 prefs.nudgeLeadMinutes.first()
             }.getOrDefault(DEFAULT_NUDGE_LEAD_MINUTES)

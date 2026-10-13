@@ -53,6 +53,10 @@ fun TripsHistoryScreen(
     viewModel: TripsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    // User order Oct 2026: trip sharing is First Class.
+    val isPremium by remember(context) {
+        com.app.wasalna.data.local.datastore.SettingsDataStore(context).isPremium
+    }.collectAsState(initial = false)
     val activeTrip by viewModel.activeTrip.collectAsState()
     val pastTrips by viewModel.pastTrips.collectAsState()
     val savedPlaces by viewModel.savedPlaces.collectAsState()
@@ -120,8 +124,17 @@ fun TripsHistoryScreen(
                                         // Phase 10.8.0c: live trip share (no server).
                                         androidx.compose.material3.OutlinedButton(
                                             onClick = {
-                                                runCatching {
-                                                    com.app.wasalna.utils.TripShare.share(context, trip)
+                                                // User order Oct 2026: sharing = First Class.
+                                                if (!isPremium) {
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.share_premium_only),
+                                                        android.widget.Toast.LENGTH_LONG,
+                                                    ).show()
+                                                } else {
+                                                    runCatching {
+                                                        com.app.wasalna.utils.TripShare.share(context, trip)
+                                                    }
                                                 }
                                             },
                                             modifier = Modifier

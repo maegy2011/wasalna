@@ -834,13 +834,11 @@ fun SettingsScreen(
 
         }
         if (match("ringtone", "نغمة", "tone", "sound", "صوت")) {
-            // Phase 10.4.3.1: premium custom alarm ringtone (locked → paywall).
+            // User order Oct 2026: custom ringtone is FREE for everyone.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 onClick = {
-                    // Locked = static mark only, no paywall navigation.
-                    if (isPremium) {
                         runCatching {
                             val existing: Uri? = customRingtoneUri.ifBlank { null }?.let {
                                 runCatching { Uri.parse(it) }.getOrNull()
@@ -858,7 +856,6 @@ fun SettingsScreen(
                         }.onFailure {
                             Toast.makeText(context, context.getString(R.string.settings_no_picker), Toast.LENGTH_LONG).show()
                         }
-                    }
                 },
             ) {
                 Row(
@@ -875,18 +872,12 @@ fun SettingsScreen(
                         modifier = Modifier.padding(end = 12.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(R.string.settings_ringtone_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            PremiumMark()
-                        }
                         Text(
-                            text = if (!isPremium) {
-                                stringResource(R.string.settings_premium_only)
-                            } else if (customRingtoneUri.isBlank()) {
+                            text = stringResource(R.string.settings_ringtone_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = if (customRingtoneUri.isBlank()) {
                                 stringResource(R.string.settings_system_default)
                             } else {
                                 stringResource(R.string.settings_custom_set)
@@ -895,8 +886,8 @@ fun SettingsScreen(
                         )
                     }
                     Icon(
-                        if (!isPremium) Icons.Filled.Lock else Icons.Filled.MusicNote,
-                        contentDescription = if (!isPremium) stringResource(R.string.settings_premium_desc) else stringResource(R.string.settings_pick_desc),
+                        Icons.Filled.MusicNote,
+                        contentDescription = stringResource(R.string.settings_pick_desc),
                     )
                 }
             }
@@ -961,17 +952,27 @@ fun SettingsScreen(
                             modifier = Modifier.padding(end = 12.dp),
                         )
                         Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.settings_nudge_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                // User order Oct 2026: proactive = First Class.
+                                if (!isPremium) PremiumMark()
+                            }
                             Text(
-                                text = stringResource(R.string.settings_nudge_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_nudge_sub),
+                                text = if (!isPremium) {
+                                    stringResource(R.string.settings_premium_only)
+                                } else {
+                                    stringResource(R.string.settings_nudge_sub)
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
                         Switch(
-                            checked = proactiveAlert,
+                            checked = proactiveAlert && isPremium,
+                            enabled = isPremium,
                             onCheckedChange = viewModel::setProactiveAlert,
                         )
                     }
