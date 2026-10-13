@@ -12,6 +12,7 @@ import com.app.wasalna.domain.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -275,6 +276,53 @@ class HomeViewModel @Inject constructor(
                 }
             }
             count
+        }
+
+    /**
+     * User order Oct 2026: Google Takeout import result.
+     * [imported] rows added, [skipped] entries without usable data
+     * (or duplicates), [capped] when the free 2-place ceiling stopped
+     * the import early (premium imports everything).
+     */
+    data class TakeoutResult(val imported: Int, val skipped: Int, val capped: Boolean)
+
+    /**
+     * Imports a Google Takeout "saved places" GeoJSON export.
+     * Returns null on malformed input. Skips duplicates via
+     * [LocationRepository.isDuplicate]. Free plan stops at 2 total
+     * saved places ([capped] = true); First Class has no ceiling.
+     */
+    suspend fun importTakeout(json: String): TakeoutResult? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val parsed = runCatching {
+                com.app.wasalna.utils.GoogleTakeoutImport.parse(json)
+            }.getOrNull() ?: return@withContext null
+            val premium = runCatching {
+                settingsRepository.isPremium.first()
+            }.getOrDefault(false)
+            var existing = runCatching {
+                locationRepository.getAllLocations().first().size
+            }.getOrDefault(0)
+            var imported = 0
+            var skipped = parsed.skipped
+            var capped = false
+            parsed.places.forEach { place ->
+                if (!premium && existing >= 2) {
+                    capped = true
+                    skipped += 1
+                    return@forEach
+                }
+                runCatching {
+                    if (!locationRepository.isDuplicate(place.name, place.latitude, place.longitude)) {
+                        locationRepository.addLocation(place)
+                        imported += 1
+                        existing += 1
+                    } else {
+                        skipped += 1
+                    }
+                }.onFailure { skipped += 1 }
+            }
+            TakeoutResult(imported, skipped, capped)
         }
 
     companion object {

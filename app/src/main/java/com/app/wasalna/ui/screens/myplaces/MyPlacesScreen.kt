@@ -191,6 +191,45 @@ fun MyPlacesScreen(
             }
         }
     }
+    // User order Oct 2026: Google Takeout import — reads the chosen
+    // .json (or .zip containing it), parses saved places, inserts them
+    // with duplicate + free-plan guards in the ViewModel.
+    val takeoutLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    readTakeoutJson(stream.readBytes())
+                }
+            }.getOrNull()
+            if (text.isNullOrBlank()) {
+                launch(kotlinx.coroutines.Dispatchers.Main) {
+                    snackbarHostState.showSnackbar(context.getString(R.string.myplaces_takeout_invalid))
+                }
+                return@launch
+            }
+            val result = viewModel.importTakeout(text)
+            launch(kotlinx.coroutines.Dispatchers.Main) {
+                snackbarHostState.showSnackbar(
+                    when {
+                        result == null -> context.getString(R.string.myplaces_takeout_invalid)
+                        result.capped -> context.getString(
+                            R.string.myplaces_takeout_capped,
+                            result.imported,
+                            result.imported + result.skipped,
+                        )
+                        else -> context.getString(
+                            R.string.myplaces_takeout_ok,
+                            result.imported,
+                            result.skipped,
+                        )
+                    },
+                )
+            }
+        }
+    }
     // DYNAMIC WAKE-UP: trip-setup gate — permission check, then the
     // Arabic mode dialog (per-trip choice, persisted); confirm starts tracking.
     // Soft blockers (background location, battery) do NOT gate here —
@@ -332,6 +371,15 @@ fun MyPlacesScreen(
                             onClick = {
                                 showMenu = false
                                 importLauncher.launch(arrayOf("application/json"))
+                            },
+                        )
+                        // User order Oct 2026: Google Maps Takeout import
+                        // (.json or the raw .zip Takeout delivers).
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.myplaces_import_takeout)) },
+                            onClick = {
+                                showMenu = false
+                                takeoutLauncher.launch(arrayOf("application/json", "application/zip"))
                             },
                         )
                     }
@@ -971,6 +1019,29 @@ private fun hasLocationPermission(context: Context): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
     return fine || coarse
 }
+
+/**
+ * User order Oct 2026: Takeout file reader — plain .json passes
+ * through; a raw Takeout .zip (PK header) is opened and its first
+ * .json entry is returned. Null when nothing readable. Never throws.
+ */
+private fun readTakeoutJson(bytes: ByteArray): String? = runCatching {
+    if (bytes.size >= 2 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()) {
+        java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory && entry.name.endsWith(".json", ignoreCase = true)) {
+                    return zip.readBytes().toString(Charsets.UTF_8)
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        null
+    } else {
+        bytes.toString(Charsets.UTF_8)
+    }
+}.getOrNull()
 
 /** Straight-line meters → "1.2" km string (US locale, caller adds the unit resource). */
 private fun walkKm(distanceM: Float): String =
