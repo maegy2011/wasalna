@@ -574,9 +574,6 @@
     <string name="paywall_plan_yearly_desc">Best for daily riders — biggest saving</string>
     <string name="paywall_yearly_badge">Best value</string>
     <string name="paywall_trial_badge">7 days free</string>
-    <string name="paywall_lifetime">Lifetime — Pay once</string>
-    <string name="paywall_lifetime_price">$24 one-time</string>
-    <string name="paywall_plan_lifetime_desc">One payment, yours forever</string>
     <string name="share_premium_only">Trip sharing is a First Class feature — upgrade to share</string>
     <string name="paywall_experimental_billing">Experimental checkout — no real charge yet. Real Play Billing at release.</string>
     <string name="paywall_account_signed_as">Signed in as %1$s</string>
