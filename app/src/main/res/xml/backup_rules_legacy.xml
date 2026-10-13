@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy full-backup rules (API <31, same intent as backup_rules.xml).
+     DataStore (onboarding flag, trial state) is excluded so a reinstall
+     behaves like a true first launch and shows the Permissions screen. -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/" />
+</full-backup-content>

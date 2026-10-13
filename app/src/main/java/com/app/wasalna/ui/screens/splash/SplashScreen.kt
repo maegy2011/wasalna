@@ -1,6 +1,13 @@
 package com.app.wasalna.ui.screens.splash
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.PowerManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import com.app.wasalna.R
 
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +39,11 @@ import kotlinx.coroutines.delay
 /**
  * Phase 3: branded splash — waits 2000ms minimum, then routes
  * on onboarding state (null = still loading → wait).
+ * Oct 2026 (user order): every launch re-checks the ESSENTIAL
+ * permissions (foreground location, background location on Q+,
+ * notifications on Tiramisu+, battery exemption). Any essential missing
+ * → Permissions screen, even when onboarding was completed before.
+ * Optional permissions (overlay) stay just-in-time via PermissionGate.
  */
 @Composable
 fun SplashScreen(
@@ -40,14 +52,49 @@ fun SplashScreen(
     viewModel: SplashViewModel = hiltViewModel(),
 ) {
     val isOnboardingCompleted by viewModel.isOnboardingCompleted.collectAsState()
+    val context = LocalContext.current
+
+    // Essential-permission gate, evaluated at navigation time.
+    fun essentialsMissing(): Boolean {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return true
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return true
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return true
+        }
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(context.packageName)) return true
+        return false
+    }
 
     LaunchedEffect(isOnboardingCompleted) {
         // Minimum brand display time; only navigate once DataStore has loaded.
         delay(2000)
-        when (isOnboardingCompleted) {
-            true -> onNavigateHome()
-            false -> onNavigatePermissions()
-            null -> { /* still loading — LaunchedEffect re-runs on change */ }
+        when {
+            isOnboardingCompleted == null -> { /* still loading — re-runs on change */ }
+            isOnboardingCompleted == true && !essentialsMissing() -> onNavigateHome()
+            else -> onNavigatePermissions()
         }
     }
 
