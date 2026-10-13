@@ -97,6 +97,8 @@
     <string name="settings_waqi_hint">الصق رمز WAQI</string>
     <string name="settings_waqi_saved">حُفظ رمز جودة الهواء</string>
     <string name="settings_waqi_cleared">مُسح رمز جودة الهواء</string>
+    <string name="settings_waqi_valid">تم التحقق — طبقة جودة الهواء جاهزة 🌬️</string>
+    <string name="settings_waqi_invalid">خدمة WAQI رفضت الرمز — راجعه من aqicn.org/data-platform/token وحاول مجددًا</string>
     <string name="trip_started">بدأت الرحلة الحقيقية: %1$s</string>
     <string name="trip_blocked_by_sim">أوقف المحاكاة أولًا، ثم ابدأ رحلتك الحقيقية</string>
     <string name="trip_already_running">توجد رحلة تعمل بالفعل</string>

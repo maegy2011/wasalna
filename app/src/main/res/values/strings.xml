@@ -625,6 +625,8 @@
     <string name="settings_waqi_hint">Paste WAQI token</string>
     <string name="settings_waqi_saved">Air-quality token saved</string>
     <string name="settings_waqi_cleared">Air-quality token cleared</string>
+    <string name="settings_waqi_valid">Token verified — air-quality layer is ready 🌬️</string>
+    <string name="settings_waqi_invalid">WAQI rejected this token — double-check it at aqicn.org/data-platform/token</string>
     <!-- Static transit systems (METRO/MONORAIL/LRT-train, Oct 2026). Mirrored in values-ar. -->
     <string name="vehicle_metro">🚇 Metro</string>
     <string name="vehicle_monorail">🚝 Monorail</string>

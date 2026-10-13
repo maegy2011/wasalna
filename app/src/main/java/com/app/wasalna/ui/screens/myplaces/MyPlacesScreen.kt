@@ -555,7 +555,14 @@ fun MyPlacesScreen(
                     val place = pendingTrip ?: return@TextButton
                     TripStarter.stopTrip(context)
                     scope.launch {
-                        delay(700)
+                        // Service stop is async — poll for the actual stop
+                        // (max ~3s) instead of a fixed delay, which races on
+                        // slow devices and re-hits the AlreadyRunning refuse.
+                        var waitedMs = 0
+                        while (TrackingService.isServiceRunning && waitedMs < 3000) {
+                            delay(100)
+                            waitedMs += 100
+                        }
                         val ok = startTracking(
                             context, place, transportMode,
                             allowReduced = true,

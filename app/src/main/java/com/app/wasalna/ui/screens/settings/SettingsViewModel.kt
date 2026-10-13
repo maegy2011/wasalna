@@ -356,12 +356,49 @@ class SettingsViewModel @Inject constructor(
             initialValue = "",
         )
 
-    fun setWaqiApiKey(key: String) {
+    /**
+     * AQI BYOK save with live validation (Oct 2026 fix): the old flow
+     * stored the token blindly, so a typo'd/expired WAQI token silently
+     * produced an empty map layer ("key entered but service not working").
+     * Now we ping api.waqi.info first and report the verdict:
+     * true = accepted, false = rejected, null = network unreachable
+     * (saved anyway — the layer will light up once connectivity is back).
+     */
+    fun setWaqiApiKey(key: String, onValidated: ((Boolean?) -> Unit)? = null) {
         viewModelScope.launch {
-            runCatching { settingsRepository.setWaqiApiKey(key) }
+            val trimmed = key.trim()
+            val verdict: Boolean? = if (trimmed.isEmpty()) {
+                null
+            } else {
+                validateWaqiKey(trimmed)
+            }
+            runCatching { settingsRepository.setWaqiApiKey(trimmed) }
                 .onFailure { Log.e(TAG, "waqi key save failed: ${it.message}") }
+            onValidated?.invoke(verdict)
         }
     }
+
+    /** WAQI token liveness probe — never throws; null = no network. */
+    private suspend fun validateWaqiKey(key: String): Boolean? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                val request = okhttp3.Request.Builder()
+                    .url("https://api.waqi.info/feed/here/?token=$key")
+                    .build()
+                client.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        // 404/401 from WAQI = rejected token.
+                        return@withContext false
+                    }
+                    val body = resp.body?.string() ?: return@withContext null
+                    org.json.JSONObject(body).optString("status") == "ok"
+                }
+            }.getOrNull()
+        }
 
     // Phase 10.10: watch-only destination alert (PREMIUM-gated) — the
     // phone stays silent and only the paired watch vibrates/rings.

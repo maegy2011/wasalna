@@ -14,28 +14,75 @@ val WasalnaSurface = Color(0xFFFFFFFF)
 val WasalnaOnPrimary = Color(0xFFFFFFFF)
 val WasalnaError = Color(0xFFBA1A1A)
 
+// Brand palette (Oct 2026, user order): coolors navy set —
+// #FFFFFF · #00171F · #003459 · #007EA7 · #00A8E8. Full M3 token
+// coverage (surfaces/outlines/containers) so every screen follows
+// the same azure language. Elderly high-contrast schemes unchanged.
+val NavyDeep = Color(0xFF00171F)
+val Navy = Color(0xFF003459)
+val Azure = Color(0xFF007EA7)
+val AzureBright = Color(0xFF00A8E8)
+
 val WasalnaLightColors = lightColorScheme(
-    primary = WasalnaGreen,
-    onPrimary = WasalnaOnPrimary,
-    primaryContainer = WasalnaGreenLight,
-    onPrimaryContainer = WasalnaGreenDark,
-    secondary = WasalnaAmber,
-    onSecondary = Color(0xFF201A00),
-    background = WasalnaBackground,
-    surface = WasalnaSurface,
-    error = WasalnaError
+    primary = Azure,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD3EDF9),
+    onPrimaryContainer = Navy,
+    secondary = AzureBright,
+    onSecondary = NavyDeep,
+    secondaryContainer = Color(0xFFE0F4FD),
+    onSecondaryContainer = Navy,
+    tertiary = Navy,
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFDCE8F0),
+    onTertiaryContainer = NavyDeep,
+    background = Color(0xFFF7FBFD),
+    onBackground = NavyDeep,
+    surface = Color.White,
+    onSurface = NavyDeep,
+    surfaceVariant = Color(0xFFDCE9F0),
+    onSurfaceVariant = Color(0xFF3F4A52),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF2F8FB),
+    surfaceContainer = Color(0xFFE9F2F7),
+    surfaceContainerHigh = Color(0xFFDEE9EF),
+    outline = Color(0xFF6E7E87),
+    outlineVariant = Color(0xFFBCCAD2),
+    error = WasalnaError,
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
 )
 
 val WasalnaDarkColors = darkColorScheme(
-    primary = Color(0xFF6FD3B8),
-    onPrimary = Color(0xFF00382B),
-    primaryContainer = WasalnaGreenDark,
-    onPrimaryContainer = WasalnaGreenLight,
-    secondary = WasalnaAmber,
-    onSecondary = Color(0xFF201A00),
-    background = Color(0xFF101414),
-    surface = Color(0xFF1A1F1D),
-    error = Color(0xFFFFB4AB)
+    primary = Color(0xFF7CCBF0),
+    onPrimary = Color(0xFF00364D),
+    primaryContainer = Azure,
+    onPrimaryContainer = Color(0xFFD3EDF9),
+    secondary = AzureBright,
+    onSecondary = NavyDeep,
+    secondaryContainer = Color(0xFF0E4A63),
+    onSecondaryContainer = Color(0xFFE0F4FD),
+    tertiary = Color(0xFF9FBFD6),
+    onTertiary = Navy,
+    tertiaryContainer = Navy,
+    onTertiaryContainer = Color(0xFFDCE8F0),
+    background = NavyDeep,
+    onBackground = Color(0xFFDDE8EE),
+    surface = Color(0xFF0A2029),
+    onSurface = Color(0xFFDDE8EE),
+    surfaceVariant = Color(0xFF3F4A52),
+    onSurfaceVariant = Color(0xFFBCCAD2),
+    surfaceContainerLowest = Color(0xFF000F14),
+    surfaceContainerLow = Color(0xFF0F2831),
+    surfaceContainer = Color(0xFF14313C),
+    surfaceContainerHigh = Color(0xFF1B3D4A),
+    outline = Color(0xFF86949C),
+    outlineVariant = Color(0xFF3F4A52),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
 )
 
 // Elderly high-contrast (user order Oct 2026): pure black-on-white text,

@@ -1355,15 +1355,26 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        var waqiChecking by remember { mutableStateOf(false) }
                         Button(
                             onClick = {
-                                viewModel.setWaqiApiKey(waqiDraft)
-                                Toast.makeText(
-                                    context,
-                                    context.getString(R.string.settings_waqi_saved),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                                waqiChecking = true
+                                viewModel.setWaqiApiKey(waqiDraft) { valid ->
+                                    waqiChecking = false
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(
+                                            when (valid) {
+                                                true -> R.string.settings_waqi_valid
+                                                false -> R.string.settings_waqi_invalid
+                                                null -> R.string.settings_waqi_saved
+                                            },
+                                        ),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
                             },
+                            enabled = !waqiChecking,
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                         ) {
                             Text(stringResource(R.string.settings_routes_save))

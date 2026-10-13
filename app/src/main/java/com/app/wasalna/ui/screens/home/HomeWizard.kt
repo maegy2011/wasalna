@@ -115,13 +115,17 @@ fun HomeWizard(
                 return@runTripGated
             }
             finish()
-            fun go() = startTracking(context, dest, vehicle, allowReduced = softWarnAccepted)
+            // Capture now: the interstitial callback runs async, after the
+            // synchronous reset below — reading the state inside go() would
+            // lose the soft-gate acceptance for free users.
+            val accepted = softWarnAccepted
+            softWarnAccepted = false
+            fun go() = startTracking(context, dest, vehicle, allowReduced = accepted)
             if (!isPremium) {
                 InterstitialHelper.showInterstitial(context) { go() }
             } else {
                 go()
             }
-            softWarnAccepted = false
         }
     }
 

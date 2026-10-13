@@ -9,9 +9,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/**
+ * App-wide M3 shape system (Oct 2026 upgrade): one curvature language —
+ * 16dp controls, 20dp cards, 24dp medium sheets, 28dp large surfaces.
+ * Picking this up here rounds every Card/Button/FAB/Sheet that follows
+ * the theme defaults, no per-screen changes needed.
+ */
+val WasalnaShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
 
 /**
  * Elderly mode flag: when true, typography scales up and touch targets grow.
@@ -89,6 +105,7 @@ fun WasalnaTheme(
         MaterialTheme(
             colorScheme = colors,
             typography = typography,
+            shapes = WasalnaShapes,
             content = content
         )
     }

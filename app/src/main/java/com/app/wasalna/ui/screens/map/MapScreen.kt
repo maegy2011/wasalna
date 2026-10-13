@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ModalBottomSheet
@@ -114,6 +115,7 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import com.app.wasalna.data.traffic.TrafficOverlayState
+import com.app.wasalna.data.service.TripStarter
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
@@ -720,6 +722,38 @@ fun MapScreen(
             // Phase 10.4.0: Vela-style multimodal ETA selector. Changing
             // the mode recomputes route + ETA in the ViewModel.
             if (selectedLatLng != null) {
+                // Start-trip CTA (user order Oct 2026): a destination pick
+                // must offer a DIRECT way to begin tracking — previously the
+                // sheet only saved / shared, and the bottom-bar play icon
+                // just reopened the map. Funnels through TripStarter's
+                // pre-flight gate (GPS / permission / sim-conflict Toasts).
+                Button(
+                    onClick = {
+                        val dest = selectedLatLng
+                        val name = addressLine ?: selectedName
+                        if (dest != null && name != null) {
+                            val started = TripStarter.startRealTrip(
+                                context, dest.latitude, dest.longitude, name, transportMode,
+                            )
+                            if (started) tripSheetOpen = false
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.nav_start_trip),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
                 // Four choices only (user order Oct 2026): car,
                 // motorcycle, public transit, walk — one segmented row.
                 SingleChoiceSegmentedButtonRow(

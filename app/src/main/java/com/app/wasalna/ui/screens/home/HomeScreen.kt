@@ -4,6 +4,7 @@ import androidx.compose.ui.res.stringResource
 import com.app.wasalna.R
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -110,6 +112,7 @@ fun HomeScreen(
                 subtitle = stringResource(R.string.splash_tagline),
                 showMenu = true,
                 onMenuClick = onMenuClick,
+                colorful = true,
                 actions = {
                     // Header cloud button: icon shows the CURRENT mode
                     // (cloud = online, cloud-off = offline); tap toggles
@@ -196,12 +199,22 @@ fun HomeScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = stringResource(R.string.home_empty_desc),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(96.dp),
-            )
+            // Hero glyph: pin inside a soft tonal disc — calmer than a
+            // bare oversized icon and reads as a brand moment.
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .size(140.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = stringResource(R.string.home_empty_desc),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(72.dp),
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = stringResource(R.string.home_welcome),

@@ -146,6 +146,11 @@ fun MainContainerScreen() {
                 "&name=${Uri.encode(trip.locationName)}"
         }
         innerNav.navigate(route) {
+            // Dedupe: args differ per tap, so SingleTop alone can't match —
+            // pop any stale Map copy first or back walks dead map entries.
+            popUpTo(
+                Screen.Map.route + "?lat={lat}&lng={lng}&mode={mode}&name={name}",
+            ) { inclusive = true }
             launchSingleTop = true
         }
     }
@@ -239,8 +244,14 @@ fun MainContainerScreen() {
     Scaffold(
         bottomBar = {
             // Unified footer — labels + selected pill + center start-trip FAB.
+            // Full-screen Map matches no tab; fall back to Home so the pill
+            // never looks fully deselected.
+            val barRoute = when {
+                currentRoute?.startsWith(Screen.Map.route) == true -> Screen.Home.route
+                else -> currentRoute
+            }
             WasalnaBottomBar(
-                currentRoute = currentRoute,
+                currentRoute = barRoute,
                 onMenuClick = { openDrawer() },
                 onNavigateTab = ::navigateTab,
                 onStartTrip = { openMapFullScreen() },
@@ -254,7 +265,12 @@ fun MainContainerScreen() {
                 ModalDrawerSheet(
                     modifier = Modifier.padding(top = 64.dp),
                 ) {
-                    DrawerBrandHeader()
+                    // Single VM + single 60s ticker live at the container top —
+                    // the header receives the computed values (no duplicates).
+                    DrawerBrandHeader(
+                        planLabel = planLabel(planPremium, planTrialEnd, planNow),
+                        isPremium = planPremium,
+                    )
                     DrawerSectionTitle(text = stringResource(R.string.drawer_section_general))
                     WasalnaDrawerItem(
                         label = stringResource(R.string.nav_home),
@@ -273,6 +289,12 @@ fun MainContainerScreen() {
                         selected = isSelected(Screen.Settings.route),
                         onClick = { closeDrawer(); navigateTab(Screen.Settings.route) },
                         iconRes = R.drawable.ic_svg_settings,
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.offline_title),
+                        selected = isSelected(Screen.OfflineMaps.route),
+                        onClick = { closeDrawer(); navigateTab(Screen.OfflineMaps.route) },
+                        iconRes = R.drawable.ic_svg_map,
                     )
                     WasalnaDrawerItem(
                         label = stringResource(R.string.trips_title),
@@ -432,21 +454,10 @@ fun MainContainerScreen() {
  * launcher icon + name + version + live plan pill.
  */
 @Composable
-private fun DrawerBrandHeader() {
+private fun DrawerBrandHeader(planLabel: String, isPremium: Boolean) {
     val context = LocalContext.current
     val appName = stringResource(id = R.string.app_name)
     val versionName = com.app.wasalna.BuildConfig.VERSION_NAME
-    val planVm: com.app.wasalna.ui.screens.home.HomeViewModel =
-        androidx.hilt.navigation.compose.hiltViewModel()
-    val planPremium by planVm.isPremium.collectAsState()
-    val planTrialEnd by planVm.trialEndTimeMillis.collectAsState()
-    var planNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(60_000)
-            planNow = System.currentTimeMillis()
-        }
-    }
     val appIconBitmap = remember {
         runCatching {
             val drawable = context.packageManager.getApplicationIcon(context.packageName)
@@ -463,8 +474,8 @@ private fun DrawerBrandHeader() {
     WasalnaBrandHeader(
         appName = appName,
         versionName = versionName,
-        planLabel = planLabel(planPremium, planTrialEnd, planNow),
-        isPremium = planPremium,
+        planLabel = planLabel,
+        isPremium = isPremium,
         iconContent = {
             appIconBitmap?.let { bmp ->
                 Image(

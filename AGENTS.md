@@ -31,7 +31,7 @@ export ANDROID_SDK_ROOT=/opt/android-sdk ANDROID_HOME=/opt/android-sdk
 `Screen.kt` owns all routes. `MainContainerScreen` hosts the inner `NavHost`
 (Home / My Places / Map / Settings / Paywall / TripsHistory / OfflineMaps),
 the bottom bar (Home · My Places · First Class), and the drawer
-(Settings · Trip History · Share · Rate · Contact · **Your Impact** stats).
+(Settings · **Offline Maps** · Trip History · Share · Rate · Contact · **Your Impact** stats).
 
 Conventions:
 
@@ -43,6 +43,16 @@ Conventions:
 - `MapScreen` has `BackHandler(onBack)` — hardware back never traps the user.
 
 ## Key systems (read before modifying)
+
+**Design system (Oct 2026).** `ui/theme/Color.kt` holds a full M3 token
+palette (light/dark + elderly high-contrast) — coolors navy set
+(#00171F / #003459 / #007EA7 / #00A8E8 + white); elderly high-contrast
+schemes untouched. `Theme.kt` sets app-wide `WasalnaShapes` (16 controls /
+20 cards / 24 sheets / 28 large) — rely on theme defaults instead of local
+shapes. `AppChrome.kt` is the single source for TopBar (optional `colorful`
+gradient mode) / BottomBar (**icons-only**, start-trip = 44dp pulsing disc
+inside the center slot) / drawer items ( 24dp pill,
+animated icon tint) / brand header (tri-gradient + animated plan pill).
 
 **Tracking (`TrackingService`).** Foreground + `location` type, `START_STICKY`,
 12-hour `PARTIAL_WAKE_LOCK` (released in `onDestroy`). Rich notification:
@@ -67,6 +77,15 @@ Drawer + paywall show a live countdown (`TrialLabels.planLabel`, 1-minute ticker
 **Trips.** Service opens an `ACTIVE` row on START (closes stale ones), updates ETA
 live, finishes on destroy. Home widget + Current tab read `activeTrip()`; Past
 tab + drawer stats derive from `PAST` rows.
+
+**Map trip sheet.** Picking a destination shows a primary "Start trip"
+CTA in the sheet that funnels through `TripStarter.startRealTrip`
+(pre-flight gate). The bottom-bar play action still just opens the map.
+
+**Air quality (WAQI BYOK).** Token validates live on save
+(`api.waqi.info/feed/here` → status ok/error/null=offline) — Settings
+toasts the verdict. Tile layer: `AqiOverlay.kt` mirrors the traffic
+overlay pattern (raster below symbols).
 
 **Offline maps (premium).** `OfflineMapsViewModel` wraps `OfflineManager` with
 `OfflineTilePyramidRegionDefinition(style, bounds, z10–16, density)`.

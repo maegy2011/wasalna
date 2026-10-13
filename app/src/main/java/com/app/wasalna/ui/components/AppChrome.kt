@@ -23,8 +23,19 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,15 +49,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.app.wasalna.R
 import com.app.wasalna.ui.navigation.Screen
 
@@ -73,48 +88,93 @@ fun WasalnaTopBar(
     showBack: Boolean = false,
     onBackClick: () -> Unit = {},
     actions: @Composable (RowScope.() -> Unit)? = null,
+    colorful: Boolean = false,
 ) {
-    TopAppBar(
-        title = {
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-            }
-        },
-        navigationIcon = {
-            when {
-                showMenu -> IconButton(onClick = onMenuClick) {
-                    Icon(
-                        painterResource(R.drawable.ic_svg_menu),
-                        contentDescription = stringResource(R.string.nav_menu_desc),
-                    )
-                }
-                showBack -> IconButton(onClick = onBackClick) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.common_back_home),
-                    )
-                }
-            }
-        },
-        actions = { actions?.invoke(this) },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
+    val gradient = Brush.horizontalGradient(
+        listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary,
         ),
     )
+    val titleColor = if (colorful) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.onSurface
+    val subtitleColor = if (colorful) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+        else MaterialTheme.colorScheme.onSurfaceVariant
+    val navIconTint = if (colorful) MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.primary
+    Surface(
+        shadowElevation = if (colorful) 6.dp else 2.dp,
+        tonalElevation = if (colorful) 0.dp else 1.dp,
+        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+    ) {
+        TopAppBar(
+            title = {
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = titleColor,
+                        maxLines = 1,
+                    )
+                    if (subtitle != null) {
+                        // Smooth cross-fade when the subtitle swaps (live ETA etc.).
+                        AnimatedContent(targetState = subtitle, label = "subtitle") { sub ->
+                            Text(
+                                text = sub,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = subtitleColor,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            },
+            navigationIcon = {
+                val action = when {
+                    showMenu -> onMenuClick
+                    showBack -> onBackClick
+                    else -> null
+                }
+                if (action != null) {
+                    IconButton(onClick = action) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (colorful) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
+                                    else MaterialTheme.colorScheme.primaryContainer,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (showMenu) {
+                                Icon(
+                                    painterResource(R.drawable.ic_svg_menu),
+                                    contentDescription = stringResource(R.string.nav_menu_desc),
+                                    tint = navIconTint,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.common_back_home),
+                                    tint = navIconTint,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            actions = { actions?.invoke(this) },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = if (colorful) Color.Transparent else MaterialTheme.colorScheme.surface,
+                titleContentColor = titleColor,
+                actionIconContentColor = navIconTint,
+                navigationIconContentColor = navIconTint,
+            ),
+            modifier = if (colorful) Modifier.background(gradient) else Modifier,
+        )
+    }
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────
@@ -137,80 +197,88 @@ fun WasalnaBottomBar(
         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    Box(modifier = Modifier.fillMaxWidth()) {
-        NavigationBar {
-            NavigationBarItem(
-                selected = false,
-                onClick = onMenuClick,
-                icon = {
-                    Icon(
-                        painterResource(R.drawable.ic_svg_menu),
-                        contentDescription = stringResource(R.string.nav_menu_desc),
-                    )
-                },
-                label = { Text(stringResource(R.string.nav_menu)) },
-                colors = itemColors,
-            )
-            NavigationBarItem(
-                selected = isSelected(Screen.Home.route),
-                onClick = { onNavigateTab(Screen.Home.route) },
-                icon = {
-                    Icon(
-                        painterResource(R.drawable.ic_svg_home),
-                        contentDescription = stringResource(R.string.nav_home),
-                    )
-                },
-                label = { Text(stringResource(R.string.nav_home)) },
-                colors = itemColors,
-            )
-            // Center slot: spacer under the overlaid FAB.
-            NavigationBarItem(
-                selected = false,
-                onClick = onStartTrip,
-                icon = { Spacer(modifier = Modifier.size(24.dp)) },
-                label = { Text(stringResource(R.string.nav_start_trip)) },
-                colors = itemColors,
-            )
-            NavigationBarItem(
-                selected = isSelected(Screen.MyPlaces.route),
-                onClick = { onNavigateTab(Screen.MyPlaces.route) },
-                icon = {
-                    Icon(
-                        painterResource(R.drawable.ic_svg_place),
-                        contentDescription = stringResource(R.string.myplaces_title),
-                    )
-                },
-                label = { Text(stringResource(R.string.myplaces_title)) },
-                colors = itemColors,
-            )
-            NavigationBarItem(
-                selected = isSelected(Screen.Settings.route),
-                onClick = { onNavigateTab(Screen.Settings.route) },
-                icon = {
-                    Icon(
-                        painterResource(R.drawable.ic_svg_settings),
-                        contentDescription = stringResource(R.string.settings_title),
-                    )
-                },
-                label = { Text(stringResource(R.string.settings_title)) },
-                colors = itemColors,
-            )
-        }
-        FloatingActionButton(
+    // Icons-only footer (user order Oct 2026): no labels — 5 equal slots.
+    // The start-trip action lives INSIDE the center slot as a 44dp filled
+    // disc (pulse) — proportional to the bar, unlike the old 60dp overlay
+    // that jutted above it.
+    val pulse by rememberInfiniteTransition(label = "fabPulse").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "fabPulseScale",
+    )
+    NavigationBar(tonalElevation = 3.dp) {
+        NavigationBarItem(
+            selected = false,
+            onClick = onMenuClick,
+            icon = {
+                Icon(
+                    painterResource(R.drawable.ic_svg_menu),
+                    contentDescription = stringResource(R.string.nav_menu_desc),
+                )
+            },
+            colors = itemColors,
+        )
+        NavigationBarItem(
+            selected = isSelected(Screen.Home.route),
+            onClick = { onNavigateTab(Screen.Home.route) },
+            icon = {
+                Icon(
+                    painterResource(R.drawable.ic_svg_home),
+                    contentDescription = stringResource(R.string.nav_home),
+                )
+            },
+            colors = itemColors,
+        )
+        // Center: filled primary disc with the play arrow — same vertical
+        // band as the other items, visually dominant via color + pulse.
+        NavigationBarItem(
+            selected = false,
             onClick = onStartTrip,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .size(60.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = CircleShape,
-        ) {
-            Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = stringResource(R.string.nav_start_trip),
-                modifier = Modifier.size(30.dp),
-            )
-        }
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .scale(pulse)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.nav_start_trip),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            },
+            colors = itemColors,
+        )
+        NavigationBarItem(
+            selected = isSelected(Screen.MyPlaces.route),
+            onClick = { onNavigateTab(Screen.MyPlaces.route) },
+            icon = {
+                Icon(
+                    painterResource(R.drawable.ic_svg_place),
+                    contentDescription = stringResource(R.string.myplaces_title),
+                )
+            },
+            colors = itemColors,
+        )
+        NavigationBarItem(
+            selected = isSelected(Screen.Settings.route),
+            onClick = { onNavigateTab(Screen.Settings.route) },
+            icon = {
+                Icon(
+                    painterResource(R.drawable.ic_svg_settings),
+                    contentDescription = stringResource(R.string.settings_title),
+                )
+            },
+            colors = itemColors,
+        )
     }
 }
 
@@ -219,10 +287,11 @@ fun WasalnaBottomBar(
 @Composable
 fun DrawerSectionTitle(text: String) {
     Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
         fontWeight = FontWeight.Bold,
+        letterSpacing = 1.2.sp,
         modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
     )
 }
@@ -237,6 +306,13 @@ fun WasalnaDrawerItem(
     contentDescription: String? = null,
     badge: (@Composable () -> Unit)? = null,
 ) {
+    // Smooth icon tint transition on selection change.
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(250),
+        label = "drawerIconTint",
+    )
     NavigationDrawerItem(
         label = {
             Text(
@@ -252,12 +328,17 @@ fun WasalnaDrawerItem(
                 iconRes != null -> Icon(
                     painterResource(iconRes),
                     contentDescription = contentDescription ?: label,
+                    tint = iconTint,
                 )
-                icon != null -> Icon(icon, contentDescription = contentDescription ?: label)
+                icon != null -> Icon(
+                    icon,
+                    contentDescription = contentDescription ?: label,
+                    tint = iconTint,
+                )
             }
         },
         badge = badge,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(24.dp),
         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
     )
 }
@@ -273,26 +354,27 @@ fun WasalnaBrandHeader(
     val gradient = Brush.horizontalGradient(
         listOf(
             MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
         ),
     )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(gradient)
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 16.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 18.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center,
             ) {
                 iconContent()
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = appName,
@@ -324,12 +406,22 @@ fun WasalnaBrandHeader(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }
-                        Text(
-                            text = planLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        // Countdown swaps tick every minute — cross-slide the label.
+                        AnimatedContent(
+                            targetState = planLabel,
+                            transitionSpec = {
+                                slideInVertically { it } + fadeIn() togetherWith
+                                    slideOutVertically { -it } + fadeOut()
+                            },
+                            label = "planLabel",
+                        ) { label ->
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }
