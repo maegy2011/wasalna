@@ -128,7 +128,11 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import com.app.wasalna.data.traffic.TrafficOverlayState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.data.service.TripStarter
+import kotlinx.coroutines.delay
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
@@ -270,6 +274,14 @@ fun MapScreen(
     // live-trip), never on auto-center; dismiss keeps the selection.
     var tripSheetOpen by remember { mutableStateOf(false) }
     val tripSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // New-trip fix (Oct 2026): the sheet CTA used TripStarter with
+    // defaults — soft blockers (battery/background, on by default on
+    // most phones) refused with no "start anyway" path, and an old
+    // running trip refused with only a Toast. Same two dialogs as
+    // My Places: soft-warn + replace-old-trip.
+    var sheetSoftWarn by remember { mutableStateOf(false) }
+    var sheetSoftAccepted by remember { mutableStateOf(false) }
+    var sheetReplace by remember { mutableStateOf(false) }
     // Phase 10.4.3.1: live-trip entry — consumed once per navigation.
     val tripConsumed = remember(tripLat, tripLng) { mutableStateOf(false) }
     LaunchedEffect(tripLat, tripLng) {
@@ -349,6 +361,39 @@ fun MapScreen(
 
     // Save uses this address as the Location name for map taps.
     val addressLine: String? = selectedAddress ?: selectedName
+    // Helpers AFTER addressLine (Kotlin forbids forward refs from
+    // local funs declared above their captured vals).
+    fun startSheetTrip(allowReduced: Boolean): Boolean {
+        val dest = selectedLatLng ?: return false
+        val name = addressLine ?: selectedName ?: return false
+        val started = TripStarter.startRealTrip(
+            context, dest.latitude, dest.longitude, name, transportMode,
+            allowReduced = allowReduced,
+        )
+        if (started) {
+            tripSheetOpen = false
+            onTripStarted()
+        } else if (
+            TripStarter.checkRealReady(context) ==
+            TripStarter.RealBlocker.AlreadyRunning
+        ) {
+            sheetReplace = true
+        }
+        return started
+    }
+    fun attemptSheetStart() {
+        if (TripStarter.softBlockers(context).isNotEmpty() && !sheetSoftAccepted) {
+            sheetSoftWarn = true
+            return
+        }
+        if (!isPremium) {
+            InterstitialHelper.showInterstitial(context) {
+                startSheetTrip(allowReduced = sheetSoftAccepted)
+            }
+        } else {
+            startSheetTrip(allowReduced = sheetSoftAccepted)
+        }
+    }
 
     // Smart back (user order Oct 2026): while the search UI, the trip
     // sheet, or the Home/Work sheet is open, back dismisses THEM first
@@ -897,19 +942,7 @@ fun MapScreen(
                 // just reopened the map. Funnels through TripStarter's
                 // pre-flight gate (GPS / permission / sim-conflict Toasts).
                 Button(
-                    onClick = {
-                        val dest = selectedLatLng
-                        val name = addressLine ?: selectedName
-                        if (dest != null && name != null) {
-                            val started = TripStarter.startRealTrip(
-                                context, dest.latitude, dest.longitude, name, transportMode,
-                            )
-                            if (started) {
-                                tripSheetOpen = false
-                                onTripStarted()
-                            }
-                        }
-                    },
+                    onClick = { attemptSheetStart() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -1113,6 +1146,67 @@ fun MapScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
+        }
+        // New-trip fix dialogs (Oct 2026): soft-warn (start anyway)
+        // + replace-old-trip — mirrors My Places so the sheet CTA
+        // never dead-ends on battery/background or a running trip.
+        if (sheetSoftWarn) {
+            AlertDialog(
+                onDismissRequest = { sheetSoftWarn = false },
+                title = { Text(stringResource(R.string.trip_soft_warn_title)) },
+                text = { Text(stringResource(R.string.trip_soft_warn_msg)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        sheetSoftWarn = false
+                        sheetSoftAccepted = true
+                        attemptSheetStart()
+                    }) {
+                        Text(stringResource(R.string.trip_start_anyway))
+                    }
+                },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = {
+                            TripStarter.softBlockers(context).firstOrNull()?.let {
+                                TripStarter.openSettingsFor(context, it)
+                            }
+                        }) {
+                            Text(stringResource(R.string.common_open_settings))
+                        }
+                        TextButton(onClick = { sheetSoftWarn = false }) {
+                            Text(stringResource(R.string.common_cancel))
+                        }
+                    }
+                },
+            )
+        }
+        if (sheetReplace) {
+            AlertDialog(
+                onDismissRequest = { sheetReplace = false },
+                title = { Text(stringResource(R.string.trip_replace_title)) },
+                text = { Text(stringResource(R.string.trip_replace_msg)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        sheetReplace = false
+                        TripStarter.stopTrip(context)
+                        scope.launch {
+                            var waitedMs = 0
+                            while (TrackingService.isServiceRunning && waitedMs < 3000) {
+                                delay(100)
+                                waitedMs += 100
+                            }
+                            startSheetTrip(allowReduced = true)
+                        }
+                    }) {
+                        Text(stringResource(R.string.trip_replace_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { sheetReplace = false }) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                },
+            )
         }
         homeWorkSheetPoint?.let { point ->
             ModalBottomSheet(
