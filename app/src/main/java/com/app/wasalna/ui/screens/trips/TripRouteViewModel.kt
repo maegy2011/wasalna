@@ -9,11 +9,14 @@ import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.model.TripHistory
 import com.app.wasalna.domain.repository.SettingsRepository
 import com.app.wasalna.domain.repository.TripRepository
+import com.app.wasalna.data.repository.OSRMRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,6 +32,9 @@ class TripRouteViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val tripRepository: TripRepository,
     private val settingsRepository: SettingsRepository,
+    private val osrm: OSRMRepository,
+    private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
+    private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
 ) : ViewModel() {
 
     val tripId: Long = savedStateHandle.get<Long>("tripId") ?: 0L
@@ -52,12 +58,75 @@ class TripRouteViewModel @Inject constructor(
             initialValue = false,
         )
 
+    // Planned route (user order Oct 2026): origin → destination road
+    // polyline drawn UNDER the travelled breadcrumb trail. Road modes +
+    // generic TRANSIT ride the OSRM corridor (offline engine fallback,
+    // straight-line last resort); static transit systems (METRO/MONORAIL/
+    // TRAIN) draw nothing — their ride legs must never be faked.
+    private val _plannedRoute = MutableStateFlow<String?>(null)
+    val plannedRouteGeoJson: StateFlow<String?> = _plannedRoute.asStateFlow()
+    private var planJob: Job? = null
+
     init {
         viewModelScope.launch {
             _trip.value = runCatching { tripRepository.tripById(tripId) }
                 .getOrNull()
         }
+        viewModelScope.launch {
+            combine(_trip, points, transportMode) { trip, pts, mode ->
+                Triple(trip, pts.firstOrNull(), mode)
+            }.collect { (trip, origin, mode) ->
+                planJob?.cancel()
+                if (trip == null || origin == null || mode.isTransit && mode != TransportMode.TRANSIT) {
+                    _plannedRoute.value = null
+                    return@collect
+                }
+                planJob = viewModelScope.launch {
+                    _plannedRoute.value = runCatching {
+                        fetchPlannedRoute(
+                            origin.lat, origin.lng,
+                            trip.destLat, trip.destLng, mode,
+                        )
+                    }.getOrNull()
+                }
+            }
+        }
     }
+
+    private suspend fun fetchPlannedRoute(
+        startLat: Double,
+        startLng: Double,
+        destLat: Double,
+        destLng: Double,
+        mode: TransportMode,
+    ): String? {
+        // Online corridor first (same profile semantics as MapScreen).
+        val road = runCatching {
+            osrm.fetchRoute(startLat, startLng, destLat, destLng, mode.osrmProfile)
+        }.getOrNull()
+        if (road != null) return road.geoJson
+        // On-device engine for car-baked graphs (CAR/MOTORCYCLE only).
+        if (mode.offlineRoutable) {
+            val local = runCatching {
+                com.app.wasalna.data.routing.routeOfflineWithAutoSelect(
+                    graphManager, ghEngine, startLat, startLng, destLat, destLng,
+                ).second
+            }.getOrNull()
+            if (local != null) return local.toGeoJson()
+        }
+        // Last resort: honest straight-line connector, never a fake road.
+        return straightLineGeoJson(startLat, startLng, destLat, destLng)
+    }
+
+    private fun straightLineGeoJson(
+        startLat: Double,
+        startLng: Double,
+        destLat: Double,
+        destLng: Double,
+    ): String =
+        "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\"," +
+            "\"geometry\":{\"type\":\"LineString\",\"coordinates\":" +
+            "[[$startLng,$startLat],[$destLng,$destLat]]},\"properties\":{}}]}"
 
     /**
      * VEHICLE (user order Oct 2026): mid-trip vehicle switch — persisted

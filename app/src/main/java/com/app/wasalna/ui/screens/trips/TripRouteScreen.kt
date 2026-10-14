@@ -79,6 +79,8 @@ import org.maplibre.android.style.sources.GeoJsonSource
 
 private const val ROUTE_SRC = "trip-route-src"
 private const val ROUTE_LAYER = "trip-route-layer"
+private const val PLAN_SRC = "trip-plan-src"
+private const val PLAN_LAYER = "trip-plan-layer"
 private const val DEST_IMAGE = "trip-dest-marker"
 
 /**
@@ -97,6 +99,8 @@ fun TripRouteScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val trip by viewModel.trip.collectAsState()
     val points by viewModel.points.collectAsState()
+    // Planned origin → destination corridor (drawn under the trail).
+    val plannedRoute by viewModel.plannedRouteGeoJson.collectAsState()
     // User order Oct 2026: trip sharing is First Class.
     val isPremium by viewModel.isPremium.collectAsState()
     // VEHICLE (user order Oct 2026): mid-trip switch — persists live;
@@ -123,6 +127,16 @@ fun TripRouteScreen(
         runCatching {
             val src = style.getSource(ROUTE_SRC) as? GeoJsonSource ?: return@LaunchedEffect
             src.setGeoJson(lineStringGeoJson(points))
+        }
+    }
+
+    // Planned corridor redraw (one payload per fetch — mode/origin/dest).
+    LaunchedEffect(plannedRoute, styleRef) {
+        val style = styleRef ?: return@LaunchedEffect
+        val geoJson = plannedRoute ?: return@LaunchedEffect
+        runCatching {
+            val src = style.getSource(PLAN_SRC) as? GeoJsonSource ?: return@LaunchedEffect
+            src.setGeoJson(geoJson)
         }
     }
 
@@ -179,6 +193,21 @@ fun TripRouteScreen(
                             ) { style ->
                                 styleRef = style
                                 runCatching {
+                                    // Planned corridor FIRST (under) — travelled trail on top.
+                                    if (style.getSource(PLAN_SRC) == null) {
+                                        style.addSource(GeoJsonSource(PLAN_SRC))
+                                    }
+                                    if (style.getLayer(PLAN_LAYER) == null) {
+                                        style.addLayer(
+                                            LineLayer(PLAN_LAYER, PLAN_SRC).withProperties(
+                                                PropertyFactory.lineColor("#0D7C66"),
+                                                PropertyFactory.lineOpacity(0.45f),
+                                                PropertyFactory.lineWidth(4f),
+                                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                                            ),
+                                        )
+                                    }
                                     if (style.getSource(ROUTE_SRC) == null) {
                                         style.addSource(GeoJsonSource(ROUTE_SRC))
                                     }
