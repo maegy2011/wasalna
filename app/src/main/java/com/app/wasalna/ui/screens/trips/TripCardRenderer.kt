@@ -223,7 +223,11 @@ object TripCardRenderer {
             contentH += gapStats + statsH +
                 gapDate + date.height + gapDivider + dp(2) +
                 gapMark + markRowH + PAD
-            val imgH = (MARGIN * 2 + contentH).toInt()
+            // Screenshot size (user order Oct 2026): standard phone
+            // screenshot canvas 1080×2340 — shorter content is centered
+            // vertically; taller content grows the canvas instead.
+            val imgH = maxOf(2340, (MARGIN * 2 + contentH).toInt())
+            val top = MARGIN + maxOf(0f, (imgH - MARGIN * 2 - contentH) / 2)
 
             val bmp = Bitmap.createBitmap(IMG_W, imgH, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
@@ -240,15 +244,15 @@ object TripCardRenderer {
             )
             // Soft gold arc accent behind the card top.
             c.drawCircle(
-                IMG_W / 2f, MARGIN.toFloat() - dp(260), dp(340),
+                IMG_W / 2f, top - dp(260), dp(340),
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = gold; alpha = 38
                 },
             )
 
             val cardRect = RectF(
-                MARGIN.toFloat(), MARGIN.toFloat(),
-                (IMG_W - MARGIN).toFloat(), (imgH - MARGIN).toFloat(),
+                MARGIN.toFloat(), top,
+                (IMG_W - MARGIN).toFloat(), top + contentH,
             )
             c.drawRoundRect(
                 cardRect, CARD_RADIUS, CARD_RADIUS,
@@ -264,8 +268,8 @@ object TripCardRenderer {
             if (hasMap && mapImage != null) {
                 // Full-camera route snapshot, rounded TOP corners only.
                 val mapRect = RectF(
-                    MARGIN.toFloat(), MARGIN.toFloat(),
-                    (IMG_W - MARGIN).toFloat(), MARGIN + mapH,
+                    MARGIN.toFloat(), top,
+                    (IMG_W - MARGIN).toFloat(), top + mapH,
                 )
                 c.save()
                 c.clipPath(
@@ -300,14 +304,14 @@ object TripCardRenderer {
                 c.restore()
                 // Gold underline under the map.
                 c.drawRect(
-                    MARGIN.toFloat(), MARGIN + mapH,
-                    (IMG_W - MARGIN).toFloat(), MARGIN + mapH + dp(6),
+                    MARGIN.toFloat(), top + mapH,
+                    (IMG_W - MARGIN).toFloat(), top + mapH + dp(6),
                     Paint().apply { color = gold },
                 )
-                y = MARGIN + mapH + dp(28)
+                y = top + mapH + dp(28)
             } else {
                 // Drawn destination marker (gold disc + white core).
-                y = (MARGIN + PAD).toFloat()
+                y = top + PAD
                 val my = y + markerR
                 c.drawCircle(cx, my, markerR, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gold })
                 c.drawCircle(
