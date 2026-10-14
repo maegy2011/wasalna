@@ -83,22 +83,46 @@ object TripCardRenderer {
                 @ColorInt color: Int,
                 width: Int = innerW,
                 align: Layout.Alignment = Layout.Alignment.ALIGN_CENTER,
+                maxLines: Int = Int.MAX_VALUE,
             ): StaticLayout {
                 val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                     textSize = sizeSp * dm.scaledDensity
                     typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                     this.color = color
                 }
-                return StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+                val b = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
                     .setAlignment(align)
                     .setLineSpacing(0f, 1.2f)
                     .setIncludePad(true)
-                    .build()
+                if (maxLines < Int.MAX_VALUE) {
+                    b.setMaxLines(maxLines)
+                        .setEllipsize(android.text.TextUtils.TruncateAt.END)
+                }
+                return b.build()
             }
 
-            val title = layout(destination.ifBlank { "?" }, 62f, true, onCard)
+            // Hidden default box (user order Oct 2026): titles live in an
+            // invisible full-width box, max 2 lines — the font shrinks
+            // dynamically until the whole title fits, then ellipsizes.
+            fun fitLayout(
+                text: String,
+                startSp: Float,
+                minSp: Float,
+                bold: Boolean,
+                @ColorInt color: Int,
+            ): StaticLayout {
+                var sp = startSp
+                while (sp > minSp) {
+                    val l = layout(text, sp, bold, color, maxLines = 2)
+                    if (l.lineCount <= 2) return l
+                    sp -= 4f
+                }
+                return layout(text, minSp, bold, color, maxLines = 2)
+            }
+
+            val title = fitLayout(destination.ifBlank { "?" }, 62f, 34f, true, onCard)
             val origin = originName?.trim()?.takeIf { it.isNotEmpty() }
-                ?.let { layout(it, 38f, false, muted) }
+                ?.let { fitLayout(it, 38f, 26f, false, muted) }
             val date = layout(dateText, 36f, false, muted)
             // Stat columns share the width evenly (2 or 3).
             val cols = if (avgSpeed != null) 3 else 2
