@@ -3,6 +3,8 @@ package com.app.wasalna.ui.screens.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.wasalna.domain.model.CustomShortcut
+import com.app.wasalna.domain.model.MAX_CUSTOM_SHORTCUTS
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.model.TripHistory
@@ -196,6 +198,37 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { settingsRepository.setWork(lat, lng, address) }
                 .onFailure { Log.e(TAG, "persist work failed: ${it.message}") }
+        }
+    }
+
+    // Premium custom shortcuts (user order Oct 2026): user-named quick
+    // places beside Home & Work. Capped at MAX_CUSTOM_SHORTCUTS; the UI
+    // gates creation behind premium, this layer only enforces the cap.
+    val customShortcuts: StateFlow<List<CustomShortcut>> =
+        settingsRepository.customShortcuts
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addCustomShortcut(shortcut: CustomShortcut) {
+        viewModelScope.launch {
+            val next = (customShortcuts.value + shortcut).take(MAX_CUSTOM_SHORTCUTS)
+            runCatching { settingsRepository.setCustomShortcuts(next) }
+                .onFailure { Log.e(TAG, "add custom shortcut failed: ${it.message}") }
+        }
+    }
+
+    fun updateCustomShortcut(old: CustomShortcut, new: CustomShortcut) {
+        viewModelScope.launch {
+            val next = customShortcuts.value.map { if (it == old) new else it }
+            runCatching { settingsRepository.setCustomShortcuts(next) }
+                .onFailure { Log.e(TAG, "update custom shortcut failed: ${it.message}") }
+        }
+    }
+
+    fun removeCustomShortcut(shortcut: CustomShortcut) {
+        viewModelScope.launch {
+            val next = customShortcuts.value - shortcut
+            runCatching { settingsRepository.setCustomShortcuts(next) }
+                .onFailure { Log.e(TAG, "remove custom shortcut failed: ${it.message}") }
         }
     }
 

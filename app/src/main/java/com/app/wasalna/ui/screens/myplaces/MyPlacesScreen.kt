@@ -73,6 +73,8 @@ import com.app.wasalna.R
 import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.data.service.TripStarter
 import com.app.wasalna.domain.model.CairoTransitStations
+import com.app.wasalna.domain.model.CustomShortcut
+import com.app.wasalna.domain.model.MAX_CUSTOM_SHORTCUTS
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.NearestStation
 import com.app.wasalna.domain.model.TransportMode
@@ -102,6 +104,8 @@ fun MyPlacesScreen(
     // Live follow (user order Oct 2026): fired on a REAL trip start so
     // the container opens the live TripRoute view for the active trip.
     onTripStarted: () -> Unit = {},
+    // Premium custom shortcuts (user order Oct 2026): opens First Class.
+    onOpenPaywall: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Just-in-time permissions (Oct 2026): trip start requests missing
@@ -150,6 +154,26 @@ fun MyPlacesScreen(
         mutableStateOf(homeAddress.isBlank() || workAddress.isBlank())
     }
     var quickEditTarget by remember { mutableStateOf<String?>(null) }
+    // Premium custom shortcuts (user order Oct 2026): user-named cards.
+    val customShortcuts by viewModel.customShortcuts.collectAsState()
+    var customEditTarget by remember { mutableStateOf<CustomShortcut?>(null) }
+    var showCustomAdd by remember { mutableStateOf(false) }
+    fun startCustomTrip(shortcut: CustomShortcut) {
+        if (shortcut.lat == null || shortcut.lng == null) {
+            customEditTarget = shortcut
+            scope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_set_first))
+            }
+            return
+        }
+        requestTrip(
+            Location(
+                name = shortcut.name.ifBlank { shortcut.address.ifBlank { context.getString(R.string.quick_trip_fallback) } },
+                latitude = shortcut.lat,
+                longitude = shortcut.lng,
+            ),
+        )
+    }
     // Phase 10.8.0b: SAF backup launchers (no permissions needed).
     var pendingExport by remember { mutableStateOf<String?>(null) }
     val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -492,6 +516,13 @@ fun MyPlacesScreen(
                     onWorkClick = { startQuickTrip(workLat, workLng, workAddress) },
                     onHomeEdit = { quickEditTarget = "home" },
                     onWorkEdit = { quickEditTarget = "work" },
+                    customShortcuts = customShortcuts,
+                    isPremium = isPremium,
+                    canAddMore = customShortcuts.size < MAX_CUSTOM_SHORTCUTS,
+                    onCustomClick = ::startCustomTrip,
+                    onCustomEdit = { customEditTarget = it },
+                    onAddCustom = { showCustomAdd = true },
+                    onUpgradeClick = onOpenPaywall,
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -635,6 +666,36 @@ fun MyPlacesScreen(
                 TextButton(onClick = { showReplaceDialog = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
+            },
+        )
+    }
+    // Premium custom shortcuts: edit + add dialogs (name field + delete).
+    customEditTarget?.let { target ->
+        QuickPlaceEditDialog(
+            title = target.name.ifBlank { stringResource(R.string.custom_untitled) },
+            initialAddress = target.address,
+            initialLat = target.lat,
+            initialLng = target.lng,
+            onDismiss = { customEditTarget = null },
+            onSave = { _, _, _ -> },
+            initialName = target.name,
+            onSaveNamed = { name, lat, lng, address ->
+                viewModel.updateCustomShortcut(target, CustomShortcut(name, lat, lng, address))
+            },
+            onDelete = { viewModel.removeCustomShortcut(target) },
+        )
+    }
+    if (showCustomAdd) {
+        QuickPlaceEditDialog(
+            title = stringResource(R.string.custom_new),
+            initialAddress = "",
+            initialLat = null,
+            initialLng = null,
+            onDismiss = { showCustomAdd = false },
+            onSave = { _, _, _ -> },
+            initialName = "",
+            onSaveNamed = { name, lat, lng, address ->
+                viewModel.addCustomShortcut(CustomShortcut(name, lat, lng, address))
             },
         )
     }

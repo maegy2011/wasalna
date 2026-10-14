@@ -215,6 +215,13 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDataStore.setWork(lat, lng, address)
     }
 
+    override val customShortcuts: Flow<List<com.app.wasalna.domain.model.CustomShortcut>>
+        get() = settingsDataStore.customShortcuts
+
+    override suspend fun setCustomShortcuts(shortcuts: List<com.app.wasalna.domain.model.CustomShortcut>) {
+        settingsDataStore.setCustomShortcuts(shortcuts)
+    }
+
     override suspend fun setForceOffline(enabled: Boolean) {
         settingsDataStore.setForceOffline(enabled)
     }

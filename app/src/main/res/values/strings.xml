@@ -253,6 +253,14 @@
     <string name="quick_clear_confirm">Clear</string>
     <string name="quick_trip_fallback">Quick trip</string>
     <string name="quick_edit_place">Edit location</string>
+    <string name="custom_add">＋ Add shortcut</string>
+    <string name="custom_locked">Shortcuts — First Class</string>
+    <string name="custom_untitled">Untitled</string>
+    <string name="custom_new">New shortcut</string>
+    <string name="custom_name_label">Shortcut name</string>
+    <string name="custom_delete_title">Delete %1$s?</string>
+    <string name="custom_delete_msg">%1$s will be removed from your shortcuts.</string>
+    <string name="custom_delete_confirm">Delete</string>
     <string name="quick_use_current">📍 Use current location</string>
     <string name="quick_locating">Locating…</string>
     <string name="quick_location_none">Couldn\'t get your location — make sure GPS is on and try again.</string>

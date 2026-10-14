@@ -17,6 +17,8 @@ import com.app.wasalna.domain.model.TransitPlan
 import com.app.wasalna.data.repository.VelaSearchRepository
 import com.app.wasalna.data.traffic.TrafficOverlayState
 import com.app.wasalna.data.traffic.TrafficRepository
+import com.app.wasalna.domain.model.CustomShortcut
+import com.app.wasalna.domain.model.MAX_CUSTOM_SHORTCUTS
 import com.app.wasalna.domain.model.Location
 import com.app.wasalna.domain.model.SearchResult
 import com.app.wasalna.domain.model.TransitPlanner
@@ -395,6 +397,37 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { settingsRepository.setWork(lat, lng, address) }
                 .onFailure { Log.e(TAG, "persist work failed: ${it.message}") }
+        }
+    }
+
+    // Premium custom shortcuts (user order Oct 2026): same DataStore
+    // backing as Home/Work (single source of truth — My Places edits
+    // reflect here instantly). Cap mirrors HomeViewModel.
+    val customShortcuts: StateFlow<List<CustomShortcut>> =
+        settingsRepository.customShortcuts
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addCustomShortcut(shortcut: CustomShortcut) {
+        viewModelScope.launch {
+            val next = (customShortcuts.value + shortcut).take(MAX_CUSTOM_SHORTCUTS)
+            runCatching { settingsRepository.setCustomShortcuts(next) }
+                .onFailure { Log.e(TAG, "add custom shortcut failed: ${it.message}") }
+        }
+    }
+
+    fun updateCustomShortcut(old: CustomShortcut, new: CustomShortcut) {
+        viewModelScope.launch {
+            val next = customShortcuts.value.map { if (it == old) new else it }
+            runCatching { settingsRepository.setCustomShortcuts(next) }
+                .onFailure { Log.e(TAG, "update custom shortcut failed: ${it.message}") }
+        }
+    }
+
+    fun removeCustomShortcut(shortcut: CustomShortcut) {
+        viewModelScope.launch {
+            val next = customShortcuts.value - shortcut
+            runCatching { settingsRepository.setCustomShortcuts(next) }
+                .onFailure { Log.e(TAG, "remove custom shortcut failed: ${it.message}") }
         }
     }
 

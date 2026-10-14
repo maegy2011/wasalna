@@ -417,6 +417,7 @@ fun MainContainerScreen() {
                         onAddDestination = { openMapFullScreen() },
                         viewModel = hiltViewModel(),
                         onTripStarted = ::openLiveTrip,
+                        onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                     )
                 }
                 // Phase 10.4.3.1: optional live-trip args (Home widget tap).
@@ -434,6 +435,7 @@ fun MainContainerScreen() {
                         onSaved = { navigateTab(Screen.MyPlaces.route) },
                         onBack = { smartBack() },
                         onTripStarted = ::openLiveTrip,
+                        onOpenPaywall = { navigateTab(Screen.Paywall.route) },
                         tripName = entry.arguments?.getString("name")?.ifBlank { null },
                         tripLat = entry.arguments?.getString("lat")?.toDoubleOrNull(),
                         tripLng = entry.arguments?.getString("lng")?.toDoubleOrNull(),

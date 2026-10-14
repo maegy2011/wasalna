@@ -103,6 +103,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.app.wasalna.domain.model.CairoTransitStations
+import com.app.wasalna.domain.model.CustomShortcut
+import com.app.wasalna.domain.model.MAX_CUSTOM_SHORTCUTS
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.ui.ads.InterstitialHelper
 import com.app.wasalna.ui.components.TransitApproxNote
@@ -163,6 +165,8 @@ fun MapScreen(
     // Live follow (user order Oct 2026): fired on a REAL trip start so
     // the container opens the live TripRoute view for the active trip.
     onTripStarted: () -> Unit = {},
+    // Premium custom shortcuts (user order Oct 2026): opens First Class.
+    onOpenPaywall: () -> Unit = {},
     // Phase 10.4.3.1: optional live-trip args (Home widget tap).
     tripName: String? = null,
     tripLat: Double? = null,
@@ -295,6 +299,28 @@ fun MapScreen(
 
     // Map UX fixes: quick-place edit dialog state (search-mode only).
     var editTarget by remember { mutableStateOf<String?>(null) }
+    // Premium custom shortcuts (user order Oct 2026): user-named cards.
+    val customShortcuts by viewModel.customShortcuts.collectAsState()
+    var customEditTarget by remember { mutableStateOf<CustomShortcut?>(null) }
+    var showCustomAdd by remember { mutableStateOf(false) }
+    fun startCustomTrip(shortcut: CustomShortcut) {
+        if (shortcut.lat == null || shortcut.lng == null) {
+            customEditTarget = shortcut
+            return
+        }
+        val label = shortcut.name.ifBlank { shortcut.address }
+        fun select() {
+            if (viewModel.selectQuickPlace(shortcut.lat, shortcut.lng, label)) {
+                closeSearch()
+                tripSheetOpen = true
+            }
+        }
+        if (!isPremium) {
+            InterstitialHelper.showInterstitial(context) { select() }
+        } else {
+            select()
+        }
+    }
     // Phase 10.11: dynamic destination share sheet (re-queries on open).
     var showDestinationShare by remember { mutableStateOf(false) }
 
@@ -503,6 +529,13 @@ fun MapScreen(
                     onHomeEdit = { editTarget = "home" },
                     onWorkEdit = { editTarget = "work" },
                     modifier = Modifier.padding(horizontal = 16.dp),
+                    customShortcuts = customShortcuts,
+                    isPremium = isPremium,
+                    canAddMore = customShortcuts.size < MAX_CUSTOM_SHORTCUTS,
+                    onCustomClick = ::startCustomTrip,
+                    onCustomEdit = { customEditTarget = it },
+                    onAddCustom = { showCustomAdd = true },
+                    onUpgradeClick = onOpenPaywall,
                 )
                 searchError?.let { err ->
                     Text(
@@ -1200,6 +1233,37 @@ fun MapScreen(
                 onSave = { lat, lng, address ->
                     if (target == "home") viewModel.setHome(lat, lng, address)
                     else viewModel.setWork(lat, lng, address)
+                },
+            )
+        }
+        // Premium custom shortcuts: edit + add dialogs (name + delete).
+        // New cards prefill the current map selection like Home/Work.
+        customEditTarget?.let { target ->
+            QuickPlaceEditDialog(
+                title = target.name.ifBlank { stringResource(R.string.custom_untitled) },
+                initialAddress = target.address,
+                initialLat = target.lat ?: selectedLatLng?.latitude,
+                initialLng = target.lng ?: selectedLatLng?.longitude,
+                onDismiss = { customEditTarget = null },
+                onSave = { _, _, _ -> },
+                initialName = target.name,
+                onSaveNamed = { name, lat, lng, address ->
+                    viewModel.updateCustomShortcut(target, CustomShortcut(name, lat, lng, address))
+                },
+                onDelete = { viewModel.removeCustomShortcut(target) },
+            )
+        }
+        if (showCustomAdd) {
+            QuickPlaceEditDialog(
+                title = stringResource(R.string.custom_new),
+                initialAddress = "",
+                initialLat = selectedLatLng?.latitude,
+                initialLng = selectedLatLng?.longitude,
+                onDismiss = { showCustomAdd = false },
+                onSave = { _, _, _ -> },
+                initialName = "",
+                onSaveNamed = { name, lat, lng, address ->
+                    viewModel.addCustomShortcut(CustomShortcut(name, lat, lng, address))
                 },
             )
         }

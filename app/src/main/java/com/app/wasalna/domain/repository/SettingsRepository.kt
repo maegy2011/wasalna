@@ -1,5 +1,6 @@
 package com.app.wasalna.domain.repository
 
+import com.app.wasalna.domain.model.CustomShortcut
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
@@ -65,6 +66,9 @@ interface SettingsRepository {
     val workLat: Flow<Double?>
     val workLng: Flow<Double?>
     val workAddress: Flow<String>
+    // Premium custom shortcuts (user order Oct 2026): user-named quick
+    // places beside Home & Work.
+    val customShortcuts: Flow<List<CustomShortcut>>
     val isTrafficEnabled: Flow<Boolean>
 
     val appLanguageCode: Flow<String>
@@ -121,6 +125,8 @@ interface SettingsRepository {
     suspend fun setHome(lat: Double?, lng: Double?, address: String)
 
     suspend fun setWork(lat: Double?, lng: Double?, address: String)
+
+    suspend fun setCustomShortcuts(shortcuts: List<CustomShortcut>)
 
     suspend fun setForceOffline(enabled: Boolean)
 

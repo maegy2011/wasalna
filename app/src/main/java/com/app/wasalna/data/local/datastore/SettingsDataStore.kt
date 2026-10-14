@@ -247,6 +247,42 @@ class SettingsDataStore @Inject constructor(
     val workAddress: Flow<String> =
         dataStore.data.map { it[Keys.WORK_ADDRESS] ?: "" }
 
+    // Premium custom shortcuts (user order Oct 2026): JSON list of
+    // {name,lat,lng,address} via org.json (established pattern — no new
+    // libs). Corrupt payload decodes to empty, never throws.
+    val customShortcuts: Flow<List<com.app.wasalna.domain.model.CustomShortcut>> =
+        dataStore.data.map { prefs ->
+            runCatching {
+                val raw = prefs[Keys.CUSTOM_SHORTCUTS] ?: return@runCatching emptyList()
+                val arr = org.json.JSONArray(raw)
+                List(arr.length()) { i ->
+                    val o = arr.getJSONObject(i)
+                    com.app.wasalna.domain.model.CustomShortcut(
+                        name = o.optString("name"),
+                        lat = o.optDouble("lat", Double.NaN).takeUnless { it.isNaN() },
+                        lng = o.optDouble("lng", Double.NaN).takeUnless { it.isNaN() },
+                        address = o.optString("address"),
+                    )
+                }
+            }.getOrDefault(emptyList())
+        }
+
+    suspend fun setCustomShortcuts(shortcuts: List<com.app.wasalna.domain.model.CustomShortcut>) {
+        val arr = org.json.JSONArray()
+        shortcuts.forEach { s ->
+            arr.put(
+                org.json.JSONObject()
+                    .put("name", s.name)
+                    .put("address", s.address)
+                    .apply {
+                        if (s.lat != null) put("lat", s.lat)
+                        if (s.lng != null) put("lng", s.lng)
+                    },
+            )
+        }
+        dataStore.edit { it[Keys.CUSTOM_SHORTCUTS] = arr.toString() }
+    }
+
     suspend fun setHome(lat: Double?, lng: Double?, address: String) {
         dataStore.edit {
             if (lat == null || lng == null) {
@@ -491,6 +527,8 @@ class SettingsDataStore @Inject constructor(
         val WORK_LAT = doublePreferencesKey("work_lat")
         val WORK_LNG = doublePreferencesKey("work_lng")
         val WORK_ADDRESS = stringPreferencesKey("work_address")
+        // Premium custom shortcuts (user order Oct 2026): JSON list.
+        val CUSTOM_SHORTCUTS = stringPreferencesKey("custom_shortcuts")
         val TRAFFIC_ENABLED = booleanPreferencesKey("traffic_enabled")
         val TRANSIT_LAYER_ENABLED = booleanPreferencesKey("transit_layer_enabled")
         val AQI_LAYER_ENABLED = booleanPreferencesKey("aqi_layer_enabled")

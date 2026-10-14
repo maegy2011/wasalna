@@ -23,8 +23,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Card
@@ -42,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import com.app.wasalna.domain.model.CustomShortcut
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -74,11 +79,25 @@ fun HomeWorkQuickRow(
     onHomeEdit: () -> Unit,
     onWorkEdit: () -> Unit,
     modifier: Modifier = Modifier,
+    // Premium custom shortcuts (user order Oct 2026): user-named cards
+    // beside Home & Work. Creation is premium-gated (onUpgradeClick opens
+    // the paywall); tap/edit on a card behave exactly like Home/Work.
+    customShortcuts: List<CustomShortcut> = emptyList(),
+    isPremium: Boolean = false,
+    canAddMore: Boolean = true,
+    onCustomClick: (CustomShortcut) -> Unit = {},
+    onCustomEdit: (CustomShortcut) -> Unit = {},
+    onAddCustom: () -> Unit = {},
+    onUpgradeClick: () -> Unit = {},
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         QuickPlaceCard(
@@ -101,6 +120,87 @@ fun HomeWorkQuickRow(
             isWork = true,
         )
     }
+    // Premium custom shortcuts: two-per-row grids + the add card.
+    // Free users see the locked add card (paywall entry point).
+    customShortcuts.chunked(2).forEach { pair ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            pair.forEach { shortcut ->
+                QuickPlaceCard(
+                    title = shortcut.name.ifBlank { stringResource(R.string.custom_untitled) },
+                    subtitle = shortcut.address.ifBlank { stringResource(R.string.quick_tap_hint) },
+                    iconContentDescription = shortcut.name,
+                    onClick = { onCustomClick(shortcut) },
+                    onLongClick = { onCustomEdit(shortcut) },
+                    onEditClick = { onCustomEdit(shortcut) },
+                    modifier = Modifier.weight(1f),
+                    isCustom = true,
+                )
+            }
+            if (pair.size < 2) Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+    if (canAddMore || !isPremium) {
+        CustomAddCard(
+            isPremium = isPremium,
+            onClick = { if (isPremium) onAddCustom() else onUpgradeClick() },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    }
+}
+
+/**
+ * Premium add-shortcut card (user order Oct 2026): ＋ for members,
+ * lock + First-Class label for free users (tap opens the paywall).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CustomAddCard(
+    isPremium: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPremium) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                if (isPremium) Icons.Filled.Add else Icons.Filled.Lock,
+                contentDescription = stringResource(R.string.custom_add),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(
+                    if (isPremium) R.string.custom_add
+                    else R.string.custom_locked,
+                ),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (!isPremium) {
+                Icon(
+                    Icons.Filled.Diamond,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -115,10 +215,17 @@ fun QuickPlaceEditDialog(
     initialLng: Double?,
     onDismiss: () -> Unit,
     onSave: (lat: Double?, lng: Double?, address: String) -> Unit,
+    // Custom shortcuts (user order Oct 2026, premium): non-null
+    // initialName shows the name field + routes saves through onSaveNamed;
+    // onDelete removes the whole card (custom only — Home/Work pass null).
+    initialName: String? = null,
+    onSaveNamed: ((name: String, lat: Double?, lng: Double?, address: String) -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     var address by remember(title) { mutableStateOf(initialAddress) }
     var latText by remember(title) { mutableStateOf(initialLat?.toString() ?: "") }
     var lngText by remember(title) { mutableStateOf(initialLng?.toString() ?: "") }
+    var name by remember(title) { mutableStateOf(initialName ?: "") }
     // Capture-current-location (user order Oct 2026): one tap fills
     // lat/lng from the live GPS fix — no manual typing. Self-contained
     // FusedLocationProviderClient lookup with permission guard,
@@ -161,12 +268,18 @@ fun QuickPlaceEditDialog(
     // رسالة تأكيد قبل مسح نقطة محفوظة: الحفظ بإحداثيات فارغة وكان
     // يوجد نقطة من قبل = مسح لها — يُطلب التأكيد أولًا (امسح).
     var showClearConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    fun persist(lat: Double?, lng: Double?) {
+        val saver = onSaveNamed
+        if (saver != null && initialName != null) saver(name.trim(), lat, lng, address.trim())
+        else onSave(lat, lng, address.trim())
+    }
     fun attemptSave() {
         val clearsExisting = (initialLat != null || initialLng != null) &&
             latText.toDoubleOrNull() == null && lngText.toDoubleOrNull() == null
         if (clearsExisting) showClearConfirm = true
         else {
-            onSave(latText.toDoubleOrNull(), lngText.toDoubleOrNull(), address.trim())
+            persist(latText.toDoubleOrNull(), lngText.toDoubleOrNull())
             onDismiss()
         }
     }
@@ -177,11 +290,25 @@ fun QuickPlaceEditDialog(
             confirmLabel = stringResource(R.string.quick_clear_confirm),
             isDestructive = true,
             onConfirm = {
-                onSave(null, null, address.trim())
+                persist(null, null)
                 showClearConfirm = false
                 onDismiss()
             },
             onDismiss = { showClearConfirm = false },
+        )
+    }
+    if (showDeleteConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.custom_delete_title, name.ifBlank { title }),
+            message = stringResource(R.string.custom_delete_msg, name.ifBlank { title }),
+            confirmLabel = stringResource(R.string.custom_delete_confirm),
+            isDestructive = true,
+            onConfirm = {
+                onDelete?.invoke()
+                showDeleteConfirm = false
+                onDismiss()
+            },
+            onDismiss = { showDeleteConfirm = false },
         )
     }
     AlertDialog(
@@ -189,6 +316,15 @@ fun QuickPlaceEditDialog(
         title = { Text(stringResource(R.string.quick_set_title, title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Custom shortcuts (premium): the card name lives here.
+                if (initialName != null) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.custom_name_label)) },
+                        singleLine = true,
+                    )
+                }
                 OutlinedTextField(
                     value = address,
                     onValueChange = { address = it },
@@ -251,8 +387,20 @@ fun QuickPlaceEditDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.common_cancel))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Custom shortcuts only: whole-card delete (Home/Work
+                // keep the clear-on-empty flow instead).
+                if (onDelete != null) {
+                    TextButton(onClick = { showDeleteConfirm = true }) {
+                        Text(
+                            stringResource(R.string.custom_delete_confirm),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             }
         },
     )
@@ -269,6 +417,7 @@ private fun QuickPlaceCard(
     onEditClick: () -> Unit,
     modifier: Modifier = Modifier,
     isWork: Boolean = false,
+    isCustom: Boolean = false,
 ) {
     Card(
         modifier = modifier
@@ -288,7 +437,11 @@ private fun QuickPlaceCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
-                if (isWork) Icons.Filled.Work else Icons.Filled.Home,
+                when {
+                    isWork -> Icons.Filled.Work
+                    isCustom -> Icons.Filled.Star
+                    else -> Icons.Filled.Home
+                },
                 contentDescription = iconContentDescription,
                 tint = MaterialTheme.colorScheme.primary,
             )
