@@ -25,8 +25,8 @@ import androidx.annotation.ColorInt
  *
  * Layout (1080px): deep-green gradient backdrop → white rounded card →
  * [optional full-camera map snapshot header with the real route] →
- * marker + title → origin → [dashed flourish when no map] → stat
- * columns → date → divider → watermark footer (real logo + full app
+ * marker + title → origin → [dashed flourish when no map] → side
+ * stat panel (3 lines, language side) → date → divider → watermark footer (real logo + full app
  * name in the app's language, small, centered).
  */
 object TripCardRenderer {
@@ -120,22 +120,67 @@ object TripCardRenderer {
                 return layout(text, minSp, bold, color, maxLines = 2)
             }
 
+            // Side stat panel (user order Oct 2026): the stats stack as
+            // three lines on the START side per app language (RTL → right,
+            // LTR → left) — gold bullet + big value + small label in one
+            // line, hairline separators, tinted panel, green accent edge.
+            val rtl = context.resources.configuration.layoutDirection ==
+                android.view.View.LAYOUT_DIRECTION_RTL
+            val panelPad = dp(28)
+            val panelInnerW = (innerW - panelPad * 2).toInt().coerceAtLeast(100)
+            fun statLine(value: String, label: String): StaticLayout {
+                val labelUp = label.uppercase()
+                val span = android.text.SpannableString("●  $value   $labelUp")
+                val vStart = 3
+                val vEnd = vStart + value.length
+                val lStart = vEnd + 3
+                span.setSpan(
+                    android.text.style.ForegroundColorSpan(gold),
+                    0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                span.setSpan(
+                    android.text.style.AbsoluteSizeSpan(52, true),
+                    vStart, vEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                span.setSpan(
+                    android.text.style.StyleSpan(Typeface.BOLD),
+                    vStart, vEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                span.setSpan(
+                    android.text.style.ForegroundColorSpan(onCard),
+                    vStart, vEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                span.setSpan(
+                    android.text.style.AbsoluteSizeSpan(30, true),
+                    lStart, span.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                span.setSpan(
+                    android.text.style.ForegroundColorSpan(muted),
+                    lStart, span.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+                return StaticLayout.Builder.obtain(span, 0, span.length, paint, panelInnerW)
+                    .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                    .setLineSpacing(0f, 1.2f)
+                    .setIncludePad(true)
+                    .setMaxLines(1)
+                    .setEllipsize(android.text.TextUtils.TruncateAt.END)
+                    .build()
+            }
+            val statLayouts = buildList {
+                add(statLine(distanceKm, distanceLabel))
+                add(statLine(durationMin, durationLabel))
+                if (avgSpeed != null) add(statLine(avgSpeed, avgSpeedLabel))
+            }
+            val rowGapS = dp(16)
+            val statsH = panelPad * 2 +
+                statLayouts.sumOf { it.height.toInt() } +
+                rowGapS * (statLayouts.size - 1) +
+                dp(2) * (statLayouts.size - 1)
             val title = fitLayout(destination.ifBlank { "?" }, 62f, 34f, true, onCard)
             val origin = originName?.trim()?.takeIf { it.isNotEmpty() }
                 ?.let { fitLayout(it, 38f, 26f, false, muted) }
             val date = layout(dateText, 36f, false, muted)
-            // Stat columns share the width evenly (2 or 3).
-            val cols = if (avgSpeed != null) 3 else 2
-            val colW = innerW / cols
-            fun statValue(t: String) = layout(t, 52f, true, onCard, colW)
-            fun statLabel(t: String) = layout(t, 30f, false, muted, colW)
-            val distV = statValue(distanceKm)
-            val distL = statLabel(distanceLabel.uppercase())
-            val durV = statValue(durationMin)
-            val durL = statLabel(durationLabel.uppercase())
-            val spdV = avgSpeed?.let { statValue(it) }
-            val spdL = avgSpeed?.let { statLabel(avgSpeedLabel.uppercase()) }
-            val statsH = distV.height + dp(8) + distL.height
             // Watermark: real launcher icon + FULL app name in the app's
             // language (appName already resolves to the current locale).
             val logoSize = dp(64)
@@ -326,19 +371,43 @@ object TripCardRenderer {
                 y += dp(8) + gapStats
             }
 
-            // Stat columns.
-            fun drawCol(l: StaticLayout, col: Int) {
+            // Tinted side panel + accent edge + three stat lines.
+            val panelRect = RectF(
+                (MARGIN + PAD).toFloat(), y,
+                (IMG_W - MARGIN - PAD).toFloat(), y + statsH,
+            )
+            c.drawRoundRect(
+                panelRect, dp(28), dp(28),
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x1F0D7C66 },
+            )
+            val barW = dp(10)
+            val barRect = if (rtl) {
+                RectF(panelRect.right - barW, y + dp(20), panelRect.right, y + statsH - dp(20))
+            } else {
+                RectF(panelRect.left, y + dp(20), panelRect.left + barW, y + statsH - dp(20))
+            }
+            c.drawRoundRect(
+                barRect, barW / 2, barW / 2,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primary },
+            )
+            var sy = y + panelPad
+            statLayouts.forEachIndexed { i, l ->
                 c.save()
-                c.translate((MARGIN + PAD).toFloat() + col * colW, y)
+                c.translate((MARGIN + PAD).toFloat() + panelPad, sy)
                 l.draw(c)
                 c.restore()
+                sy += l.height
+                if (i < statLayouts.size - 1) {
+                    sy += rowGapS / 2
+                    c.drawRect(
+                        (MARGIN + PAD).toFloat() + panelPad, sy,
+                        (IMG_W - MARGIN - PAD).toFloat() - panelPad, sy + dp(2),
+                        Paint().apply { color = 0xFFE2E5E0.toInt() },
+                    )
+                    sy += dp(2) + rowGapS / 2
+                }
             }
-            drawCol(distV, 0); drawCol(durV, 1)
-            if (spdV != null) drawCol(spdV, 2)
-            y += distV.height + dp(8)
-            drawCol(distL, 0); drawCol(durL, 1)
-            if (spdL != null) drawCol(spdL, 2)
-            y += distL.height + gapDate
+            y += statsH + gapDate
 
             drawCentered(date)
             y += gapDivider
