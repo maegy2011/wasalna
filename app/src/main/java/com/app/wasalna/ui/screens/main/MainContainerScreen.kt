@@ -17,7 +17,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Diamond
+import android.util.Log
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.app.wasalna.data.service.TripStarter
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +98,7 @@ import kotlinx.coroutines.launch
  * - Inner NavHost keeps tab state via launchSingleTop + restoreState/saveState.
  * - Settings lives in the inner graph (drawer entry, hidden from bottom bar).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainContainerScreen() {
     val innerNav = rememberNavController()
@@ -178,12 +189,19 @@ fun MainContainerScreen() {
         }
     }
 
-    // Smart back (user order Oct 2026): remembers the visit history and
-    // returns to the LAST screen instead of fixed destinations. Drawer
-    // closes first; pushed screens pop naturally; at a root the previous
-    // visited destination opens; Home requires a double-press to exit.
+    // Smart Back 2.0 (user order Oct 2026): the visit history remembers
+    // WHERE you were; the guards know WHAT you were doing. Order: drawer
+    // closes first → trip guard (active trip on the route screen) →
+    // elderly debounce (accidental double-taps ignored) → double-tap
+    // opens the recent-screens sheet → single press navigates back →
+    // Home double-press exits (snackbar + instant-exit action).
     val visitHistory = remember { mutableStateListOf<String>() }
     var lastBackPress by remember { mutableLongStateOf(0L) }
+    var lastBackTap by remember { mutableLongStateOf(0L) }
+    var showTripGuard by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
+    val snack = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
     val currentRoute = backStack?.destination?.route
     LaunchedEffect(currentRoute) {
         currentRoute?.let { route ->
@@ -193,11 +211,7 @@ fun MainContainerScreen() {
             }
         }
     }
-    fun smartBack() {
-        if (drawerState.isOpen) {
-            closeDrawer()
-            return
-        }
+    fun proceedSmartBack() {
         if (innerNav.popBackStack()) return
         val cur = innerNav.currentDestination?.route
         while (visitHistory.isNotEmpty() && visitHistory.last() == cur) {
@@ -211,16 +225,48 @@ fun MainContainerScreen() {
         } else {
             val now = System.currentTimeMillis()
             if (now - lastBackPress < 2_000) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 (context as? Activity)?.finish()
             } else {
                 lastBackPress = now
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.common_back_exit),
-                    Toast.LENGTH_SHORT,
-                ).show()
+                scope.launch {
+                    val result = snack.showSnackbar(
+                        message = context.getString(R.string.common_back_exit),
+                        actionLabel = context.getString(R.string.exit_now),
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        (context as? Activity)?.finish()
+                    }
+                }
             }
         }
+    }
+    fun smartBack() {
+        if (drawerState.isOpen) {
+            closeDrawer()
+            return
+        }
+        val cur = innerNav.currentDestination?.route
+        // Trip guard: leaving the live route with an active trip never
+        // happens silently — background, stop, or stay.
+        if (cur?.startsWith(Screen.TripRoute.route) == true && liveTrip != null) {
+            showTripGuard = true
+            return
+        }
+        val now = System.currentTimeMillis()
+        // Elderly debounce: presses <300ms apart are accidental.
+        if (now - lastBackTap < 300) return
+        val isDouble = now - lastBackTap < 700
+        lastBackTap = now
+        // Double-tap (non-Home): recent-screens sheet instead of a
+        // second blind jump. Home keeps double-press-to-exit.
+        if (isDouble && cur != Screen.Home.route) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            showHistory = true
+            return
+        }
+        BackAnalytics.logBack(cur)
+        proceedSmartBack()
     }
 
     fun shareApp() {
@@ -265,6 +311,7 @@ fun MainContainerScreen() {
     // (Per-screen headers live inside the NavHost content, so the scrim
     // still dims them while open — tap there closes the drawer per M3.)
     Scaffold(
+        snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
             // Unified footer — labels + selected pill + center start-trip FAB.
             // Full-screen Map matches no tab; fall back to Home so the pill
@@ -489,6 +536,101 @@ fun MainContainerScreen() {
                 }
             }
         }
+    }
+    // Trip guard sheet: an active trip never dies silently on back.
+    if (showTripGuard) {
+        ModalBottomSheet(
+            onDismissRequest = { showTripGuard = false },
+        ) {
+            DrawerSectionTitle(text = stringResource(R.string.trip_guard_title))
+            Text(
+                text = stringResource(R.string.trip_guard_msg),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            androidx.compose.material3.Button(
+                onClick = {
+                    showTripGuard = false
+                    proceedSmartBack()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(56.dp),
+            ) {
+                Text(stringResource(R.string.trip_guard_background))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedButton(
+                onClick = {
+                    TripStarter.stopTrip(context)
+                    showTripGuard = false
+                    proceedSmartBack()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(56.dp),
+            ) {
+                Text(stringResource(R.string.trip_guard_stop))
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+    // Recent-screens sheet: double-tap back jumps anywhere in history.
+    if (showHistory) {
+        ModalBottomSheet(
+            onDismissRequest = { showHistory = false },
+        ) {
+            DrawerSectionTitle(text = stringResource(R.string.history_title))
+            visitHistory.reversed().distinct().take(8).forEach { route ->
+                val info = recentInfo(route)
+                WasalnaDrawerItem(
+                    label = info.first,
+                    selected = route == currentRoute,
+                    onClick = {
+                        showHistory = false
+                        navigateTab(route)
+                    },
+                    icon = if (info.second == null) Icons.Filled.Diamond else null,
+                    iconRes = info.second,
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+/**
+ * Smart Back 2.0 measurement (user order Oct 2026): every back
+ * navigation is one logcat line — which screens users back out of most
+ * guides the next UX iteration. Local log, no tracking, no I/O.
+ */
+private object BackAnalytics {
+    fun logBack(route: String?) {
+        Log.d("SmartBack", "back from: $route")
+    }
+}
+
+/**
+ * Recent-screens sheet entry: human-readable label + drawer icon for a
+ * raw route (args stripped). Unknown routes show the raw string.
+ */
+@Composable
+private fun recentInfo(route: String): Pair<String, Int?> {
+    val base = route.substringBefore("?")
+    return when {
+        base == Screen.Home.route -> stringResource(R.string.nav_home) to R.drawable.ic_svg_home
+        base == Screen.MyPlaces.route -> stringResource(R.string.myplaces_title) to R.drawable.ic_svg_place
+        base == Screen.TripsHistory.route -> stringResource(R.string.trips_title) to R.drawable.ic_svg_history
+        base == Screen.Settings.route -> stringResource(R.string.settings_title) to R.drawable.ic_svg_settings
+        base == Screen.Paywall.route -> stringResource(R.string.paywall_title) to null
+        base == Screen.OfflineMaps.route -> stringResource(R.string.offline_title) to R.drawable.ic_svg_map
+        base == Screen.Map.route -> stringResource(R.string.map_pick_title) to R.drawable.ic_svg_map
+        base.startsWith(Screen.TripRoute.route) -> stringResource(R.string.trips_title) to R.drawable.ic_svg_history
+        else -> route to R.drawable.ic_svg_menu
     }
 }
 

@@ -551,6 +551,15 @@
     <string name="drawer_section_general">General</string>
     <string name="drawer_section_more">More</string>
     <string name="common_back_exit">Press back again to exit</string>
+    <string name="exit_now">Exit</string>
+    <string name="trip_guard_title">Trip is running</string>
+    <string name="trip_guard_msg">Leave this screen? Tracking keeps running in the background.</string>
+    <string name="trip_guard_background">Keep running</string>
+    <string name="trip_guard_stop">Stop trip</string>
+    <string name="quick_discard_title">Discard changes?</string>
+    <string name="quick_discard_msg">You have unsaved changes — going back will lose them.</string>
+    <string name="quick_discard_confirm">Discard</string>
+    <string name="history_title">Recent screens</string>
     <string name="tracking_paused_title">Paused — %1$s</string>
     <string name="tracking_heading_title">Heading to: %1$s</string>
     <string name="tracking_paused_body">Trip paused — tap Resume to continue</string>

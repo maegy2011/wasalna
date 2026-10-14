@@ -269,6 +269,18 @@ fun QuickPlaceEditDialog(
     // يوجد نقطة من قبل = مسح لها — يُطلب التأكيد أولًا (امسح).
     var showClearConfirm by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    // Smart Back 2.0 draft guard (user order Oct 2026): system/dialog
+    // back with unsaved edits asks first — typed coords are never lost
+    // silently. Clean dialogs dismiss immediately, no friction.
+    var showDiscardConfirm by remember { mutableStateOf(false) }
+    val isDirty = address != initialAddress ||
+        latText != (initialLat?.toString() ?: "") ||
+        lngText != (initialLng?.toString() ?: "") ||
+        (initialName != null && name != initialName)
+    fun requestDismiss() {
+        if (isDirty) showDiscardConfirm = true
+        else onDismiss()
+    }
     fun persist(lat: Double?, lng: Double?) {
         val saver = onSaveNamed
         if (saver != null && initialName != null) saver(name.trim(), lat, lng, address.trim())
@@ -297,6 +309,19 @@ fun QuickPlaceEditDialog(
             onDismiss = { showClearConfirm = false },
         )
     }
+    if (showDiscardConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.quick_discard_title),
+            message = stringResource(R.string.quick_discard_msg),
+            confirmLabel = stringResource(R.string.quick_discard_confirm),
+            isDestructive = true,
+            onConfirm = {
+                showDiscardConfirm = false
+                onDismiss()
+            },
+            onDismiss = { showDiscardConfirm = false },
+        )
+    }
     if (showDeleteConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.custom_delete_title, name.ifBlank { title }),
@@ -312,7 +337,7 @@ fun QuickPlaceEditDialog(
         )
     }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = ::requestDismiss,
         title = { Text(stringResource(R.string.quick_set_title, title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -398,7 +423,7 @@ fun QuickPlaceEditDialog(
                         )
                     }
                 }
-                TextButton(onClick = onDismiss) {
+                TextButton(onClick = ::requestDismiss) {
                     Text(stringResource(R.string.common_cancel))
                 }
             }

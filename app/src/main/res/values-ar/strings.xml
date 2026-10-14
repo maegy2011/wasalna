@@ -551,6 +551,15 @@
     <string name="drawer_section_general">عام</string>
     <string name="drawer_section_more">المزيد</string>
     <string name="common_back_exit">اضغط رجوع مرة أخرى للخروج</string>
+    <string name="exit_now">خروج</string>
+    <string name="trip_guard_title">الرحلة شغالة</string>
+    <string name="trip_guard_msg">تسيب الشاشة؟ التتبع هيفضل شغال في الخلفية.</string>
+    <string name="trip_guard_background">كمّل في الخلفية</string>
+    <string name="trip_guard_stop">أوقف الرحلة</string>
+    <string name="quick_discard_title">تجاهل التعديلات؟</string>
+    <string name="quick_discard_msg">عندك تعديلات غير محفوظة — الرجوع هيضيّعها.</string>
+    <string name="quick_discard_confirm">تجاهل</string>
+    <string name="history_title">الشاشات الأخيرة</string>
     <string name="tracking_paused_title">متوقف مؤقتًا — %1$s</string>
     <string name="tracking_heading_title">متجه إلى: %1$s</string>
     <string name="tracking_paused_body">الرحلة متوقفة — انقر استئناف للمتابعة</string>

@@ -71,6 +71,10 @@
 
     <application
         android:name=".WasalnaApp"
+        <!-- Smart Back 2.0 (user order Oct 2026): predictive back preview
+             on Android 14+ — the system animates to the previous screen
+             while swiping. Below 14 the in-app SmartBack is the fallback. -->
+        android:enableOnBackInvokedCallback="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/backup_rules"
         android:fullBackupContent="@xml/backup_rules_legacy"
