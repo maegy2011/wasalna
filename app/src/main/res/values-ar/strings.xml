@@ -530,6 +530,15 @@
     <string name="trip_failsafe_offline">أوفلاين — الاعتماد على خط GPS المباشر</string>
     <string name="trip_end">إنهاء الرحلة</string>
     <string name="trip_share_image">🖼️ مشاركة كصورة</string>
+    <string name="past_origin">من</string>
+    <string name="past_destination">إلى</string>
+    <string name="past_start_time">وقت البدء</string>
+    <string name="past_end_time">وقت الوصول</string>
+    <string name="past_duration">المدة</string>
+    <string name="past_distance">المسافة</string>
+    <string name="past_avg_speed">متوسط السرعة</string>
+    <string name="past_avg_speed_value">%1$s كم/س</string>
+    <string name="past_origin_coords">%1$s، %2$s</string>
     <string name="trip_share_image_failed">تعذر إنشاء الصورة — حاول مجددًا</string>
     <string name="trip_card_app_name">وصلنا؟ — لا تفوّت محطتك أبدًا</string>
     <string name="trip_card_date_label">التاريخ</string>

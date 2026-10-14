@@ -75,6 +75,13 @@ fun tripCardDate(now: Long = System.currentTimeMillis()): String {
     }.getOrDefault("")
 }
 
+/** "10 Oct 2026, 14:35" style date+time for past-trip summaries. */
+fun tripCardTime(now: Long): String {
+    return runCatching {
+        SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()).format(Date(now))
+    }.getOrDefault("")
+}
+
 /** Straight-line km between two points (haversine) — pure math, no I/O. */
 fun haversineKm(
     lat1: Double,

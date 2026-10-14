@@ -4,12 +4,16 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.wasalna.data.local.entity.TripStatus
 import com.app.wasalna.domain.model.RoutePoint
 import com.app.wasalna.domain.model.TransportMode
 import com.app.wasalna.domain.model.TripHistory
+import com.app.wasalna.domain.repository.LocationRepository
 import com.app.wasalna.domain.repository.SettingsRepository
 import com.app.wasalna.domain.repository.TripRepository
+import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.data.repository.OSRMRepository
+import kotlinx.coroutines.flow.first
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +36,8 @@ class TripRouteViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val tripRepository: TripRepository,
     private val settingsRepository: SettingsRepository,
+    private val locationRepository: LocationRepository,
+    private val nominatim: NominatimRepository,
     private val osrm: OSRMRepository,
     private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
     private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
@@ -58,6 +64,27 @@ class TripRouteViewModel @Inject constructor(
             initialValue = false,
         )
 
+    /**
+     * Past-trip summary (user order Oct 2026): shown when browsing a
+     * finished trip — recorded stats + resolved origin name (a saved
+     * place name when the origin matches one, else the real reverse-
+     * geocoded name, else null and the UI falls back to raw coords).
+     */
+    data class PastTripSummary(
+        val originName: String?,
+        val destName: String,
+        val startTime: Long,
+        val endTime: Long?,
+        val distanceKm: Double,
+        val durationMin: Long?,
+        val avgKmh: Double?,
+    )
+
+    private val _pastSummary = MutableStateFlow<PastTripSummary?>(null)
+    val pastSummary: StateFlow<PastTripSummary?> = _pastSummary.asStateFlow()
+    private var geocodedTripId: Long = -1L
+    private var geocodedName: String? = null
+
     // Planned route (user order Oct 2026): origin → destination road
     // polyline drawn UNDER the travelled breadcrumb trail. Road modes +
     // generic TRANSIT ride the OSRM corridor (offline engine fallback,
@@ -74,8 +101,17 @@ class TripRouteViewModel @Inject constructor(
         }
         viewModelScope.launch {
             combine(_trip, points, transportMode) { trip, pts, mode ->
-                Triple(trip, pts.firstOrNull(), mode)
-            }.collect { (trip, origin, mode) ->
+                Triple(trip, pts, mode)
+            }.collect { (trip, pts, mode) ->
+                val origin = pts.firstOrNull()
+                // Past-trip summary resolves alongside the map data.
+                if (trip != null && trip.status == TripStatus.PAST) {
+                    _pastSummary.value = runCatching {
+                        buildPastSummary(trip, pts)
+                    }.getOrNull()
+                } else if (_pastSummary.value != null) {
+                    _pastSummary.value = null
+                }
                 planJob?.cancel()
                 if (trip == null || origin == null || mode.isTransit && mode != TransportMode.TRANSIT) {
                     _plannedRoute.value = null
@@ -91,6 +127,60 @@ class TripRouteViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private suspend fun buildPastSummary(
+        trip: TripHistory,
+        pts: List<RoutePoint>,
+    ): PastTripSummary {
+        val distanceKm = pts.zipWithNext { a, b ->
+            haversineKm(a.lat, a.lng, b.lat, b.lng)
+        }.sum()
+        val durationMin = trip.endTime?.let { (it - trip.startTime) / 60_000L }
+            ?.takeIf { it >= 0 }
+        val avgKmh = if (durationMin != null && durationMin > 0) {
+            distanceKm / (durationMin / 60.0)
+        } else {
+            null
+        }
+        val origin = pts.firstOrNull()
+        val originName = if (origin != null) {
+            resolveOriginName(trip.id, origin.lat, origin.lng)
+        } else {
+            null
+        }
+        return PastTripSummary(
+            originName = originName,
+            destName = trip.locationName,
+            startTime = trip.startTime,
+            endTime = trip.endTime,
+            distanceKm = distanceKm,
+            durationMin = durationMin,
+            avgKmh = avgKmh,
+        )
+    }
+
+    /** Saved-place name → real reverse-geocoded name → null (coords). */
+    private suspend fun resolveOriginName(
+        tripId: Long,
+        lat: Double,
+        lng: Double,
+    ): String? {
+        val saved = runCatching {
+            locationRepository.getAllLocations().first()
+        }.getOrNull().orEmpty()
+        saved.minByOrNull { haversineKm(lat, lng, it.latitude, it.longitude) }
+            ?.takeIf { haversineKm(lat, lng, it.latitude, it.longitude) < 0.15 }
+            ?.let {
+                return it.name
+            }
+        // One reverse-geocode per trip (cached while browsing it).
+        if (geocodedTripId == tripId) return geocodedName
+        val real = runCatching { nominatim.reverseGeocode(lat, lng) }
+            .getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        geocodedTripId = tripId
+        geocodedName = real
+        return real
     }
 
     private suspend fun fetchPlannedRoute(

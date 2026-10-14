@@ -537,6 +537,15 @@
     <string name="trip_failsafe_offline">Offline — GPS straight-line fallback</string>
     <string name="trip_end">End trip</string>
     <string name="trip_share_image">🖼️ Share as image</string>
+    <string name="past_origin">From</string>
+    <string name="past_destination">To</string>
+    <string name="past_start_time">Started</string>
+    <string name="past_end_time">Arrived</string>
+    <string name="past_duration">Duration</string>
+    <string name="past_distance">Distance</string>
+    <string name="past_avg_speed">Avg speed</string>
+    <string name="past_avg_speed_value">%1$s km/h</string>
+    <string name="past_origin_coords">%1$s, %2$s</string>
     <string name="trip_share_image_failed">Couldn\'t create the image — try again</string>
     <string name="trip_card_app_name">Wasalna? — never miss your stop</string>
     <string name="trip_card_date_label">Date</string>

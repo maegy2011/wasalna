@@ -101,6 +101,8 @@ fun TripRouteScreen(
     val points by viewModel.points.collectAsState()
     // Planned origin → destination corridor (drawn under the trail).
     val plannedRoute by viewModel.plannedRouteGeoJson.collectAsState()
+    // Past-trip recorded summary (null while the trip is still active).
+    val pastSummary by viewModel.pastSummary.collectAsState()
     // User order Oct 2026: trip sharing is First Class.
     val isPremium by viewModel.isPremium.collectAsState()
     // VEHICLE (user order Oct 2026): mid-trip switch — persists live;
@@ -250,6 +252,7 @@ fun TripRouteScreen(
             // Kept: destination name, status, ETA, breadcrumb count,
             // dynamic destination share sheet entry point.
             trip?.let { t ->
+                val isPast = t.status == com.app.wasalna.data.local.entity.TripStatus.PAST
                 val lastPoint = points.lastOrNull()
                 val travelledKm = points.zipWithNext { a, b ->
                     haversineKm(a.lat, a.lng, b.lat, b.lng)
@@ -316,6 +319,22 @@ fun TripRouteScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
+                        // Past browsing (user order Oct 2026): recorded summary
+                        // replaces the live tiles + progress + mode line.
+                        val past = pastSummary
+                        if (isPast && past != null) {
+                            PastSummaryBlock(
+                                summary = past,
+                                originFallback = points.firstOrNull()?.let {
+                                    String.format(
+                                        java.util.Locale.US,
+                                        "%.4f, %.4f",
+                                        it.lat,
+                                        it.lng,
+                                    )
+                                } ?: "—",
+                            )
+                        } else {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -369,6 +388,7 @@ fun TripRouteScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        }
                         // Transit design system (Oct 2026): vertical route
                         // timeline with green progress + vehicle icon.
                         if (points.size >= 2) {
@@ -400,6 +420,7 @@ fun TripRouteScreen(
                         // 48dp+ chips, 8dp spacing, RTL-safe. Persists to
                         // DataStore; TrackingService picks it up live and
                         // recomputes the route (next OSRM fetch, new profile).
+                        if (!isPast) {
                         Text(
                             text = stringResource(R.string.vehicle_title),
                             style = MaterialTheme.typography.labelLarge,
@@ -439,11 +460,12 @@ fun TripRouteScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        }
                         // TRANSIT mid-trip guide (Oct 2026, approximate):
                         // boarding = nearest station to the trip origin
                         // (first breadcrumb), alighting = nearest to the
                         // destination. Honesty label always attached.
-                        if (vehicle == TransportMode.TRANSIT) {
+                        if (!isPast && vehicle == TransportMode.TRANSIT) {
                             val dest = trip
                             if (dest != null) {
                                 val origin = points.firstOrNull()
@@ -482,7 +504,7 @@ fun TripRouteScreen(
                         // TRAIN, Oct 2026): TransitPlanner on embedded data
                         // (origin = first breadcrumb, else the destination).
                         // Walk legs in km; honesty label always attached.
-                        if (vehicle in TransportMode.staticTransitEntries) {
+                        if (!isPast && vehicle in TransportMode.staticTransitEntries) {
                             val dest = trip
                             if (dest != null) {
                                 val plan = remember(points, dest, vehicle) {
@@ -568,6 +590,8 @@ fun TripRouteScreen(
                         .padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    // Past browsing: no end-trip action (already finished).
+                    if (!isPast) {
                     Button(
                         onClick = { viewModel.finishTrip(context, onBack) },
                         modifier = Modifier
@@ -578,6 +602,7 @@ fun TripRouteScreen(
                             text = stringResource(R.string.trip_end),
                             style = MaterialTheme.typography.titleMedium,
                         )
+                    }
                     }
                     OutlinedButton(
                         onClick = {
@@ -682,6 +707,99 @@ private fun TripStatTile(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Past-trip recorded summary (user order Oct 2026): origin →
+ * destination names, start/arrival times, and the recorded stats
+ * (duration · distance · average speed) from the saved breadcrumbs.
+ */
+@Composable
+private fun PastSummaryBlock(
+    summary: TripRouteViewModel.PastTripSummary,
+    originFallback: String,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PastPlaceRow(
+            emoji = "🟢",
+            label = stringResource(R.string.past_origin),
+            value = summary.originName ?: originFallback,
+        )
+        PastPlaceRow(
+            emoji = "🔴",
+            label = stringResource(R.string.past_destination),
+            value = summary.destName,
+        )
+        PastPlaceRow(
+            emoji = "🕐",
+            label = stringResource(R.string.past_start_time),
+            value = tripCardTime(summary.startTime),
+        )
+        summary.endTime?.let { end ->
+            PastPlaceRow(
+                emoji = "🏁",
+                label = stringResource(R.string.past_end_time),
+                value = tripCardTime(end),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TripStatTile(
+                modifier = Modifier.weight(1f),
+                emoji = "⏱️",
+                value = summary.durationMin?.let {
+                    stringResource(R.string.trip_card_duration_min, "$it")
+                } ?: "—",
+                label = stringResource(R.string.past_duration),
+            )
+            TripStatTile(
+                modifier = Modifier.weight(1f),
+                emoji = "📏",
+                value = stringResource(
+                    R.string.trip_card_distance_km,
+                    String.format(java.util.Locale.US, "%.1f", summary.distanceKm),
+                ),
+                label = stringResource(R.string.past_distance),
+            )
+            TripStatTile(
+                modifier = Modifier.weight(1f),
+                emoji = "🚀",
+                value = summary.avgKmh?.let {
+                    stringResource(
+                        R.string.past_avg_speed_value,
+                        String.format(java.util.Locale.US, "%.1f", it),
+                    )
+                } ?: "—",
+                label = stringResource(R.string.past_avg_speed),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PastPlaceRow(emoji: String, label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(text = emoji, style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
         )
     }
 }
