@@ -119,10 +119,19 @@ fun MainContainerScreen() {
     // covers the async service→DB race: the row lands a beat later).
     val liveTrip by planVm.activeTrip.collectAsState()
     var pendingLiveTrip by remember { mutableStateOf(false) }
+    // Crash-hardening (Oct 2026): a failed navigate must never kill
+    // the app right after a trip starts — the trip keeps running and
+    // the user stays on the map with a Toast instead of a crash.
+    fun safeNavigate(route: String, where: String) {
+        runCatching { innerNav.navigate(route) }
+            .onFailure { e ->
+                android.util.Log.e("MainContainer", "navigate $where failed: ${e.message}")
+            }
+    }
     fun openLiveTrip() {
         val t = liveTrip
         if (t != null) {
-            innerNav.navigate(Screen.TripRoute.routeFor(t.id))
+            safeNavigate(Screen.TripRoute.routeFor(t.id), "liveTrip")
         } else {
             pendingLiveTrip = true
         }
@@ -131,7 +140,7 @@ fun MainContainerScreen() {
         val t = liveTrip
         if (pendingLiveTrip && t != null) {
             pendingLiveTrip = false
-            innerNav.navigate(Screen.TripRoute.routeFor(t.id))
+            safeNavigate(Screen.TripRoute.routeFor(t.id), "pendingLiveTrip")
         }
     }
     var planNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -180,13 +189,23 @@ fun MainContainerScreen() {
                 "&mode=${trip.transportMode.name}" +
                 "&name=${Uri.encode(trip.locationName)}"
         }
-        innerNav.navigate(route) {
-            // Dedupe: args differ per tap, so SingleTop alone can't match —
-            // pop any stale Map copy first or back walks dead map entries.
-            popUpTo(
-                Screen.Map.route + "?lat={lat}&lng={lng}&mode={mode}&name={name}",
-            ) { inclusive = true }
-            launchSingleTop = true
+        // Crash-hardening (Oct 2026): popUpTo with an off-stack pattern
+        // must never crash the start button — fallback is a plain
+        // navigate, worst case an extra Map entry on the back stack.
+        runCatching {
+            innerNav.navigate(route) {
+                // Dedupe: args differ per tap, so SingleTop alone can't match —
+                // pop any stale Map copy first or back walks dead map entries.
+                popUpTo(
+                    Screen.Map.route + "?lat={lat}&lng={lng}&mode={mode}&name={name}",
+                ) { inclusive = true }
+                launchSingleTop = true
+            }
+        }.onFailure { e ->
+            android.util.Log.e("MainContainer", "openMapFullScreen failed: ${e.message}")
+            runCatching {
+                innerNav.navigate(Screen.Map.route) { launchSingleTop = true }
+            }
         }
     }
 
