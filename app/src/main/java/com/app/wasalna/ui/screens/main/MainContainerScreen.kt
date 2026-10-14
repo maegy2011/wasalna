@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -306,6 +308,22 @@ fun MainContainerScreen() {
                                 Text(
                                     text = successfulTrips.toString(),
                                     style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        },
+                    )
+                    WasalnaDrawerItem(
+                        label = stringResource(R.string.paywall_title),
+                        selected = isSelected(Screen.Paywall.route),
+                        onClick = { closeDrawer(); navigateTab(Screen.Paywall.route) },
+                        icon = Icons.Filled.Diamond,
+                        badge = {
+                            if (!planPremium) {
+                                Text(
+                                    text = "⬆ " + stringResource(R.string.drawer_upgrade),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }

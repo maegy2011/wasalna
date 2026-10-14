@@ -484,6 +484,7 @@
     <string name="place_delete_desc">Delete place</string>
     <string name="region_delete_desc">Delete region</string>
     <string name="drawer_impact">Your Impact</string>
+    <string name="drawer_upgrade">Upgrade</string>
     <string name="drawer_rate">Rate</string>
     <string name="drawer_contact">Contact</string>
     <string name="drawer_share_title">Share Wasalna?</string>

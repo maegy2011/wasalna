@@ -477,6 +477,7 @@
     <string name="place_delete_desc">حذف المكان</string>
     <string name="region_delete_desc">حذف المنطقة</string>
     <string name="drawer_impact">أثرك</string>
+    <string name="drawer_upgrade">ترقية</string>
     <string name="drawer_rate">قيّم</string>
     <string name="drawer_contact">اتصل بنا</string>
     <string name="drawer_share_title">مشاركة وصلنا؟</string>

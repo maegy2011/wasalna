@@ -5,7 +5,6 @@ import com.app.wasalna.R
 
 import android.app.Activity
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,23 +19,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Diamond
-import androidx.compose.material.icons.filled.Headset
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Watch
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import com.app.wasalna.ui.components.WasalnaTopBar
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,20 +49,11 @@ import com.app.wasalna.utils.trialRemainingText
 import kotlinx.coroutines.delay
 
 /**
- * Phase 10.13: First Class paywall — marketing upgrade.
+ * First Class paywall — simplified (user order Oct 2026).
  *
- * - Hero message (Arabic-first) + 3 real value props from the tree:
- *   watch-only alert, headphone-only alert, First Class perks
- *   (unlimited places · zero ads · silent alarm · custom ringtone ·
- *   offline maps). No invented perks.
- * - Plan MODELS ([PaywallPlan]) mirror the BillingClient SUBS catalogue
- *   (wasalna_first_class_monthly / _yearly) as data + UI only, clearly
- *   marked experimental — no real charge code (purchase stays the
- *   7-day mock trial (monthly/yearly) or mock lifetime grant via
- *   [PaywallViewModel.simulatePurchase]).
- * - Elderly-friendly: headline-size hero, 56dp primary CTA (single),
- *   48dp+ plan rows, scrollable column for small phones.
- * - Premium gates (isPremium checks) untouched in behavior.
+ * One hero + one compact perks card + 3 tappable plan rows (radio-style,
+ * no inner buttons) + a single CTA. Same ViewModel behavior
+ * (trial countdown, expiry enforcement, billing init, mock purchase).
  */
 data class PaywallPlan(
     val id: String,
@@ -79,7 +62,6 @@ data class PaywallPlan(
     val priceRes: Int,
     val descRes: Int,
     val badgeRes: Int? = null,
-    val experimental: Boolean = true,
     // User order Oct 2026: lifetime has no trial — one payment, forever.
     val showTrialBadge: Boolean = true,
 )
@@ -119,11 +101,9 @@ fun PaywallScreen(
     val context = LocalContext.current
     val isPremium by viewModel.isPremium.collectAsState()
     val trialEnd by viewModel.trialEnd.collectAsState()
-    val accountName by viewModel.accountDisplayName.collectAsState()
     var selectedPlan by remember { mutableStateOf("yearly") }
     var trialNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(isPremium) {
-        // Phase 10.4.1: keep the trial countdown fresh + enforce expiry.
         viewModel.enforceExpiry()
         while (isPremium) {
             delay(60_000)
@@ -144,191 +124,128 @@ fun PaywallScreen(
             )
         },
     ) { padding ->
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            Icons.Filled.Diamond,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        // Hero: big type for elderly readers, centered, Arabic-first copy.
-        Text(
-            text = stringResource(R.string.paywall_hero_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.paywall_hero_sub),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = if (isPremium) stringResource(R.string.paywall_active_sub) else stringResource(R.string.paywall_sub),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center,
-        )
-        // Phase 10.4.1: live trial countdown under the plan header.
-        if (isPremium) {
-            trialRemainingText(trialEnd, trialNow)?.let { remaining ->
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.paywall_trial_remaining, remaining),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        // Phase 10.13-exp: who is browsing (local account or guest).
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
-                Icons.Filled.Person,
+                Icons.Filled.Diamond,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp),
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = if (accountName.isBlank()) {
-                    stringResource(R.string.paywall_account_guest)
-                } else {
-                    stringResource(R.string.paywall_account_signed_as, accountName)
-                },
+                text = stringResource(R.string.paywall_hero_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.paywall_hero_sub),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Real value props from the tree — watch-only, headphone-only,
-        // then the First Class bundle. No invented perks.
-        ValuePropCard(
-            icon = Icons.Filled.Watch,
-            title = stringResource(R.string.paywall_value_watch_title),
-            desc = stringResource(R.string.paywall_value_watch_desc),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        ValuePropCard(
-            icon = Icons.Filled.Headset,
-            title = stringResource(R.string.paywall_value_headphone_title),
-            desc = stringResource(R.string.paywall_value_headphone_desc),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        ValuePropCard(
-            icon = Icons.Filled.Diamond,
-            title = stringResource(R.string.paywall_value_perks_title),
-            desc = stringResource(R.string.paywall_value_perks_desc),
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-        BenefitRow(stringResource(R.string.paywall_benefit_ads))
-        BenefitRow(stringResource(R.string.paywall_benefit_places))
-        BenefitRow(stringResource(R.string.paywall_benefit_silent))
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        PAYWALL_PLANS.forEach { plan ->
-            PlanCard(
-                title = stringResource(plan.titleRes),
-                price = stringResource(plan.priceRes),
-                desc = stringResource(plan.descRes),
-                badge = plan.badgeRes?.let { stringResource(it) },
-                trialBadge = if (plan.showTrialBadge) {
-                    stringResource(R.string.paywall_trial_badge)
-                } else {
-                    null
-                },
-                selected = selectedPlan == plan.id,
-                onSelect = { selectedPlan = plan.id },
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Single primary CTA — 56dp tall, headline-size label.
-        Button(
-            onClick = {
-                viewModel.simulatePurchase(selectedPlan)
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.paywall_welcome_toast),
-                    Toast.LENGTH_LONG,
-                ).show()
-            },
-            enabled = !isPremium,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-        ) {
-            Text(
-                text = if (isPremium) {
-                    stringResource(R.string.paywall_cta_active)
-                } else if (selectedPlan == "lifetime") {
-                    stringResource(R.string.paywall_cta_lifetime)
-                } else {
-                    stringResource(R.string.paywall_cta_start)
-                },
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-        if (!isPremium) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.paywall_experimental_billing),
-                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-        }
-    }
-    }
-}
-
-@Composable
-private fun ValuePropCard(
-    icon: ImageVector,
-    title: String,
-    desc: String,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = if (isPremium) {
+                    stringResource(R.string.paywall_active_sub)
+                } else {
+                    stringResource(R.string.paywall_sub)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+            if (isPremium) {
+                trialRemainingText(trialEnd, trialNow)?.let { remaining ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.paywall_trial_remaining, remaining),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Everything First Class unlocks — one compact card.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(R.string.paywall_value_perks_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PerkLine(stringResource(R.string.paywall_benefit_ads))
+                    PerkLine(stringResource(R.string.paywall_benefit_places))
+                    PerkLine(stringResource(R.string.paywall_benefit_silent))
+                    PerkLine(stringResource(R.string.paywall_value_perks_desc))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            PAYWALL_PLANS.forEach { plan ->
+                PlanRow(
+                    title = stringResource(plan.titleRes),
+                    price = stringResource(plan.priceRes),
+                    desc = stringResource(plan.descRes),
+                    badge = plan.badgeRes?.let { stringResource(it) },
+                    trialBadge = if (plan.showTrialBadge && !isPremium) {
+                        stringResource(R.string.paywall_trial_badge)
+                    } else {
+                        null
+                    },
+                    selected = selectedPlan == plan.id,
+                    onSelect = { selectedPlan = plan.id },
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    viewModel.simulatePurchase(selectedPlan)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.paywall_welcome_toast),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                },
+                enabled = !isPremium,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            ) {
                 Text(
-                    text = desc,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = if (isPremium) {
+                        stringResource(R.string.paywall_cta_active)
+                    } else if (selectedPlan == "lifetime") {
+                        stringResource(R.string.paywall_cta_lifetime)
+                    } else {
+                        stringResource(R.string.paywall_cta_start)
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            if (!isPremium) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.paywall_experimental_billing),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
@@ -336,11 +253,10 @@ private fun ValuePropCard(
 }
 
 @Composable
-private fun BenefitRow(text: String) {
+private fun PerkLine(text: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start,
     ) {
         Icon(
             Icons.Filled.Check,
@@ -348,12 +264,12 @@ private fun BenefitRow(text: String) {
             tint = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        Text(text = text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
-private fun PlanCard(
+private fun PlanRow(
     title: String,
     price: String,
     desc: String,
@@ -364,7 +280,7 @@ private fun PlanCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 6.dp else 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 6.dp else 1.dp),
         colors = if (selected) {
             CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         } else {
@@ -373,42 +289,36 @@ private fun PlanCard(
         onClick = onSelect,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp).heightIn(min = 48.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            Icon(
+                if (selected) {
+                    Icons.Filled.RadioButtonChecked
+                } else {
+                    Icons.Filled.RadioButtonUnchecked
+                },
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = title, style = MaterialTheme.typography.titleLarge)
-                    if (badge != null) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(badge) },
-                        )
-                    }
-                }
+                Text(
+                    text = if (badge != null) "$title • $badge" else title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
                 Text(
                     text = price,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = desc,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = if (trialBadge != null) "$desc • $trialBadge" else desc,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (trialBadge != null) {
-                    Text(
-                        text = trialBadge,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            OutlinedButton(onClick = onSelect) {
-                Text(if (selected) stringResource(R.string.common_selected) else stringResource(R.string.common_select))
             }
         }
     }
