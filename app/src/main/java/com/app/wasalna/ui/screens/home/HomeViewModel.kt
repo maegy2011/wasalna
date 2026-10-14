@@ -86,20 +86,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Home first-run wizard (mini scope): shown only while unseen AND
-    // there are no saved places yet. Finish/skip persists the flag.
-    val isWizardSeen: StateFlow<Boolean> =
-        settingsRepository.isWizardSeen
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    fun markWizardSeen() {
-        viewModelScope.launch {
-            runCatching { settingsRepository.setWizardSeen(true) }
-                .onFailure { Log.e(TAG, "persist wizard seen failed: ${it.message}") }
-        }
-    }
-
-    // Wizard step 3: alarm lead time (shared Settings default).
+    // Alarm lead time (shared Settings default).
     val alarmLeadTimeMinutes: StateFlow<Int> = settingsRepository.alarmLeadTimeMinutes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 5)
 
@@ -109,14 +96,6 @@ class HomeViewModel @Inject constructor(
                 .onFailure { Log.e(TAG, "persist lead time failed: ${it.message}") }
         }
     }
-
-    /** Wizard step 4: saves the picked destination, returns false on failure. */
-    suspend fun savePlace(name: String, lat: Double, lng: Double): Boolean =
-        runCatching {
-            locationRepository.addLocation(Location(name = name, latitude = lat, longitude = lng))
-            true
-        }.onFailure { Log.e(TAG, "wizard savePlace failed: ${it.message}") }
-            .getOrDefault(false)
 
     // DYNAMIC WAKE-UP (التنبيه المرتبط بالزحام): DISTANCE (legacy default)
     // vs TIME (minutes-before-arrival) — chosen in the trip-setup dialog.
