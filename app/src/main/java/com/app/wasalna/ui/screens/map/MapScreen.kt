@@ -170,6 +170,9 @@ fun MapScreen(
     val selectedName by viewModel.selectedName.collectAsState()
     val selectedAddress by viewModel.selectedAddress.collectAsState()
     val selectedLatLng by viewModel.selectedLatLng.collectAsState()
+    // Default map location (user order Oct 2026): live GPS fix — the
+    // camera falls back to it when no destination is selected.
+    val defaultCamera by viewModel.defaultCamera.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val transportMode by viewModel.transportMode.collectAsState()
@@ -1303,12 +1306,16 @@ private fun MapLibreMapView(
                     iconAllowOverlap = true
                 }
                 refreshMarker(selectedLatLng, viaPoints)
+                // Default map location (user order Oct 2026): selection →
+                // live GPS fix → Cairo last resort.
                 val initial = selectedLatLng?.let {
+                    MapLibreLatLng(it.latitude, it.longitude)
+                } ?: defaultCamera?.let {
                     MapLibreLatLng(it.latitude, it.longitude)
                 } ?: DefaultCairoLibre
                 map.cameraPosition = MapLibreCameraPosition.Builder()
                     .target(initial)
-                    .zoom(if (selectedLatLng != null) 15.0 else 12.0)
+                    .zoom(if (selectedLatLng != null || defaultCamera != null) 15.0 else 12.0)
                     .build()
                 lastCameraTarget = initial
             }
@@ -1395,7 +1402,11 @@ private fun MapLibreMapView(
                 )
             }
             refreshMarker(selectedLatLng, viaPoints)
+            // Default map location (user order Oct 2026): selection →
+            // live GPS fix → Cairo last resort.
             val target = selectedLatLng?.let {
+                MapLibreLatLng(it.latitude, it.longitude)
+            } ?: defaultCamera?.let {
                 MapLibreLatLng(it.latitude, it.longitude)
             } ?: DefaultCairoLibre
             // Map UX fixes: zoom selector drives the camera. Selection

@@ -507,6 +507,24 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Default map location (user order Oct 2026): the live GPS fix —
+     * resolved once per screen entry at init. The map camera falls back
+     * to it whenever no destination is selected, so the Cairo pin is
+     * only the last resort (no fix/permission). Never throws.
+     */
+    private val _defaultCamera = MutableStateFlow<LatLng?>(null)
+    val defaultCamera: StateFlow<LatLng?> = _defaultCamera.asStateFlow()
+
+    fun resolveDefaultCamera() {
+        if (_defaultCamera.value != null) return
+        viewModelScope.launch {
+            currentFix()?.let { fix ->
+                _defaultCamera.value = LatLng(fix.latitude, fix.longitude)
+            }
+        }
+    }
+
     private val _etaMinutes = MutableStateFlow<Int?>(null)
     val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
 
@@ -646,6 +664,9 @@ class MapViewModel @Inject constructor(
         // Map layers (Oct 2026): restore persisted transit/AQI toggles +
         // WAQI token on launch (AQI restores only with a token present).
         refreshLayerPrefs()
+        // Default map location (user order Oct 2026): live GPS fix —
+        // the camera opens on it instead of the Cairo fallback.
+        resolveDefaultCamera()
         // True offline mode: react to the flag itself (collecting
         // isOfflineMode guarantees the guard reads below see the fresh
         // value). Offline ON stops all traffic network work; back online
