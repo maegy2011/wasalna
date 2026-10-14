@@ -158,22 +158,6 @@ fun MyPlacesScreen(
     val customShortcuts by viewModel.customShortcuts.collectAsState()
     var customEditTarget by remember { mutableStateOf<CustomShortcut?>(null) }
     var showCustomAdd by remember { mutableStateOf(false) }
-    fun startCustomTrip(shortcut: CustomShortcut) {
-        if (shortcut.lat == null || shortcut.lng == null) {
-            customEditTarget = shortcut
-            scope.launch {
-                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_set_first))
-            }
-            return
-        }
-        requestTrip(
-            Location(
-                name = shortcut.name.ifBlank { shortcut.address.ifBlank { context.getString(R.string.quick_trip_fallback) } },
-                latitude = shortcut.lat,
-                longitude = shortcut.lng,
-            ),
-        )
-    }
     // Phase 10.8.0b: SAF backup launchers (no permissions needed).
     var pendingExport by remember { mutableStateOf<String?>(null) }
     val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -272,6 +256,24 @@ fun MyPlacesScreen(
         }
         pendingTrip = place
         showAlarmSetup = true
+    }
+    // Premium custom shortcuts: tap starts a quick trip (unset coords
+    // open the edit dialog instead — mirrors startQuickTrip).
+    fun startCustomTrip(shortcut: CustomShortcut) {
+        if (shortcut.lat == null || shortcut.lng == null) {
+            customEditTarget = shortcut
+            scope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.myplaces_set_first))
+            }
+            return
+        }
+        requestTrip(
+            Location(
+                name = shortcut.name.ifBlank { shortcut.address.ifBlank { context.getString(R.string.quick_trip_fallback) } },
+                latitude = shortcut.lat,
+                longitude = shortcut.lng,
+            ),
+        )
     }
     fun startQuickTrip(lat: Double?, lng: Double?, address: String) {
         if (lat == null || lng == null) {
