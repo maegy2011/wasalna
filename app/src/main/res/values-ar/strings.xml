@@ -341,6 +341,7 @@
     <string name="alarm_notif_open_hint">انقر للفتح أو أوقف من ساعتك</string>
     <string name="map_pick_title">اختيار الوجهة</string>
     <string name="map_search_hint">ابحث عن وجهة</string>
+    <string name="map_fixed_hint">ابحث بالأعلى أو انقر على الخريطة…</string>
     <string name="map_clear_search">مسح البحث</string>
     <string name="map_my_location">موقعي</string>
     <string name="map_zoom_in">تكبير</string>

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Traffic
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -525,6 +526,22 @@ fun MapScreen(
                                 homeWorkSheetPoint = latLng
                             }
                         },
+                    )
+                    // Fixed map hint (user order Oct 2026): static pill,
+                    // top-center, always visible over the map — never moves,
+                    // never disappears (independent of selection/sheets).
+                    Text(
+                        text = stringResource(R.string.map_fixed_hint),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 12.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f),
+                                RoundedCornerShape(20.dp),
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                     // Via stops row (Oct 2026, offline edit): one chip per
                     // stop (tap ✕ removes) + clear-all. Top-start so it

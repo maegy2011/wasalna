@@ -346,6 +346,7 @@
     <string name="alarm_notif_open_hint">Tap to open, or stop from your watch</string>
     <string name="map_pick_title">Pick Destination</string>
     <string name="map_search_hint">Search destination</string>
+    <string name="map_fixed_hint">Search above or tap the map…</string>
     <string name="map_clear_search">Clear search</string>
     <string name="map_my_location">My location</string>
     <string name="map_zoom_in">Zoom in</string>
