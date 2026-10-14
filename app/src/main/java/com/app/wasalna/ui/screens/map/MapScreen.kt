@@ -601,16 +601,19 @@ fun MapScreen(
                             }
                         }
                     }
-                    // Phase 10.4.3.1: My Location FAB (bottom-start, clear of
-                    // the action FABs) — centers the camera on the live fix.
+                    // Capture-current-location (user order Oct 2026): one
+                    // tap centers the camera on the live fix AND selects it
+                    // as the destination (named via reverse-geocode), so the
+                    // Add/Save FAB appears — the map path for saving
+                    // home/work/custom places with no manual tapping.
                     SmallFloatingActionButton(
-                        onClick = { viewModel.recenterToMyLocation() },
+                        onClick = { viewModel.selectMyLocationAsDestination() },
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(16.dp),
                         containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.75f),
                     ) {
-                        Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.map_my_location))
+                        Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.map_capture_desc))
                     }
                     // REDESIGN: map takes the full stage; FABs grouped
                     // bottom-end with 8dp spacing; restyled address card

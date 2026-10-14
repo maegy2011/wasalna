@@ -477,6 +477,36 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Capture-current-location (user order Oct 2026): drops the current
+     * GPS fix as the selected destination (reverse-geocoded name, camera
+     * recenter included) so the Add/Save FAB appears with no manual tap
+     * — the map path for saving home/work/custom places. Emits a
+     * localized event when no fix is available. Never throws.
+     */
+    fun selectMyLocationAsDestination() {
+        viewModelScope.launch {
+            val fix = currentFix()
+            if (fix == null) {
+                _events.emit(msg(R.string.map_no_fix))
+                return@launch
+            }
+            val latLng = LatLng(fix.latitude, fix.longitude)
+            _selectedLatLng.value = latLng
+            _recenterTarget.value = latLng
+            // ── OFFLINE BOUNDARY: no Nominatim reverse-geocode when offline.
+            val address = if (isOfflineMode.value) {
+                fallbackName(fix.latitude, fix.longitude)
+            } else {
+                nominatim.reverseGeocode(fix.latitude, fix.longitude)
+                    ?: fallbackName(fix.latitude, fix.longitude)
+            }
+            _selectedAddress.value = address
+            _selectedName.value = address
+            _searchQuery.value = address
+        }
+    }
+
     private val _etaMinutes = MutableStateFlow<Int?>(null)
     val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
 
