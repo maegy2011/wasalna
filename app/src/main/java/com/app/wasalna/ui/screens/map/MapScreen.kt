@@ -5,9 +5,10 @@ import com.app.wasalna.R
 import com.app.wasalna.domain.model.displayName
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.foundation.layout.Arrangement
@@ -608,63 +609,76 @@ fun MapScreen(
                             }
                         },
                     )
-                    // Fixed map hint (user order Oct 2026): static pill,
-                    // top-center, always visible over the map — never moves,
-                    // never disappears (independent of selection/sheets).
-                    Text(
-                        text = stringResource(R.string.map_fixed_hint),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 12.dp)
-                            .background(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f),
-                                RoundedCornerShape(20.dp),
-                            )
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                    // Via stops row (Oct 2026, offline edit): one chip per
-                    // stop (tap ✕ removes) + clear-all. Top-start so it
-                    // never collides with the trip bottom sheet.
+                    // No-text map (user order Oct 2026): zero text over the
+                    // map surface. Via stops = one ✕ button per stop in
+                    // order + clear-all icon; no labels.
                     if (viaPoints.isNotEmpty()) {
-                        ViaStopsRow(
-                            stops = viaPoints,
-                            onRemove = { viewModel.removeViaPoint(it) },
-                            onClear = { viewModel.clearViaPoints() },
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .padding(12.dp),
-                        )
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            viaPoints.forEachIndexed { i, _ ->
+                                FilledTonalIconButton(
+                                    onClick = { viewModel.removeViaPoint(i) },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        contentDescription = stringResource(R.string.via_remove),
+                                    )
+                                }
+                            }
+                            FilledTonalIconButton(
+                                onClick = { viewModel.clearViaPoints() },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.ClearAll,
+                                    contentDescription = stringResource(R.string.via_clear),
+                                )
+                            }
+                        }
                     }
-                    if (selectedLatLng == null && predictions.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.map_empty_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(16.dp),
-                        )
-                    }
-                    // Info chips column (Oct 2026): AQI value + offline
-                    // readiness stacked under the fixed hint — never
-                    // overlapping, map stays fully visible.
-                    if (destinationAqi != null || offlineReadiness != null) {
-                        Column(
+                    // No-text map (user order Oct 2026): AQI = color dot
+                    // only; offline graph = download icon (progress ring
+                    // while fetching) only when a download is actually
+                    // needed — Ready and NoCoverage show nothing.
+                    destinationAqi?.let { aqi ->
+                        AqiDot(
+                            aqi = aqi,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(top = 60.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            destinationAqi?.let { aqi -> AqiValueChip(aqi = aqi) }
-                            offlineReadiness?.let { readiness ->
-                                OfflineReadinessChip(
-                                    readiness = readiness,
-                                    downloadingId = graphDownloadingId,
-                                    progress = graphDownloadProgress,
-                                    onDownload = { viewModel.downloadOfflineGraph(it) },
+                                .padding(top = 12.dp),
+                        )
+                    }
+                    offlineReadiness?.let { readiness ->
+                        if (readiness is MapViewModel.OfflineReadiness.NeedDownload) {
+                            if (graphDownloadingId == readiness.regionId) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 12.dp)
+                                        .size(32.dp),
                                 )
+                            } else {
+                                FilledTonalIconButton(
+                                    onClick = { viewModel.downloadOfflineGraph(readiness.regionId) },
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 12.dp)
+                                        .size(48.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Download,
+                                        contentDescription = stringResource(
+                                            R.string.offline_graph_suggest,
+                                            readiness.regionName,
+                                            readiness.sizeMb,
+                                        ),
+                                    )
+                                }
                             }
                         }
                     }
@@ -693,21 +707,16 @@ fun MapScreen(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        addressLine?.let { line ->
-                            Card(
-                                onClick = {
-                                    tripSheetOpen = true
-                                },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        // No-text map (user order Oct 2026): the address card
+                        // becomes an icon button opening the same trip sheet.
+                        if (addressLine != null) {
+                            FilledTonalIconButton(
+                                onClick = { tripSheetOpen = true },
+                                modifier = Modifier.size(48.dp),
                             ) {
-                                Text(
-                                    text = line,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                Icon(
+                                    Icons.Filled.Route,
+                                    contentDescription = stringResource(R.string.map_selected_point),
                                 )
                             }
                         }
@@ -1671,129 +1680,7 @@ private fun LayerRow(
     }
 }
 
-/**
- * Offline readiness chip (Oct 2026 upgrade): route coverage state for
- * the picked destination — green static when an installed graph covers
- * origin→destination, one-tap amber download when the graph is known
- * but missing (live % while fetching), grey notice when uncharted.
- */
-@Composable
-private fun OfflineReadinessChip(
-    readiness: MapViewModel.OfflineReadiness,
-    downloadingId: String?,
-    progress: Int?,
-    onDownload: (String) -> Unit,
-) {
-    when (readiness) {
-        is MapViewModel.OfflineReadiness.Ready -> {
-            Text(
-                text = stringResource(R.string.offline_ready_chip),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(
-                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.92f),
-                    )
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
-        is MapViewModel.OfflineReadiness.NeedDownload -> {
-            if (downloadingId == readiness.regionId) {
-                Text(
-                    text = stringResource(
-                        R.string.offline_graph_downloading,
-                        progress ?: 0,
-                    ),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
-                        )
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.95f),
-                        )
-                        .clickable { onDownload(readiness.regionId) }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) {
-                    Text(
-                        text = "⬇ " + stringResource(
-                            R.string.offline_graph_suggest,
-                            readiness.regionName,
-                            readiness.sizeMb,
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-            }
-        }
-        is MapViewModel.OfflineReadiness.NoCoverage -> {
-            Text(
-                text = stringResource(R.string.offline_none_chip),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f),
-                    )
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
-    }
-}
 
-/**
- * Via stops row (Oct 2026, offline edit): one chip per stop (✕ removes
- * that leg) + a clear-all chip. Shown only while stops exist.
- * Material3, 48dp targets, RTL-safe, all strings resourced.
- */
-@Composable
-private fun ViaStopsRow(
-    stops: List<ViaPoint>,
-    onRemove: (Int) -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        itemsIndexed(stops, key = { i, s -> "$i|${s.lat}|${s.lng}" }) { i, _ ->
-            FilterChip(
-                selected = true,
-                onClick = { onRemove(i) },
-                label = {
-                    Text(stringResource(R.string.via_stop, i + 1))
-                },
-                trailingIcon = {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.via_remove),
-                    )
-                },
-            )
-        }
-        item {
-            FilterChip(
-                selected = false,
-                onClick = onClear,
-                label = {
-                    Text(stringResource(R.string.via_clear))
-                },
-            )
-        }
-    }
-}
 
 /** Programmatic pin bitmap (white casing layer needs no image). */
 private const val VIA_IMAGE_ID = "via-marker"

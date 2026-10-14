@@ -116,30 +116,20 @@ fun AqiLegendCard(modifier: Modifier = Modifier) {
     }
 }
 
-/** Destination AQI chip — colored dot + value + band label. */
+/**
+ * Destination AQI dot (user order Oct 2026 — no text on the map):
+ * the band color only. The value + band label live in the layers
+ * sheet legend ([AqiLegendCard]), not over the map.
+ */
 @Composable
-fun AqiValueChip(aqi: Int, modifier: Modifier = Modifier) {
+fun AqiDot(aqi: Int, modifier: Modifier = Modifier) {
     val level = aqiLevelFor(aqi)
-    Row(
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(level.color),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "$aqi • ${stringResource(level.labelRes)}",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-        )
-    }
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(level.color),
+    )
 }
 
 internal fun ensureAqiLayer(style: Style?, on: Boolean, token: String) {
