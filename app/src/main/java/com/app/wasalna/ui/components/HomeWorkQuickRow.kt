@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Work
@@ -30,6 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -85,6 +87,7 @@ fun HomeWorkQuickRow(
             iconContentDescription = stringResource(R.string.quick_home_desc),
             onClick = onHomeClick,
             onLongClick = onHomeEdit,
+            onEditClick = onHomeEdit,
             modifier = Modifier.weight(1f),
         )
         QuickPlaceCard(
@@ -93,6 +96,7 @@ fun HomeWorkQuickRow(
             iconContentDescription = stringResource(R.string.quick_work_desc),
             onClick = onWorkClick,
             onLongClick = onWorkEdit,
+            onEditClick = onWorkEdit,
             modifier = Modifier.weight(1f),
             isWork = true,
         )
@@ -262,6 +266,7 @@ private fun QuickPlaceCard(
     iconContentDescription: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onEditClick: () -> Unit,
     modifier: Modifier = Modifier,
     isWork: Boolean = false,
 ) {
@@ -295,6 +300,20 @@ private fun QuickPlaceCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // Discoverable edit (user order Oct 2026): long-press still
+            // works, but most users never find it — this visible pencil
+            // opens the same set-location dialog in one obvious tap.
+            IconButton(
+                onClick = onEditClick,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = stringResource(R.string.quick_edit_place),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

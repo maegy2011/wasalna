@@ -252,6 +252,7 @@
     <string name="quick_clear_msg">You have a saved %1$s point — saving empty will clear it and you will need to enter it again.</string>
     <string name="quick_clear_confirm">Clear</string>
     <string name="quick_trip_fallback">Quick trip</string>
+    <string name="quick_edit_place">Edit location</string>
     <string name="quick_use_current">📍 Use current location</string>
     <string name="quick_locating">Locating…</string>
     <string name="quick_location_none">Couldn\'t get your location — make sure GPS is on and try again.</string>

@@ -258,6 +258,7 @@
     <string name="quick_clear_msg">لديك نقطة %1$s محفوظة — الحفظ فارغًا سيمسحها وستحتاج لإدخالها من جديد.</string>
     <string name="quick_clear_confirm">امسح</string>
     <string name="quick_trip_fallback">رحلة سريعة</string>
+    <string name="quick_edit_place">تعديل الموقع</string>
     <string name="quick_use_current">📍 استخدام موقعي الحالي</string>
     <string name="quick_locating">جارٍ تحديد الموقع…</string>
     <string name="quick_location_none">تعذّر الحصول على موقعك — تأكد من تشغيل GPS وحاول مجددًا.</string>
