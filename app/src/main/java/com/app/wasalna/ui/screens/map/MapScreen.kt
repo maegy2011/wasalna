@@ -149,6 +149,9 @@ fun MapScreen(
     viewModel: MapViewModel = hiltViewModel(),
     onSaved: () -> Unit = {},
     onBack: () -> Unit = {},
+    // Live follow (user order Oct 2026): fired on a REAL trip start so
+    // the container opens the live TripRoute view for the active trip.
+    onTripStarted: () -> Unit = {},
     // Phase 10.4.3.1: optional live-trip args (Home widget tap).
     tripName: String? = null,
     tripLat: Double? = null,
@@ -735,7 +738,10 @@ fun MapScreen(
                             val started = TripStarter.startRealTrip(
                                 context, dest.latitude, dest.longitude, name, transportMode,
                             )
-                            if (started) tripSheetOpen = false
+                            if (started) {
+                                tripSheetOpen = false
+                                onTripStarted()
+                            }
                         }
                     },
                     modifier = Modifier

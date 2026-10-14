@@ -99,6 +99,9 @@ fun MyPlacesScreen(
     onBack: () -> Unit = {},
     onAddDestination: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
+    // Live follow (user order Oct 2026): fired on a REAL trip start so
+    // the container opens the live TripRoute view for the active trip.
+    onTripStarted: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Just-in-time permissions (Oct 2026): trip start requests missing
@@ -285,6 +288,7 @@ fun MyPlacesScreen(
                     showAlarmSetup = false
                     pendingTrip = null
                     softWarnAccepted = false
+                    onTripStarted()
                 } else if (
                     TripStarter.checkRealReady(context) ==
                     TripStarter.RealBlocker.AlreadyRunning
@@ -620,6 +624,7 @@ fun MyPlacesScreen(
                             showAlarmSetup = false
                             pendingTrip = null
                             softWarnAccepted = false
+                            onTripStarted()
                         }
                     }
                 }) {

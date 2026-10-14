@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -101,6 +102,26 @@ fun MainContainerScreen() {
     // Phase 10.4.2.1: drawer impact stats.
     val successfulTrips by planVm.successfulTrips.collectAsState()
     val timeSavedHours by planVm.timeSavedHours.collectAsState()
+    // Live follow (user order Oct 2026): the active trip, if any — a
+    // fresh start jumps straight to its TripRoute view (pending flag
+    // covers the async service→DB race: the row lands a beat later).
+    val liveTrip by planVm.activeTrip.collectAsState()
+    var pendingLiveTrip by remember { mutableStateOf(false) }
+    fun openLiveTrip() {
+        val t = liveTrip
+        if (t != null) {
+            innerNav.navigate(Screen.TripRoute.routeFor(t.id))
+        } else {
+            pendingLiveTrip = true
+        }
+    }
+    LaunchedEffect(liveTrip) {
+        val t = liveTrip
+        if (pendingLiveTrip && t != null) {
+            pendingLiveTrip = false
+            innerNav.navigate(Screen.TripRoute.routeFor(t.id))
+        }
+    }
     var planNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -395,6 +416,7 @@ fun MainContainerScreen() {
                         onBack = { smartBack() },
                         onAddDestination = { openMapFullScreen() },
                         viewModel = hiltViewModel(),
+                        onTripStarted = ::openLiveTrip,
                     )
                 }
                 // Phase 10.4.3.1: optional live-trip args (Home widget tap).
@@ -411,6 +433,7 @@ fun MainContainerScreen() {
                         viewModel = hiltViewModel(),
                         onSaved = { navigateTab(Screen.MyPlaces.route) },
                         onBack = { smartBack() },
+                        onTripStarted = ::openLiveTrip,
                         tripName = entry.arguments?.getString("name")?.ifBlank { null },
                         tripLat = entry.arguments?.getString("lat")?.toDoubleOrNull(),
                         tripLng = entry.arguments?.getString("lng")?.toDoubleOrNull(),
