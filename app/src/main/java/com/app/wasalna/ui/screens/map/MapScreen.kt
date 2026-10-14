@@ -1380,12 +1380,15 @@ private fun MapLibreMapView(
                 }
                 refreshMarker(selectedLatLng, viaPoints)
                 // Default map location (user order Oct 2026): selection →
-                // live GPS fix → Cairo last resort.
-                val initial = selectedLatLng?.let {
-                    MapLibreLatLng(it.latitude, it.longitude)
-                } ?: defaultCamera?.let {
-                    MapLibreLatLng(it.latitude, it.longitude)
-                } ?: DefaultCairoLibre
+                // live GPS fix → Cairo last resort. (Locals for smart-cast;
+                // delegated props don't smart-cast inside the chain.)
+                val selection = selectedLatLng
+                val liveDefault = defaultCamera
+                val initial: MapLibreLatLng = when {
+                    selection != null -> MapLibreLatLng(selection.latitude, selection.longitude)
+                    liveDefault != null -> MapLibreLatLng(liveDefault.latitude, liveDefault.longitude)
+                    else -> DefaultCairoLibre
+                }
                 map.cameraPosition = MapLibreCameraPosition.Builder()
                     .target(initial)
                     .zoom(if (selectedLatLng != null || defaultCamera != null) 15.0 else 12.0)
@@ -1477,11 +1480,13 @@ private fun MapLibreMapView(
             refreshMarker(selectedLatLng, viaPoints)
             // Default map location (user order Oct 2026): selection →
             // live GPS fix → Cairo last resort.
-            val target = selectedLatLng?.let {
-                MapLibreLatLng(it.latitude, it.longitude)
-            } ?: defaultCamera?.let {
-                MapLibreLatLng(it.latitude, it.longitude)
-            } ?: DefaultCairoLibre
+            val selectionNow = selectedLatLng
+            val liveDefaultNow = defaultCamera
+            val target: MapLibreLatLng = when {
+                selectionNow != null -> MapLibreLatLng(selectionNow.latitude, selectionNow.longitude)
+                liveDefaultNow != null -> MapLibreLatLng(liveDefaultNow.latitude, liveDefaultNow.longitude)
+                else -> DefaultCairoLibre
+            }
             // Map UX fixes: zoom selector drives the camera. Selection
             // moves keep their zoom; explicit selector changes animate.
             // Zoom-in-place fix (user order Oct 2026): +/- must zoom on
