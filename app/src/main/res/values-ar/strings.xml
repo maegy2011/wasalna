@@ -484,6 +484,10 @@
     <string name="routing_auto_graph">مسار دون إنترنت عبر %1$s ✓</string>
     <string name="offline_graph_for_area">جراف التوجيه لهذه المنطقة: %1$s</string>
     <string name="offline_graph_suggest">نزّل جراف %1$s (~%2$d م.ب) للتوجيه دون إنترنت</string>
+    <string name="offline_ready_chip">يعمل بدون إنترنت 📴</string>
+    <string name="offline_none_chip">لا تغطية أوفلاين هنا</string>
+    <string name="offline_graph_done">تم تحميل الخريطة — جاهز للأوفلاين ✅</string>
+    <string name="offline_graph_fail">فشل التحميل — حاول مجددًا على واي فاي</string>
     <string name="nav_home">الرئيسية</string>
     <string name="nav_trips">رحلاتي</string>
     <string name="nav_menu">القائمة</string>

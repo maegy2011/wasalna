@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalIconButton
@@ -187,6 +188,10 @@ fun MapScreen(
     val tempOpacity by viewModel.tempOpacity.collectAsState()
     // AQI upgrade: numeric value at the selected destination.
     val destinationAqi by viewModel.destinationAqi.collectAsState()
+    // Offline upgrade: readiness of the picked route + graph progress.
+    val offlineReadiness by viewModel.offlineReadiness.collectAsState()
+    val graphDownloadingId by viewModel.graphDownloadingId.collectAsState()
+    val graphDownloadProgress by viewModel.graphDownloadProgress.collectAsState()
     var layersOpen by remember { mutableStateOf(false) }
     val trafficOverlayState by viewModel.trafficState.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
@@ -574,15 +579,27 @@ fun MapScreen(
                                 .padding(16.dp),
                         )
                     }
-                    // AQI upgrade: live value chip under the fixed hint —
-                    // colored dot + number + EPA band at the destination.
-                    destinationAqi?.let { aqi ->
-                        AqiValueChip(
-                            aqi = aqi,
+                    // Info chips column (Oct 2026): AQI value + offline
+                    // readiness stacked under the fixed hint — never
+                    // overlapping, map stays fully visible.
+                    if (destinationAqi != null || offlineReadiness != null) {
+                        Column(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .padding(top = 60.dp),
-                        )
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            destinationAqi?.let { aqi -> AqiValueChip(aqi = aqi) }
+                            offlineReadiness?.let { readiness ->
+                                OfflineReadinessChip(
+                                    readiness = readiness,
+                                    downloadingId = graphDownloadingId,
+                                    progress = graphDownloadProgress,
+                                    onDownload = { viewModel.downloadOfflineGraph(it) },
+                                )
+                            }
+                        }
                     }
                     // Phase 10.4.3.1: My Location FAB (bottom-start, clear of
                     // the action FABs) — centers the camera on the live fix.
@@ -1573,6 +1590,87 @@ private fun LayerRow(
             )
         }
         Switch(checked = checked, onCheckedChange = onChecked)
+    }
+}
+
+/**
+ * Offline readiness chip (Oct 2026 upgrade): route coverage state for
+ * the picked destination — green static when an installed graph covers
+ * origin→destination, one-tap amber download when the graph is known
+ * but missing (live % while fetching), grey notice when uncharted.
+ */
+@Composable
+private fun OfflineReadinessChip(
+    readiness: MapViewModel.OfflineReadiness,
+    downloadingId: String?,
+    progress: Int?,
+    onDownload: (String) -> Unit,
+) {
+    when (readiness) {
+        is MapViewModel.OfflineReadiness.Ready -> {
+            Text(
+                text = stringResource(R.string.offline_ready_chip),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.92f),
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        is MapViewModel.OfflineReadiness.NeedDownload -> {
+            if (downloadingId == readiness.regionId) {
+                Text(
+                    text = stringResource(
+                        R.string.offline_graph_downloading,
+                        progress ?: 0,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+                        )
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.95f),
+                        )
+                        .clickable { onDownload(readiness.regionId) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                ) {
+                    Text(
+                        text = "⬇ " + stringResource(
+                            R.string.offline_graph_suggest,
+                            readiness.regionName,
+                            readiness.sizeMb,
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            }
+        }
+        is MapViewModel.OfflineReadiness.NoCoverage -> {
+            Text(
+                text = stringResource(R.string.offline_none_chip),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f),
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 

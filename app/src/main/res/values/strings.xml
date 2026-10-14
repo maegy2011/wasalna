@@ -484,6 +484,10 @@
     <string name="routing_auto_graph">Offline route via %1$s ✓</string>
     <string name="offline_graph_for_area">Routing graph for this area: %1$s</string>
     <string name="offline_graph_suggest">Download %1$s graph (~%2$d MB) for offline routing</string>
+    <string name="offline_ready_chip">Works offline 📴</string>
+    <string name="offline_none_chip">No offline coverage here</string>
+    <string name="offline_graph_done">Map downloaded — offline ready ✅</string>
+    <string name="offline_graph_fail">Download failed — try again on Wi-Fi</string>
     <string name="nav_home">Home</string>
     <string name="nav_trips">My Trips</string>
     <string name="nav_menu">Menu</string>

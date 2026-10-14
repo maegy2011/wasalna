@@ -517,6 +517,71 @@ class MapViewModel @Inject constructor(
     private val _destinationAqi = MutableStateFlow<Int?>(null)
     val destinationAqi: StateFlow<Int?> = _destinationAqi.asStateFlow()
 
+    /** Offline upgrade (Oct 2026): route coverage state for the Map chip. */
+    sealed interface OfflineReadiness {
+        data class Ready(val regionName: String) : OfflineReadiness
+        data class NeedDownload(
+            val regionId: String,
+            val regionName: String,
+            val sizeMb: Int,
+        ) : OfflineReadiness
+        data object NoCoverage : OfflineReadiness
+    }
+
+    private val _offlineReadiness = MutableStateFlow<OfflineReadiness?>(null)
+    val offlineReadiness: StateFlow<OfflineReadiness?> = _offlineReadiness.asStateFlow()
+
+    /** Bumped after a graph download so readiness recomputes. */
+    private val _graphRefreshTick = MutableStateFlow(0)
+
+    /** Live download mirror (manager legacy flows) for the Map chip. */
+    val graphDownloadingId: StateFlow<String?> = graphManager.downloadingId
+    val graphDownloadProgress: StateFlow<Int?> = graphManager.downloadProgress
+
+    /** IO-bound coverage check: needs the live origin fix + selection. */
+    private suspend fun computeOfflineReadiness(dest: LatLng): OfflineReadiness? =
+        withContext(Dispatchers.IO) {
+            val origin = currentFix() ?: return@withContext null
+            val pts = buildList {
+                add(origin.latitude to origin.longitude)
+                _viaPoints.value.forEach { add(it.lat to it.lng) }
+                add(dest.latitude to dest.longitude)
+            }
+            val covering = graphManager.coveringRegionForAll(pts)
+            if (covering != null) {
+                return@withContext OfflineReadiness.Ready(covering.name)
+            }
+            val known =
+                com.app.wasalna.data.routing.RoutingGraphManager.REGIONS
+                    .firstOrNull { region ->
+                        pts.all { (la, ln) -> region.contains(la, ln) }
+                    }
+            if (known != null) {
+                return@withContext OfflineReadiness.NeedDownload(
+                    known.id, known.name, known.sizeMb,
+                )
+            }
+            OfflineReadiness.NoCoverage
+        }
+
+    /** One-tap graph download from the Map chip (explicit user action). */
+    fun downloadOfflineGraph(regionId: String) {
+        val region =
+            com.app.wasalna.data.routing.RoutingGraphManager.REGIONS
+                .firstOrNull { it.id == regionId } ?: return
+        viewModelScope.launch {
+            val ok = runCatching { graphManager.download(region) }
+                .getOrDefault(false)
+            _graphRefreshTick.value += 1
+            _events.emit(
+                msg(
+                    if (ok) R.string.offline_graph_done
+                    else R.string.offline_graph_fail,
+                ),
+            )
+        }
+    }
+
     // Human-readable address for the tapped/searched point — shown above
     // the search bar and the Save FAB; used as the saved Location name.
     private val _selectedAddress = MutableStateFlow<String?>(null)
@@ -584,6 +649,22 @@ class MapViewModel @Inject constructor(
                     aqi.fetchAqi(latLng.latitude, latLng.longitude, key)
                 }
             }
+        }
+        // Offline upgrade (user order Oct 2026): readiness of the picked
+        // route — origin (live fix) + via + destination inside ONE
+        // installed graph = Ready; known-but-missing = one-tap download;
+        // uncharted = honest notice. Debounced + collectLatest.
+        viewModelScope.launch {
+            combine(
+                _selectedLatLng, _viaPoints, _graphRefreshTick,
+            ) { sel, _, _ -> sel }
+                .debounce(800).collectLatest { sel ->
+                    _offlineReadiness.value = if (sel == null) {
+                        null
+                    } else {
+                        computeOfflineReadiness(sel)
+                    }
+                }
         }
         // Map UX fixes: restore persisted traffic toggle (default OFF).
         viewModelScope.launch {
