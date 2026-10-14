@@ -119,6 +119,8 @@
     <string name="trip_replace_title">توجد رحلة تعمل بالفعل</string>
     <string name="trip_replace_msg">توجد رحلة تعمل بالفعل. هل تريد إيقافها وبدء الرحلة الجديدة؟</string>
     <string name="trip_replace_confirm">إيقاف القديمة وبدء الجديدة</string>
+    <string name="trip_start_failed">تعذّر بدء التتبع — حاول مجددًا والتطبيق مفتوح</string>
+    <string name="trip_start_bg">افتح التطبيق أولًا ثم ابدأ الرحلة</string>
     <string name="trip_reduced_started">بدأت الرحلة بموثوقية أقل: %1$s</string>
     <string name="trip_stop">إيقاف</string>
     <string name="trip_sim_prefix">[محاكاة]</string>

@@ -171,6 +171,8 @@
     <string name="trip_replace_title">Trip already running</string>
     <string name="trip_replace_msg">A trip is already running. Stop it and start the new trip instead?</string>
     <string name="trip_replace_confirm">Stop old &amp; start new</string>
+    <string name="trip_start_failed">Couldn't start tracking — try again with the app open</string>
+    <string name="trip_start_bg">Open the app first, then start the trip</string>
     <string name="trip_reduced_started">Trip started with reduced reliability: %1$s</string>
     <string name="trip_stop">Stop</string>
     <string name="trip_sim_prefix">[SIM]</string>

@@ -113,7 +113,9 @@ object TripStarter {
         mode: TransportMode,
         allowReduced: Boolean = false,
     ): Boolean {
-        when (val hard = checkHardBlocker(context)) {
+        val hard = checkHardBlocker(context)
+        if (hard != null) Log.w(TAG, "startRealTrip refused by hard blocker: $hard")
+        when (hard) {
             RealBlocker.SimRunning -> {
                 refuse(context, R.string.trip_blocked_by_sim)
                 return false
@@ -151,7 +153,13 @@ object TripStarter {
             openSettingsFor(context, first)
             return false
         }
-        fireStart(context, lat, lng, name, mode)
+        // No fake success (Oct 2026 fix): fireStart used to swallow
+        // its exception and the success Toast still showed while no
+        // service existed. A failed fire now refuses loudly instead.
+        if (!fireStart(context, lat, lng, name, mode)) {
+            refuse(context, R.string.trip_start_failed)
+            return false
+        }
         Toast.makeText(
             context,
             context.getString(
@@ -180,15 +188,19 @@ object TripStarter {
         return true
     }
 
-    /** Fires ACTION_START directly (caller already passed the gate). */
+    /**
+     * Fires ACTION_START directly (caller already passed the gate).
+     * Returns false when the start itself throws (background-start ban,
+     * OEM block, missing component) — callers must NOT show success.
+     */
     fun fireStart(
         context: Context,
         lat: Double,
         lng: Double,
         name: String,
         mode: TransportMode,
-    ) {
-        runCatching {
+    ): Boolean {
+        return runCatching {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = TrackingService.ACTION_START
                 putExtra(TrackingService.EXTRA_LAT, lat)
@@ -197,7 +209,17 @@ object TripStarter {
                 putExtra(TrackingService.EXTRA_MODE, mode.name)
             }
             ContextCompat.startForegroundService(context, intent)
-        }.onFailure { Log.w(TAG, "fireStart failed: ${it.message}") }
+            Log.i(TAG, "fireStart ok: $name ($lat,$lng) ${mode.name}")
+            true
+        }.onFailure { e ->
+            // Android 12+: FGS launch from background is banned — the
+            // fix is opening the app first, not granting more perms.
+            val bgBan = e.javaClass.simpleName ==
+                "ForegroundServiceStartNotAllowedException"
+            Log.w(TAG, "fireStart failed (bgBan=$bgBan): ${e.message}")
+            if (bgBan) refuse(context, R.string.trip_start_bg)
+            else refuse(context, R.string.trip_start_failed)
+        }.getOrDefault(false)
     }
 
     private fun refuse(context: Context, msgRes: Int) {
