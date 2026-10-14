@@ -27,6 +27,11 @@ suspend fun captureAndShareTripImage(
     distanceKm: String,
     durationMin: String,
     dateText: String,
+    distanceLabel: String = "Distance",
+    durationLabel: String = "Duration",
+    originName: String? = null,
+    avgSpeed: String? = null,
+    avgSpeedLabel: String = "Avg",
 ): Boolean {
     return runCatching {
         // Oct 2026 fix: framework Canvas render — the old detached
@@ -39,6 +44,11 @@ suspend fun captureAndShareTripImage(
                 durationMin = durationMin,
                 dateText = dateText,
                 appName = context.getString(R.string.trip_card_app_name),
+                distanceLabel = distanceLabel,
+                durationLabel = durationLabel,
+                originName = originName,
+                avgSpeed = avgSpeed,
+                avgSpeedLabel = avgSpeedLabel,
             ) ?: return@withContext null
         } ?: return false
         val uri = withContext(Dispatchers.IO) {

@@ -623,6 +623,7 @@ fun TripRouteScreen(
                                 val durText = t.etaMinutes?.let {
                                     context.getString(R.string.trip_card_duration_min, "$it")
                                 } ?: tripCardDate(t.startTime)
+                                val past = pastSummary
                                 val ok = captureAndShareTripImage(
                                     context = context,
                                     destination = t.locationName,
@@ -631,6 +632,16 @@ fun TripRouteScreen(
                                     dateText = tripCardDate(
                                         t.endTime ?: System.currentTimeMillis(),
                                     ),
+                                    distanceLabel = context.getString(R.string.past_distance),
+                                    durationLabel = context.getString(R.string.past_duration),
+                                    originName = past?.originName,
+                                    avgSpeed = past?.avgKmh?.let {
+                                        context.getString(
+                                            R.string.past_avg_speed_value,
+                                            String.format(java.util.Locale.US, "%.1f", it),
+                                        )
+                                    },
+                                    avgSpeedLabel = context.getString(R.string.past_avg_speed),
                                 )
                                 if (!ok) snackbarHostState.showSnackbar(shareImageFailed)
                             }
