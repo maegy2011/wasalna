@@ -571,6 +571,7 @@ fun MapScreen(
                 ) {
                     MapLibreMapView(
                         selectedLatLng = selectedLatLng,
+                        defaultCamera = defaultCamera,
                         viaPoints = viaPoints.map {
                             com.google.android.gms.maps.model.LatLng(it.lat, it.lng)
                         },
@@ -1214,6 +1215,9 @@ fun MapScreen(
 @Composable
 private fun MapLibreMapView(
     selectedLatLng: LatLng?,
+    // Default map location (user order Oct 2026): live GPS fix used as
+    // the camera fallback when no destination is selected.
+    defaultCamera: LatLng? = null,
     viaPoints: List<LatLng> = emptyList(),
     transitLayerOn: Boolean = false,
     aqiLayerOn: Boolean = false,
