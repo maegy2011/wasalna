@@ -13,15 +13,32 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Diamond
@@ -40,7 +57,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,44 +106,64 @@ fun HomeWorkQuickRow(
     onAddCustom: () -> Unit = {},
     onUpgradeClick: () -> Unit = {},
 ) {
-    Column(
+    // Single-row horizontal carousel (user order Oct 2026): Home + Work +
+    // customs + add-card all in one LazyRow, scrollable both directions
+    // with animated chevron arrows on both edges.
+    val rowState = rememberLazyListState()
+    val rowScope = rememberCoroutineScope()
+    @Suppress("UNUSED_VARIABLE")
+    val edgeBack = rowState.canScrollBackward
+    @Suppress("UNUSED_VARIABLE")
+    val edgeFwd = rowState.canScrollForward
+    // Chevron nudge animation: arrows slide ±4dp in a loop so users
+    // notice the row scrolls both ways.
+    val nudge = rememberInfiniteTransition(label = "shortcut-arrow-nudge")
+        .animateFloat(
+            initialValue = -4f,
+            targetValue = 4f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(700, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "nudge",
+        )
+    val totalItems = 2 + customShortcuts.size + (if (canAddMore || !isPremium) 1 else 0)
+    val showArrows = totalItems > 2
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        QuickPlaceCard(
-            title = stringResource(R.string.quick_home),
-            subtitle = homeAddress.ifBlank { stringResource(R.string.quick_tap_hint) },
-            iconContentDescription = stringResource(R.string.quick_home_desc),
-            onClick = onHomeClick,
-            onLongClick = onHomeEdit,
-            onEditClick = onHomeEdit,
-            modifier = Modifier.weight(1f),
-        )
-        QuickPlaceCard(
-            title = stringResource(R.string.quick_work),
-            subtitle = workAddress.ifBlank { stringResource(R.string.quick_tap_hint) },
-            iconContentDescription = stringResource(R.string.quick_work_desc),
-            onClick = onWorkClick,
-            onLongClick = onWorkEdit,
-            onEditClick = onWorkEdit,
-            modifier = Modifier.weight(1f),
-            isWork = true,
-        )
-    }
-    // Premium custom shortcuts: two-per-row grids + the add card.
-    // Free users see the locked add card (paywall entry point).
-    customShortcuts.chunked(2).forEach { pair ->
-        Row(
+        LazyRow(
+            state = rowState,
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 36.dp),
         ) {
-            pair.forEach { shortcut ->
+            item(key = "home") {
+                QuickPlaceCard(
+                    title = stringResource(R.string.quick_home),
+                    subtitle = homeAddress.ifBlank { stringResource(R.string.quick_tap_hint) },
+                    iconContentDescription = stringResource(R.string.quick_home_desc),
+                    onClick = onHomeClick,
+                    onLongClick = onHomeEdit,
+                    onEditClick = onHomeEdit,
+                    modifier = Modifier.width(220.dp),
+                )
+            }
+            item(key = "work") {
+                QuickPlaceCard(
+                    title = stringResource(R.string.quick_work),
+                    subtitle = workAddress.ifBlank { stringResource(R.string.quick_tap_hint) },
+                    iconContentDescription = stringResource(R.string.quick_work_desc),
+                    onClick = onWorkClick,
+                    onLongClick = onWorkEdit,
+                    onEditClick = onWorkEdit,
+                    modifier = Modifier.width(220.dp),
+                    isWork = true,
+                )
+            }
+            items(customShortcuts, key = { "custom-" + it.id }) { shortcut ->
                 QuickPlaceCard(
                     title = shortcut.name.ifBlank { stringResource(R.string.custom_untitled) },
                     subtitle = shortcut.address.ifBlank { stringResource(R.string.quick_tap_hint) },
@@ -135,20 +171,62 @@ fun HomeWorkQuickRow(
                     onClick = { onCustomClick(shortcut) },
                     onLongClick = { onCustomEdit(shortcut) },
                     onEditClick = { onCustomEdit(shortcut) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.width(220.dp),
                     isCustom = true,
                 )
             }
-            if (pair.size < 2) Spacer(modifier = Modifier.weight(1f))
+            if (canAddMore || !isPremium) {
+                item(key = "add") {
+                    CustomAddCard(
+                        isPremium = isPremium,
+                        onClick = { if (isPremium) onAddCustom() else onUpgradeClick() },
+                        modifier = Modifier.width(220.dp),
+                    )
+                }
+            }
         }
-    }
-    if (canAddMore || !isPremium) {
-        CustomAddCard(
-            isPremium = isPremium,
-            onClick = { if (isPremium) onAddCustom() else onUpgradeClick() },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+        // Left edge arrow — scrolls backward.
+        if (showArrows) {
+            androidx.compose.material3.FilledTonalIconButton(
+                onClick = {
+                    rowScope.launch {
+                        val target = (rowState.firstVisibleItemIndex - 1).coerceAtLeast(0)
+                        rowState.animateScrollToItem(target)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = nudge.value.dp)
+                    .size(32.dp),
+            ) {
+                Icon(
+                    Icons.Filled.ChevronLeft,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        // Right edge arrow — scrolls forward.
+        if (showArrows) {
+            androidx.compose.material3.FilledTonalIconButton(
+                onClick = {
+                    rowScope.launch {
+                        val target = rowState.firstVisibleItemIndex + 1
+                        rowState.animateScrollToItem(target)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = (-nudge.value).dp)
+                    .size(32.dp),
+            ) {
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
     }
 }
 
