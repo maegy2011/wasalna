@@ -27,34 +27,40 @@ internal fun ensureAqiLayer(style: Style?, on: Boolean, token: String) {
     if (style == null) return
     val usable = on && token.isNotBlank()
     val present = runCatching { style.getLayer(AQI_LAYER_ID) }.getOrNull() != null
-    // Token removed while on → drop the layer (stale tiles must not linger).
-    if (!usable && present) {
+    // Stale-token fix (user order Oct 2026): the source template embeds
+    // the token, so ANY usable call rebuilds layer + source from scratch.
+    // Otherwise a pasted/rotated key never takes effect and the layer
+    // keeps fetching with the dead token (invisible layer). Calls only
+    // happen on toggle/token/style change — never per frame — so the
+    // rebuild is cheap. Off state still just drops everything.
+    if (!usable) {
+        if (!present) return
         runCatching { style.removeLayer(AQI_LAYER_ID) }
         runCatching {
             style.getSource(AQI_SOURCE_ID)?.let { style.removeSource(it) }
         }
         return
     }
-    if (usable && !present) {
+    runCatching {
+        runCatching { style.removeLayer(AQI_LAYER_ID) }
         runCatching {
-            if (style.getSource(AQI_SOURCE_ID) == null) {
-                style.addSource(
-                    RasterSource(
-                        AQI_SOURCE_ID,
-                        TileSet("2.2.0", aqiTileTemplate(token)),
-                        256,
-                    ),
-                )
-            }
-            val layer = RasterLayer(AQI_LAYER_ID, AQI_SOURCE_ID).withProperties(
-                PropertyFactory.rasterOpacity(0.55f),
-                PropertyFactory.rasterFadeDuration(900f),
-            )
-            val firstSymbol = style.layers?.firstOrNull {
-                it is org.maplibre.android.style.layers.SymbolLayer
-            }?.id
-            if (firstSymbol != null) style.addLayerBelow(layer, firstSymbol)
-            else style.addLayer(layer)
+            style.getSource(AQI_SOURCE_ID)?.let { style.removeSource(it) }
         }
+        style.addSource(
+            RasterSource(
+                AQI_SOURCE_ID,
+                TileSet("2.2.0", aqiTileTemplate(token)),
+                256,
+            ),
+        )
+        val layer = RasterLayer(AQI_LAYER_ID, AQI_SOURCE_ID).withProperties(
+            PropertyFactory.rasterOpacity(0.55f),
+            PropertyFactory.rasterFadeDuration(900f),
+        )
+        val firstSymbol = style.layers?.firstOrNull {
+            it is org.maplibre.android.style.layers.SymbolLayer
+        }?.id
+        if (firstSymbol != null) style.addLayerBelow(layer, firstSymbol)
+        else style.addLayer(layer)
     }
 }
