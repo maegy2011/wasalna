@@ -143,6 +143,14 @@ interface SettingsRepository {
     val waqiApiKey: Flow<String>
     suspend fun setWaqiApiKey(key: String)
 
+    // Temperature layer (Oct 2026): OpenWeatherMap BYOK + toggle + opacity.
+    val isTempLayerEnabled: Flow<Boolean>
+    suspend fun setTempLayerEnabled(enabled: Boolean)
+    val owmApiKey: Flow<String>
+    suspend fun setOwmApiKey(key: String)
+    val tempOpacity: Flow<Float>
+    suspend fun setTempOpacity(opacity: Float)
+
     suspend fun setRoutesApiKey(key: String)
 
     suspend fun setAppLanguageCode(code: String)

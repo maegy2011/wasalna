@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -308,6 +309,32 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
+    // Temperature layer prefs (Oct 2026): toggle + BYOK key + opacity.
+    val isTempLayerEnabled: Flow<Boolean> =
+        dataStore.data.map { it[Keys.TEMP_LAYER_ENABLED] ?: false }
+
+    suspend fun setTempLayerEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.TEMP_LAYER_ENABLED] = enabled }
+    }
+
+    val owmApiKey: Flow<String> =
+        dataStore.data.map { it[Keys.OWM_API_KEY] ?: "" }
+
+    suspend fun setOwmApiKey(key: String) {
+        val normalized = key.trim().take(128)
+        dataStore.edit {
+            if (normalized.isEmpty()) it.remove(Keys.OWM_API_KEY)
+            else it[Keys.OWM_API_KEY] = normalized
+        }
+    }
+
+    val tempOpacity: Flow<Float> =
+        dataStore.data.map { (it[Keys.TEMP_OPACITY] ?: 0.6f).coerceIn(0.15f, 1f) }
+
+    suspend fun setTempOpacity(opacity: Float) {
+        dataStore.edit { it[Keys.TEMP_OPACITY] = opacity.coerceIn(0.15f, 1f) }
+    }
+
     // In-app language code ("" = follow device, "ar", "en"). Default ""
     // follows the device language automatically — no first-run write needed.
     val appLanguageCode: Flow<String> =
@@ -468,6 +495,10 @@ class SettingsDataStore @Inject constructor(
         val TRANSIT_LAYER_ENABLED = booleanPreferencesKey("transit_layer_enabled")
         val AQI_LAYER_ENABLED = booleanPreferencesKey("aqi_layer_enabled")
         val WAQI_API_KEY = stringPreferencesKey("waqi_api_key")
+        // Temperature layer (Oct 2026): OpenWeatherMap BYOK + toggle + opacity.
+        val TEMP_LAYER_ENABLED = booleanPreferencesKey("temp_layer_enabled")
+        val OWM_API_KEY = stringPreferencesKey("owm_api_key")
+        val TEMP_OPACITY = floatPreferencesKey("temp_opacity")
         val APP_LANGUAGE_CODE = stringPreferencesKey("app_language_code")
         val ROUTES_API_KEY = stringPreferencesKey("routes_api_key")
         val FORCE_OFFLINE = booleanPreferencesKey("force_offline_routing")

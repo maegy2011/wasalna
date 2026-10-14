@@ -99,6 +99,13 @@
     <string name="settings_waqi_cleared">مُسح رمز جودة الهواء</string>
     <string name="settings_waqi_valid">تم التحقق — طبقة جودة الهواء جاهزة 🌬️</string>
     <string name="settings_waqi_invalid">خدمة WAQI رفضت الرمز — راجعه من aqicn.org/data-platform/token وحاول مجددًا</string>
+    <string name="settings_owm_title">مفتاح درجة الحرارة (اختياري)</string>
+    <string name="settings_owm_sub">مفتاح OpenWeatherMap المجاني (openweathermap.org/api) يفعّل طبقة درجة الحرارة. يُحفظ على جهازك فقط.</string>
+    <string name="settings_owm_hint">الصق مفتاح OpenWeatherMap</string>
+    <string name="settings_owm_saved">حُفظ مفتاح درجة الحرارة</string>
+    <string name="settings_owm_cleared">مُسح مفتاح درجة الحرارة</string>
+    <string name="settings_owm_valid">تم التحقق — طبقة درجة الحرارة جاهزة 🌡️</string>
+    <string name="settings_owm_invalid">خدمة OpenWeatherMap رفضت المفتاح — راجعه من openweathermap.org/api وحاول مجددًا</string>
     <string name="trip_started">بدأت الرحلة الحقيقية: %1$s</string>
     <string name="trip_blocked_by_sim">أوقف المحاكاة أولًا، ثم ابدأ رحلتك الحقيقية</string>
     <string name="trip_already_running">توجد رحلة تعمل بالفعل</string>
@@ -139,6 +146,10 @@
     <string name="aqi_unhealthy">ضار</string>
     <string name="aqi_very_unhealthy">ضار جدًا</string>
     <string name="aqi_hazardous">خطير</string>
+    <string name="layer_temp">درجة الحرارة</string>
+    <string name="layer_temp_sub">خريطة حرارية (أونلاين، تحتاج مفتاح OpenWeatherMap مجاني)</string>
+    <string name="layer_temp_need_key">أضف مفتاح OpenWeatherMap المجاني من الإعدادات ← درجة الحرارة</string>
+    <string name="layer_temp_opacity">الشفافية</string>
     <string name="sim_blocked_by_trip">توجد رحلة حقيقية تعمل — أوقفها قبل المحاكاة</string>
     <string name="routing_gaz_title">البحث في الشوارع والأماكن</string>
     <string name="routing_gaz_hint">أسماء المنطقة دون إنترنت</string>

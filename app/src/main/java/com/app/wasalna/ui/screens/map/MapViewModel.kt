@@ -119,6 +119,17 @@ class MapViewModel @Inject constructor(
     private val _waqiKey = MutableStateFlow("")
     val waqiKey: StateFlow<String> = _waqiKey.asStateFlow()
 
+    // Temperature layer (Oct 2026): OpenWeatherMap temp_new raster
+    // (online, OWM BYOK) + adjustable opacity — same restore pattern.
+    private val _isTempLayer = MutableStateFlow(false)
+    val isTempLayer: StateFlow<Boolean> = _isTempLayer.asStateFlow()
+
+    private val _owmKey = MutableStateFlow("")
+    val owmKey: StateFlow<String> = _owmKey.asStateFlow()
+
+    private val _tempOpacity = MutableStateFlow(TEMP_OPACITY_DEFAULT)
+    val tempOpacity: StateFlow<Float> = _tempOpacity.asStateFlow()
+
     fun refreshLayerPrefs() {
         viewModelScope.launch {
             // Token first — AQI restores only when one is stored.
@@ -130,6 +141,43 @@ class MapViewModel @Inject constructor(
                 .onSuccess {
                     _isAqiLayer.value = it && _waqiKey.value.isNotBlank()
                 }
+            // Token first — temperature restores only when one is stored.
+            runCatching { settingsRepository.owmApiKey.first() }
+                .onSuccess { _owmKey.value = it }
+            runCatching { settingsRepository.tempOpacity.first() }
+                .onSuccess { _tempOpacity.value = it }
+            runCatching { settingsRepository.isTempLayerEnabled.first() }
+                .onSuccess {
+                    _isTempLayer.value = it && _owmKey.value.isNotBlank()
+                }
+        }
+    }
+
+    fun setTempLayer(enabled: Boolean) {
+        if (enabled && _owmKey.value.isBlank()) {
+            // No key → refuse with guidance (Settings holds the field).
+            viewModelScope.launch {
+                _events.emit(msg(R.string.layer_temp_need_key))
+            }
+            return
+        }
+        if (enabled && isOfflineMode.value) {
+            viewModelScope.launch {
+                _events.emit(msg(R.string.map_traffic_offline))
+            }
+        }
+        _isTempLayer.value = enabled
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTempLayerEnabled(enabled) }
+                .onFailure { Log.e(TAG, "persist temp layer failed: ${it.message}") }
+        }
+    }
+
+    fun setTempOpacity(opacity: Float) {
+        _tempOpacity.value = opacity.coerceIn(TEMP_OPACITY_MIN, TEMP_OPACITY_MAX)
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTempOpacity(_tempOpacity.value) }
+                .onFailure { Log.e(TAG, "persist temp opacity failed: ${it.message}") }
         }
     }
 

@@ -198,6 +198,10 @@
     <string name="aqi_unhealthy">Unhealthy</string>
     <string name="aqi_very_unhealthy">Very unhealthy</string>
     <string name="aqi_hazardous">Hazardous</string>
+    <string name="layer_temp">Temperature</string>
+    <string name="layer_temp_sub">Heat map (online, needs a free OpenWeatherMap key)</string>
+    <string name="layer_temp_need_key">Add your free OpenWeatherMap key in Settings → Temperature</string>
+    <string name="layer_temp_opacity">Opacity</string>
     <string name="sim_blocked_by_trip">A real trip is running — stop it before simulating</string>
     <string name="routing_gaz_title">Street &amp; place search</string>
     <string name="routing_gaz_hint">Offline names for this region</string>
@@ -656,6 +660,13 @@
     <string name="settings_waqi_cleared">Air-quality token cleared</string>
     <string name="settings_waqi_valid">Token verified — air-quality layer is ready 🌬️</string>
     <string name="settings_waqi_invalid">WAQI rejected this token — double-check it at aqicn.org/data-platform/token</string>
+    <string name="settings_owm_title">Temperature key (optional)</string>
+    <string name="settings_owm_sub">Your free OpenWeatherMap key (openweathermap.org/api) enables the temperature map layer. Stored only on this device, never in the code.</string>
+    <string name="settings_owm_hint">Paste OpenWeatherMap key</string>
+    <string name="settings_owm_saved">Temperature key saved</string>
+    <string name="settings_owm_cleared">Temperature key cleared</string>
+    <string name="settings_owm_valid">Key verified — temperature layer is ready 🌡️</string>
+    <string name="settings_owm_invalid">OpenWeatherMap rejected this key — double-check it at openweathermap.org/api</string>
     <!-- Static transit systems (METRO/MONORAIL/LRT-train, Oct 2026). Mirrored in values-ar. -->
     <string name="vehicle_metro">🚇 Metro</string>
     <string name="vehicle_monorail">🚝 Monorail</string>

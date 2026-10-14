@@ -378,6 +378,49 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // OpenWeatherMap BYOK (Oct 2026, temperature layer): user's own key.
+    val owmApiKey: StateFlow<String> =
+        settingsRepository.owmApiKey.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "",
+        )
+
+    /** OWM save with live validation: ping the weather endpoint first. */
+    fun setOwmApiKey(key: String, onValidated: ((Boolean?) -> Unit)? = null) {
+        viewModelScope.launch {
+            val trimmed = key.trim()
+            val verdict: Boolean? = if (trimmed.isEmpty()) {
+                null
+            } else {
+                validateOwmKey(trimmed)
+            }
+            runCatching { settingsRepository.setOwmApiKey(trimmed) }
+                .onFailure { Log.e(TAG, "owm key save failed: ${it.message}") }
+            onValidated?.invoke(verdict)
+        }
+    }
+
+    /** OWM key liveness probe — never throws; null = no network. */
+    private suspend fun validateOwmKey(key: String): Boolean? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                val request = okhttp3.Request.Builder()
+                    .url("https://api.openweathermap.org/data/2.5/weather?lat=30.0444&lon=31.2357&appid=$key")
+                    .build()
+                client.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext false
+                    val body = resp.body?.string() ?: return@withContext null
+                    // OWM answers cod:200 (int) on success, cod:"401" on bad key.
+                    org.json.JSONObject(body).optInt("cod", -1) == 200
+                }
+            }.getOrNull()
+        }
+
     /** WAQI token liveness probe — never throws; null = no network. */
     private suspend fun validateWaqiKey(key: String): Boolean? =
         withContext(Dispatchers.IO) {

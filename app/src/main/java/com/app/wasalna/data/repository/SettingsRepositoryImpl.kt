@@ -268,6 +268,27 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDataStore.setWaqiApiKey(key)
     }
 
+    override val isTempLayerEnabled: Flow<Boolean>
+        get() = settingsDataStore.isTempLayerEnabled
+
+    override suspend fun setTempLayerEnabled(enabled: Boolean) {
+        settingsDataStore.setTempLayerEnabled(enabled)
+    }
+
+    override val owmApiKey: Flow<String>
+        get() = settingsDataStore.owmApiKey
+
+    override suspend fun setOwmApiKey(key: String) {
+        settingsDataStore.setOwmApiKey(key)
+    }
+
+    override val tempOpacity: Flow<Float>
+        get() = settingsDataStore.tempOpacity
+
+    override suspend fun setTempOpacity(opacity: Float) {
+        settingsDataStore.setTempOpacity(opacity)
+    }
+
     override suspend fun setAppLanguageCode(code: String) {
         settingsDataStore.setAppLanguageCode(code)
     }

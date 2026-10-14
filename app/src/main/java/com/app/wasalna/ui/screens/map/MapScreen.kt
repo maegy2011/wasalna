@@ -181,6 +181,10 @@ fun MapScreen(
     val isTransitLayer by viewModel.isTransitLayer.collectAsState()
     val isAqiLayer by viewModel.isAqiLayer.collectAsState()
     val waqiKey by viewModel.waqiKey.collectAsState()
+    // Temperature layer (Oct 2026): OWM temp_new raster + opacity.
+    val isTempLayer by viewModel.isTempLayer.collectAsState()
+    val owmKey by viewModel.owmKey.collectAsState()
+    val tempOpacity by viewModel.tempOpacity.collectAsState()
     // AQI upgrade: numeric value at the selected destination.
     val destinationAqi by viewModel.destinationAqi.collectAsState()
     var layersOpen by remember { mutableStateOf(false) }
@@ -500,6 +504,9 @@ fun MapScreen(
                         transitLayerOn = isTransitLayer,
                         aqiLayerOn = isAqiLayer && waqiKey.isNotBlank() && !isOfflineMode,
                         aqiToken = waqiKey,
+                        tempLayerOn = isTempLayer && owmKey.isNotBlank() && !isOfflineMode,
+                        tempToken = owmKey,
+                        tempOpacity = tempOpacity,
                         routeGeoJson = routeGeoJson,
                         recenterTarget = recenterTarget,
                         cameraZoom = cameraZoom,
@@ -1057,6 +1064,11 @@ fun MapScreen(
                 aqiOn = isAqiLayer,
                 onAqi = { viewModel.setAqiLayer(it) },
                 waqiConfigured = waqiKey.isNotBlank(),
+                tempOn = isTempLayer,
+                onTemp = { viewModel.setTempLayer(it) },
+                tempConfigured = owmKey.isNotBlank(),
+                tempOpacity = tempOpacity,
+                onTempOpacity = { viewModel.setTempOpacity(it) },
                 onDismiss = { layersOpen = false },
             )
         }
@@ -1110,6 +1122,10 @@ private fun MapLibreMapView(
     transitLayerOn: Boolean = false,
     aqiLayerOn: Boolean = false,
     aqiToken: String = "",
+    // Temperature layer (Oct 2026): OWM temp_new raster + live opacity.
+    tempLayerOn: Boolean = false,
+    tempToken: String = "",
+    tempOpacity: Float = TEMP_OPACITY_DEFAULT,
     routeGeoJson: String?,
     recenterTarget: LatLng? = null,
     cameraZoom: Float = 15f,
@@ -1136,6 +1152,10 @@ private fun MapLibreMapView(
     // a changed token rebuilds the raster source).
     var lastTransitApplied by remember { mutableStateOf<Boolean?>(null) }
     var lastAqiApplied by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    // Temperature last-applied: on/key rebuilds the source, opacity alone
+    // only retunes the live property (no tile refetch storm on drag).
+    var lastTempApplied by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    var lastTempOpacityApplied by remember { mutableStateOf<Float?>(null) }
 
     val mapView = remember(context) {
         MapView(context).apply { onCreate(null) }
@@ -1206,6 +1226,8 @@ private fun MapLibreMapView(
                 lastTrafficApplied = null
                 lastTransitApplied = null
                 lastAqiApplied = null
+                lastTempApplied = null
+                lastTempOpacityApplied = null
                 // Phase 10.4.3.1: live blue dot (guarded by runtime permission).
                 enableLocationComponent(context, map, style)
                 runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
@@ -1253,6 +1275,10 @@ private fun MapLibreMapView(
                 lastTransitApplied = transitLayerOn
                 ensureAqiLayer(style, aqiLayerOn, aqiToken)
                 lastAqiApplied = aqiLayerOn to aqiToken
+                // Temperature raster (key-gated) on fresh style.
+                ensureTemperatureLayer(style, tempLayerOn, tempToken, tempOpacity)
+                lastTempApplied = tempLayerOn to tempToken
+                lastTempOpacityApplied = tempOpacity
                 symbolManager = SymbolManager(mapView, map, style).apply {
                     iconAllowOverlap = true
                 }
@@ -1324,6 +1350,17 @@ private fun MapLibreMapView(
             if (style != null && aqiState != lastAqiApplied) {
                 ensureAqiLayer(style, aqiLayerOn, aqiToken)
                 lastAqiApplied = aqiState
+            }
+            // Temperature: rebuild only on on/key change; opacity drags
+            // retune live without refetching tiles.
+            val tempState = tempLayerOn to tempToken
+            if (style != null && tempState != lastTempApplied) {
+                ensureTemperatureLayer(style, tempLayerOn, tempToken, tempOpacity)
+                lastTempApplied = tempState
+                lastTempOpacityApplied = tempOpacity
+            } else if (style != null && tempOpacity != lastTempOpacityApplied) {
+                setTemperatureOpacity(style, tempOpacity)
+                lastTempOpacityApplied = tempOpacity
             }
             // Phase 10.4.3.1: My Location jump — camera only, no selection.
             if (recenterTarget != null && recenterTarget != lastRecenterApplied) {
@@ -1430,6 +1467,12 @@ private fun MapLayersSheet(
     aqiOn: Boolean,
     onAqi: (Boolean) -> Unit,
     waqiConfigured: Boolean,
+    // Temperature layer (Oct 2026): OWM temp_new raster + opacity.
+    tempOn: Boolean,
+    onTemp: (Boolean) -> Unit,
+    tempConfigured: Boolean,
+    tempOpacity: Float,
+    onTempOpacity: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1469,6 +1512,38 @@ private fun MapLayersSheet(
             // AQI upgrade: EPA color-scale legend under the toggle.
             if (aqiOn && waqiConfigured) {
                 AqiLegendCard()
+            }
+            LayerRow(
+                title = stringResource(R.string.layer_temp),
+                sub = if (tempConfigured) {
+                    stringResource(R.string.layer_temp_sub)
+                } else {
+                    stringResource(R.string.layer_temp_need_key)
+                },
+                checked = tempOn && tempConfigured,
+                onChecked = onTemp,
+            )
+            // Opacity slider (spec §5): live retune, persisted.
+            if (tempOn && tempConfigured) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.layer_temp_opacity),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                    Slider(
+                        value = tempOpacity,
+                        onValueChange = onTempOpacity,
+                        valueRange = TEMP_OPACITY_MIN..TEMP_OPACITY_MAX,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

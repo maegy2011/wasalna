@@ -129,6 +129,8 @@ fun SettingsScreen(
     val routesApiKey by viewModel.routesApiKey.collectAsState()
     // AQI BYOK (Oct 2026): free WAQI token for the air-quality layer.
     val waqiApiKey by viewModel.waqiApiKey.collectAsState()
+    // Temperature layer BYOK (Oct 2026): user's own OpenWeatherMap key.
+    val owmApiKey by viewModel.owmApiKey.collectAsState()
 
     // Phase 10.4.3.1: system ringtone picker (premium only). Crashes and
     // unreadable files are caught — a toast explains, nothing breaks.
@@ -1387,6 +1389,99 @@ fun SettingsScreen(
                                 Toast.makeText(
                                     context,
                                     context.getString(R.string.settings_waqi_cleared),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_routes_clear))
+                        }
+                    }
+                }
+            }
+            // Temperature key (Oct 2026): OpenWeatherMap BYOK for the
+            // temperature raster layer — same save/clear/validate pattern.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_owm_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.settings_owm_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var owmDraft by remember(owmApiKey) { mutableStateOf(owmApiKey) }
+                    var owmVisible by remember { mutableStateOf(false) }
+                    OutlinedTextField(
+                        value = owmDraft,
+                        onValueChange = { owmDraft = it.take(128) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.settings_owm_hint)) },
+                        singleLine = true,
+                        visualTransformation = if (owmVisible) VisualTransformation.None
+                            else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { owmVisible = !owmVisible },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(
+                                    imageVector = if (owmVisible) Icons.Filled.VisibilityOff
+                                        else Icons.Filled.Visibility,
+                                    contentDescription = stringResource(
+                                        if (owmVisible) R.string.settings_routes_hide
+                                        else R.string.settings_routes_show,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        var owmChecking by remember { mutableStateOf(false) }
+                        Button(
+                            onClick = {
+                                owmChecking = true
+                                viewModel.setOwmApiKey(owmDraft) { valid ->
+                                    owmChecking = false
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(
+                                            when (valid) {
+                                                true -> R.string.settings_owm_valid
+                                                false -> R.string.settings_owm_invalid
+                                                null -> R.string.settings_owm_saved
+                                            },
+                                        ),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            },
+                            enabled = !owmChecking,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_routes_save))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                owmDraft = ""
+                                viewModel.setOwmApiKey("")
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.settings_owm_cleared),
                                     Toast.LENGTH_SHORT,
                                 ).show()
                             },
