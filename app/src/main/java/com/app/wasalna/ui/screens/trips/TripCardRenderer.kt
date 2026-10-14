@@ -106,7 +106,28 @@ object TripCardRenderer {
             val spdV = avgSpeed?.let { statValue(it) }
             val spdL = avgSpeed?.let { statLabel(avgSpeedLabel.uppercase()) }
             val statsH = distV.height + dp(8) + distL.height
-            val watermark = layout(appName, 32f, true, muted)
+            // Watermark: real launcher icon + FULL app name in the app's
+            // language (appName already resolves to the current locale).
+            val logoSize = dp(64)
+            val iconBmp = runCatching {
+                val drawable = context.packageManager
+                    .getApplicationIcon(context.packageName)
+                val px = (logoSize * 2).toInt().coerceAtLeast(64)
+                val b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+                val cv = Canvas(b)
+                drawable.setBounds(0, 0, px, px)
+                drawable.draw(cv)
+                b
+            }.getOrNull()
+            val namePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = 32f * dm.scaledDensity
+                typeface = Typeface.DEFAULT_BOLD
+                color = muted
+            }
+            val nameWidth = namePaint.measureText(appName).toInt().coerceAtLeast(1)
+            val rowGap = dp(16)
+            val markRowW = (if (iconBmp != null) logoSize + rowGap else 0f) + nameWidth
+            val watermark = layout(appName, 32f, true, muted, nameWidth + 8)
 
             val markerR = dp(46)
             val flourishH = dp(120)
@@ -114,13 +135,13 @@ object TripCardRenderer {
             val gapFlourish = dp(28); val gapStats = dp(32)
             val gapDate = dp(24); val gapDivider = dp(28)
             val gapMark = dp(24)
-            val logoR = dp(26)
 
             var contentH = PAD + markerR * 2 + gapTitle + title.height
             if (origin != null) contentH += gapOrigin + origin.height
+            val markRowH = maxOf(if (iconBmp != null) logoSize else 0f, watermark.height.toFloat())
             contentH += gapFlourish + flourishH + gapStats + statsH +
                 gapDate + date.height + gapDivider + dp(2) +
-                gapMark + logoR * 2 + dp(10) + watermark.height + PAD
+                gapMark + markRowH + PAD
             val imgH = (MARGIN * 2 + contentH).toInt()
 
             val bmp = Bitmap.createBitmap(IMG_W, imgH, Bitmap.Config.ARGB_8888)
@@ -243,22 +264,24 @@ object TripCardRenderer {
             )
             y += dp(2) + gapMark
 
-            // Watermark: logo disc (first letter) + app name, small.
-            val initial = appName.trim().firstOrNull()?.uppercase() ?: "W"
-            c.drawCircle(
-                cx, y + logoR,
-                logoR, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primary },
-            )
-            val lp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                textSize = 30f * dm.scaledDensity
-                typeface = Typeface.DEFAULT_BOLD
-                color = card
-                textAlign = Paint.Align.CENTER
+            // Watermark row: [real app logo] + full app name, centered.
+            val rowH = maxOf(if (iconBmp != null) logoSize else 0f, watermark.height.toFloat())
+            var rowX = cx - markRowW / 2
+            if (iconBmp != null) {
+                val dst = RectF(rowX, y + (rowH - logoSize) / 2, rowX + logoSize, y + (rowH + logoSize) / 2)
+                // White bed so adaptive-icon shapes sit cleanly on white.
+                c.drawCircle(
+                    dst.centerX(), dst.centerY(), logoSize * 0.62f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = card },
+                )
+                c.drawBitmap(iconBmp, null, dst, Paint(Paint.ANTI_ALIAS_FLAG))
+                rowX += logoSize + rowGap
             }
-            val fm = lp.fontMetrics
-            c.drawText(initial, cx, y + logoR - (fm.ascent + fm.descent) / 2, lp)
-            y += logoR * 2 + dp(10)
-            drawCentered(watermark)
+            c.save()
+            c.translate(rowX, y + (rowH - watermark.height) / 2)
+            watermark.draw(c)
+            c.restore()
+            y += rowH
 
             bmp
         }.onFailure {

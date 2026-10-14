@@ -43,7 +43,9 @@ suspend fun captureAndShareTripImage(
                 distanceKm = distanceKm,
                 durationMin = durationMin,
                 dateText = dateText,
-                appName = context.getString(R.string.trip_card_app_name),
+                // Full app name in the app's language (Wasalna? / وصلنا؟)
+                // + the real launcher icon — drawn as the watermark row.
+                appName = context.getString(R.string.app_name),
                 distanceLabel = distanceLabel,
                 durationLabel = durationLabel,
                 originName = originName,
