@@ -54,6 +54,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -201,16 +204,28 @@ fun WasalnaBottomBar(
     )
     // Icons-only footer (user order Oct 2026): no labels — 5 equal slots.
     // The start-trip action lives INSIDE the center slot as a 44dp filled
-    // disc (pulse) — proportional to the bar, unlike the old 60dp overlay
+    // disc — proportional to the bar, unlike the old 60dp overlay
     // that jutted above it.
-    val pulse by rememberInfiniteTransition(label = "fabPulse").animateFloat(
-        initialValue = 1f,
-        targetValue = 1.08f,
+    // Radiating halo (user order Oct 2026): two hollow rings expanding
+    // from the disc edge and fading out, staggered 900ms — radar feel.
+    // Linear easing keeps the expansion speed constant; Ring restarts at
+    // the disc edge while the previous one dissolves outward.
+    val halo = rememberInfiniteTransition(label = "startHalo")
+    val ring1 by halo.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200),
-            repeatMode = RepeatMode.Reverse,
+            animation = tween(1800, easing = LinearEasing),
         ),
-        label = "fabPulseScale",
+        label = "haloRing1",
+    )
+    val ring2 by halo.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, delayMillis = 900, easing = LinearEasing),
+        ),
+        label = "haloRing2",
     )
     NavigationBar(tonalElevation = 3.dp) {
         NavigationBarItem(
@@ -235,26 +250,34 @@ fun WasalnaBottomBar(
             },
             colors = itemColors,
         )
-        // Center: filled primary disc with the play arrow — same vertical
-        // band as the other items, visually dominant via color + pulse.
+        // Center: filled primary disc with the play arrow + radiating
+        // halo behind it. The 64dp stage keeps the expanding rings inside
+        // the slot (no overlap with neighbor icons); the disc stays
+        // crisp in front while rings dissolve outward.
         NavigationBarItem(
             selected = false,
             onClick = onStartTrip,
             icon = {
                 Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .scale(pulse)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.size(64.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(R.string.nav_start_trip),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp),
-                    )
+                    HaloRing(progress = ring1)
+                    HaloRing(progress = ring2)
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(R.string.nav_start_trip),
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             },
             colors = itemColors,
@@ -282,6 +305,22 @@ fun WasalnaBottomBar(
             colors = itemColors,
         )
     }
+}
+
+/**
+ * One radiating halo ring: a hollow primary-colored circle expanding
+ * from the 44dp disc edge (1f → 1.45f) while fading out. progress 0 = at
+ * the disc edge, opaque; progress 1 = fully expanded, invisible.
+ */
+@Composable
+private fun HaloRing(progress: Float) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .scale(1f + progress * 0.45f)
+            .alpha((1f - progress) * 0.7f)
+            .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+    )
 }
 
 // ── Drawer primitives ─────────────────────────────────────────────────────
