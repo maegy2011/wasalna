@@ -70,7 +70,8 @@ import com.app.wasalna.ui.navigation.Screen
  * Unified app chrome — single source of truth for header / footer / drawer.
  *
  * - [WasalnaTopBar]: every screen header (menu OR back + title + subtitle + actions).
- * - [WasalnaBottomBar]: 5-slot footer (menu · home · CENTER start · places · settings)
+ * - [WasalnaBottomBar]: 5-slot footer (menu · home · CENTER start · places · trip history)
+ *   (Settings stays reachable from the navigation drawer).
  *   with labels + selected pill, FAB docked in the center slot.
  * - [DrawerSectionTitle] + [WasalnaDrawerItem]: grouped drawer rows with
  *   consistent padding, shape, and selected styling.
@@ -270,12 +271,12 @@ fun WasalnaBottomBar(
             colors = itemColors,
         )
         NavigationBarItem(
-            selected = isSelected(Screen.Settings.route),
-            onClick = { onNavigateTab(Screen.Settings.route) },
+            selected = isSelected(Screen.TripsHistory.route),
+            onClick = { onNavigateTab(Screen.TripsHistory.route) },
             icon = {
                 Icon(
-                    painterResource(R.drawable.ic_svg_settings),
-                    contentDescription = stringResource(R.string.settings_title),
+                    painterResource(R.drawable.ic_svg_history),
+                    contentDescription = stringResource(R.string.trips_title),
                 )
             },
             colors = itemColors,
