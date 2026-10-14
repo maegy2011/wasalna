@@ -1331,13 +1331,17 @@ private fun MapLibreMapView(
             } ?: DefaultCairoLibre
             // Map UX fixes: zoom selector drives the camera. Selection
             // moves keep their zoom; explicit selector changes animate.
+            // Zoom-in-place fix (user order Oct 2026): +/- must zoom on
+            // the CURRENT camera position — never teleport back to the
+            // selection or the default city (that was the reported bug).
             if (cameraZoom != lastZoomApplied) {
                 lastZoomApplied = cameraZoom
-                lastCameraTarget = target
+                val current = map.cameraPosition?.target ?: target
+                lastCameraTarget = current
                 glideCamera(
                     map,
                     MapLibreCameraUpdateFactory.newLatLngZoom(
-                        target,
+                        current,
                         cameraZoom.toDouble(),
                     ),
                     300,
