@@ -132,6 +132,13 @@
     <string name="layer_aqi">جودة الهواء</string>
     <string name="layer_aqi_sub">خريطة التلوث (أونلاين، تحتاج رمز WAQI مجاني)</string>
     <string name="layer_aqi_need_token">أضف رمز WAQI المجاني من الإعدادات ← جودة الهواء</string>
+    <string name="aqi_legend_title">مقياس الجودة (US-EPA)</string>
+    <string name="aqi_good">جيد</string>
+    <string name="aqi_moderate">مقبول</string>
+    <string name="aqi_usg">ضار للحساسين</string>
+    <string name="aqi_unhealthy">ضار</string>
+    <string name="aqi_very_unhealthy">ضار جدًا</string>
+    <string name="aqi_hazardous">خطير</string>
     <string name="sim_blocked_by_trip">توجد رحلة حقيقية تعمل — أوقفها قبل المحاكاة</string>
     <string name="routing_gaz_title">البحث في الشوارع والأماكن</string>
     <string name="routing_gaz_hint">أسماء المنطقة دون إنترنت</string>

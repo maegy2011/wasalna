@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.R
+import com.app.wasalna.data.repository.AqiRepository
 import com.app.wasalna.data.repository.NominatimRepository
 import com.app.wasalna.data.repository.OSRMRepository
 import com.app.wasalna.data.repository.OsrmRoute
@@ -33,6 +34,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -74,6 +78,7 @@ class MapViewModel @Inject constructor(
     private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
     private val traffic: TrafficRepository,
     private val gazetteer: com.app.wasalna.data.search.OfflineGazetteer,
+    private val aqi: AqiRepository,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -459,6 +464,11 @@ class MapViewModel @Inject constructor(
     private val _selectedLatLng = MutableStateFlow<LatLng?>(null)
     val selectedLatLng: StateFlow<LatLng?> = _selectedLatLng.asStateFlow()
 
+    // AQI value chip (Oct 2026, layer upgrade): null unless the layer is
+    // on, keyed, online, and a destination is selected (see init below).
+    private val _destinationAqi = MutableStateFlow<Int?>(null)
+    val destinationAqi: StateFlow<Int?> = _destinationAqi.asStateFlow()
+
     // Human-readable address for the tapped/searched point — shown above
     // the search bar and the Save FAB; used as the saved Location name.
     private val _selectedAddress = MutableStateFlow<String?>(null)
@@ -507,6 +517,23 @@ class MapViewModel @Inject constructor(
                 } else if (_isTrafficEnabled.value) {
                     probeTrafficNow()
                     restartTrafficRefreshLoop()
+                }
+            }
+        }
+        // AQI value chip (Oct 2026, layer upgrade): numeric AQI at the
+        // selected destination — only while the layer is on, keyed, and
+        // online. Debounced + collectLatest so map pans don't spam WAQI.
+        viewModelScope.launch {
+            combine(
+                _selectedLatLng, _isAqiLayer, _waqiKey, isOfflineMode,
+            ) { sel, on, key, offline ->
+                if (!on || key.isBlank() || offline) null else sel?.let { it to key }
+            }.debounce(800).collectLatest { pair ->
+                _destinationAqi.value = if (pair == null) {
+                    null
+                } else {
+                    val (latLng, key) = pair
+                    aqi.fetchAqi(latLng.latitude, latLng.longitude, key)
                 }
             }
         }

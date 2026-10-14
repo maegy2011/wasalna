@@ -191,6 +191,13 @@
     <string name="layer_aqi">Air quality</string>
     <string name="layer_aqi_sub">AQI heatmap (online, needs a free WAQI token)</string>
     <string name="layer_aqi_need_token">Add your free WAQI token in Settings → Air quality</string>
+    <string name="aqi_legend_title">AQI scale (US-EPA)</string>
+    <string name="aqi_good">Good</string>
+    <string name="aqi_moderate">Moderate</string>
+    <string name="aqi_usg">Unhealthy for sensitive groups</string>
+    <string name="aqi_unhealthy">Unhealthy</string>
+    <string name="aqi_very_unhealthy">Very unhealthy</string>
+    <string name="aqi_hazardous">Hazardous</string>
     <string name="sim_blocked_by_trip">A real trip is running — stop it before simulating</string>
     <string name="routing_gaz_title">Street &amp; place search</string>
     <string name="routing_gaz_hint">Offline names for this region</string>

@@ -181,6 +181,8 @@ fun MapScreen(
     val isTransitLayer by viewModel.isTransitLayer.collectAsState()
     val isAqiLayer by viewModel.isAqiLayer.collectAsState()
     val waqiKey by viewModel.waqiKey.collectAsState()
+    // AQI upgrade: numeric value at the selected destination.
+    val destinationAqi by viewModel.destinationAqi.collectAsState()
     var layersOpen by remember { mutableStateOf(false) }
     val trafficOverlayState by viewModel.trafficState.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
@@ -563,6 +565,16 @@ fun MapScreen(
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .padding(16.dp),
+                        )
+                    }
+                    // AQI upgrade: live value chip under the fixed hint —
+                    // colored dot + number + EPA band at the destination.
+                    destinationAqi?.let { aqi ->
+                        AqiValueChip(
+                            aqi = aqi,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 60.dp),
                         )
                     }
                     // Phase 10.4.3.1: My Location FAB (bottom-start, clear of
@@ -1454,6 +1466,10 @@ private fun MapLayersSheet(
                 checked = aqiOn && waqiConfigured,
                 onChecked = onAqi,
             )
+            // AQI upgrade: EPA color-scale legend under the toggle.
+            if (aqiOn && waqiConfigured) {
+                AqiLegendCard()
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
