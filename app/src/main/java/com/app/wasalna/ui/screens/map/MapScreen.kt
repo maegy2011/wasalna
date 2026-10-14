@@ -58,8 +58,16 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import com.app.wasalna.ui.components.WasalnaTopBar
-import androidx.compose.material3.SearchBar
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -141,7 +149,7 @@ private const val EMPTY_FEATURE_COLLECTION = "{\"type\":\"FeatureCollection\",\"
  * Phase 4: destination picker — search at top, results list,
  * map filling the rest, Save FAB enabled only when a place is selected.
  * Phase 10-Fix: 100% MapLibre (OpenFreeMap) — no engine toggle.
- * Professional M3 SearchBar: while active, results take over the screen;
+ * Header search field: while active, results take over the screen;
  * picking a result reveals the map + marker. Photon keyless search
  * (real places + coords, one step) + OSRM route line.
  */
@@ -222,8 +230,8 @@ fun MapScreen(
         }
     }
 
-    // Phase 10-Fix: SearchBar active state — while typing, results take
-    // over the screen (map hidden); picking a result reveals map + marker.
+    // Search-in-header: while typing, results take over the screen
+    // (map hidden); picking a result reveals map + marker.
     var searchActive by remember { mutableStateOf(false) }
     // Voice search launcher (Oct 2026): transcript → query, bar stays open.
     val voiceLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -276,6 +284,14 @@ fun MapScreen(
         }
     }
 
+    val focusManager = LocalFocusManager.current
+    // Search-in-header (user order Oct 2026): one closer for the results
+    // overlay — header back, clear button, and picking a result share it.
+    fun closeSearch() {
+        searchActive = false
+        focusManager.clearFocus()
+    }
+
     // Map UX fixes: quick-place edit dialog state (search-mode only).
     var editTarget by remember { mutableStateOf<String?>(null) }
     // Phase 10.11: dynamic destination share sheet (re-queries on open).
@@ -293,7 +309,7 @@ fun MapScreen(
         }
         fun select() {
             if (viewModel.selectQuickPlace(lat, lng, address)) {
-                searchActive = false
+                closeSearch()
                 tripSheetOpen = true
             }
         }
@@ -315,17 +331,109 @@ fun MapScreen(
         when {
             homeWorkSheetPoint != null -> homeWorkSheetPoint = null
             tripSheetOpen -> tripSheetOpen = false
-            searchActive -> searchActive = false
+            searchActive -> closeSearch()
         }
     }
 
     Scaffold(
         topBar = {
-            WasalnaTopBar(
-                title = stringResource(R.string.map_pick_title),
-                showBack = true,
-                onBackClick = onBack,
-                actions = {
+            // Search-in-header (user order Oct 2026): the search box lives
+            // in the header next to the cloud toggle — back · field · cloud.
+            // Typing or focusing opens the results overlay below (the map
+            // hides while active, same as before); header back closes the
+            // search first, then leaves the screen.
+            Surface(
+                shadowElevation = 2.dp,
+                tonalElevation = 1.dp,
+                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = { if (searchActive) closeSearch() else onBack() },
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.common_back_home),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    TextField(
+                        value = query,
+                        onValueChange = {
+                            viewModel.onQueryChange(it)
+                            if (it.isNotEmpty()) searchActive = true
+                        },
+                        placeholder = { Text(stringResource(R.string.map_search_hint)) },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Search, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    viewModel.onQueryChange("")
+                                    viewModel.clearSelection()
+                                    closeSearch()
+                                }) {
+                                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.map_clear_search))
+                                }
+                            } else {
+                                // Voice search (Oct 2026): system recognizer (Arabic)
+                                // → transcript straight into the query. No RECORD_
+                                // AUDIO permission needed (system dialog owns the mic).
+                                IconButton(onClick = {
+                                    if (!android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
+                                        viewModel.voiceNotAvailable()
+                                    } else {
+                                        val voiceIntent = android.content.Intent(
+                                            android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH,
+                                        ).apply {
+                                            putExtra(
+                                                android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                                android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                                            )
+                                            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ar")
+                                            putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                                            putExtra(
+                                                android.speech.RecognizerIntent.EXTRA_PROMPT,
+                                                context.getString(R.string.voice_prompt),
+                                            )
+                                        }
+                                        runCatching { voiceLauncher.launch(voiceIntent) }
+                                            .onFailure { viewModel.voiceNotAvailable() }
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.voice_search_desc))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(28.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { closeSearch() },
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                            .onFocusChanged { if (it.isFocused) searchActive = true },
+                    )
                     // Header cloud button: icon shows the CURRENT mode
                     // (cloud = online, cloud-off = offline); tap toggles
                     // with an Arabic confirmation Snackbar.
@@ -344,14 +452,14 @@ fun MapScreen(
                             }
                         },
                     )
-                },
-            )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        // Phase 10-Fix: professional SearchBar — while active the results
-        // take over the screen (map hidden, no overlap); picking a result
-        // collapses the bar and reveals the map + marker. 100% MapLibre.
+        // Search-in-header: while active the results take over the screen
+        // (map hidden, no overlap); picking a result collapses the overlay
+        // and reveals the map + marker. 100% MapLibre.
         val keyboardController = LocalSoftwareKeyboardController.current
         Column(
             modifier = Modifier
@@ -367,59 +475,14 @@ fun MapScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            SearchBar(
-                query = query,
-                onQueryChange = viewModel::onQueryChange,
-                onSearch = {
-                    searchActive = false
-                    keyboardController?.hide()
-                },
-                active = searchActive,
-                onActiveChange = { searchActive = it },
-                placeholder = { Text(stringResource(R.string.map_search_hint)) },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null)
-                },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = {
-                            viewModel.onQueryChange("")
-                            viewModel.clearSelection()
-                        }) {
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.map_clear_search))
-                        }
-                    } else {
-                        // Voice search (Oct 2026): system recognizer (Arabic)
-                        // → transcript straight into the query. No RECORD_
-                        // AUDIO permission needed (system dialog owns the mic).
-                        IconButton(onClick = {
-                            if (!android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
-                                viewModel.voiceNotAvailable()
-                            } else {
-                                val voiceIntent = android.content.Intent(
-                                    android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH,
-                                ).apply {
-                                    putExtra(
-                                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-                                    )
-                                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ar")
-                                    putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                                    putExtra(
-                                        android.speech.RecognizerIntent.EXTRA_PROMPT,
-                                        context.getString(R.string.voice_prompt),
-                                    )
-                                }
-                                runCatching { voiceLauncher.launch(voiceIntent) }
-                                    .onFailure { viewModel.voiceNotAvailable() }
-                            }
-                        }) {
-                            Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.voice_search_desc))
-                        }
-                    }
-                },
+            // Search results overlay (user order Oct 2026): the input now
+            // lives in the header — this branch shows shortcuts + results
+            // only while searching; the map hides underneath as before.
+            if (searchActive) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 // REDESIGN 10 Oct 2026: search mode — recent + Home/Work
@@ -471,7 +534,7 @@ fun MapScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
                     )
                 }
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     items(
                         predictions,
                         key = { "${it.name}|${it.lat}|${it.lng}" },
@@ -491,7 +554,7 @@ fun MapScreen(
                             modifier = Modifier
                                 .clickable {
                                     viewModel.fetchPlaceDetails(result)
-                                    searchActive = false
+                                    closeSearch()
                                     keyboardController?.hide()
                                     tripSheetOpen = true
                                 }
@@ -499,6 +562,7 @@ fun MapScreen(
                         )
                     }
                 }
+            }
             }
             if (!searchActive) {
                 Box(
