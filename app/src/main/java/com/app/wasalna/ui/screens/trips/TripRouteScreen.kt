@@ -253,6 +253,35 @@ fun TripRouteScreen(
             // dynamic destination share sheet entry point.
             trip?.let { t ->
                 val isPast = t.status == com.app.wasalna.data.local.entity.TripStatus.PAST
+                // Full-camera snapshot of the REAL route for the share
+                // image (user order Oct 2026): refit to the whole trail +
+                // destination, let it settle, then capture the frame.
+                // Main-thread only (MapLibre requirement) — the share
+                // click already runs on Main via rememberCoroutineScope.
+                suspend fun snapshotFullRoute(): android.graphics.Bitmap? {
+                    val map = mapRef ?: return null
+                    if (points.size < 2) return null
+                    return try {
+                        val bounds = LatLngBounds.Builder()
+                            .include(LatLng(t.destLat, t.destLng))
+                        points.forEach { bounds.include(LatLng(it.lat, it.lng)) }
+                        map.moveCamera(
+                            CameraUpdateFactory.newLatLngBounds(bounds.build(), 120),
+                        )
+                        kotlinx.coroutines.delay(700)
+                        kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                            runCatching {
+                                map.snapshot { bmp ->
+                                    if (!cont.isCompleted) cont.resumeWith(Result.success(bmp))
+                                }
+                            }.onFailure {
+                                if (!cont.isCompleted) cont.resumeWith(Result.success(null))
+                            }
+                        }
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
                 val lastPoint = points.lastOrNull()
                 val travelledKm = points.zipWithNext { a, b ->
                     haversineKm(a.lat, a.lng, b.lat, b.lng)
@@ -624,6 +653,7 @@ fun TripRouteScreen(
                                     context.getString(R.string.trip_card_duration_min, "$it")
                                 } ?: tripCardDate(t.startTime)
                                 val past = pastSummary
+                                val mapBmp = snapshotFullRoute()
                                 val ok = captureAndShareTripImage(
                                     context = context,
                                     destination = t.locationName,
@@ -642,6 +672,7 @@ fun TripRouteScreen(
                                         )
                                     },
                                     avgSpeedLabel = context.getString(R.string.past_avg_speed),
+                                    mapImage = mapBmp,
                                 )
                                 if (!ok) snackbarHostState.showSnackbar(shareImageFailed)
                             }

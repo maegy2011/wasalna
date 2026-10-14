@@ -32,12 +32,13 @@ suspend fun captureAndShareTripImage(
     originName: String? = null,
     avgSpeed: String? = null,
     avgSpeedLabel: String = "Avg",
+    mapImage: Bitmap? = null,
 ): Boolean {
     return runCatching {
         // Oct 2026 fix: framework Canvas render — the old detached
         // ComposeView never composed, producing a 1×1/blank image.
         val bitmap = withContext(Dispatchers.Default) {
-            TripCardRenderer.render(
+            val rendered = TripCardRenderer.render(
                 context = context,
                 destination = destination,
                 distanceKm = distanceKm,
@@ -51,7 +52,11 @@ suspend fun captureAndShareTripImage(
                 originName = originName,
                 avgSpeed = avgSpeed,
                 avgSpeedLabel = avgSpeedLabel,
-            ) ?: return@withContext null
+                mapImage = mapImage,
+            )
+            // The snapshot is already painted into the card — free it.
+            runCatching { mapImage?.recycle() }
+            rendered ?: return@withContext null
         } ?: return false
         val uri = withContext(Dispatchers.IO) {
             val dir = File(context.cacheDir, "shared").apply { mkdirs() }

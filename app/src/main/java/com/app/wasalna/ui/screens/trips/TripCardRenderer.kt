@@ -7,6 +7,7 @@ import android.graphics.DashPathEffect
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -23,9 +24,10 @@ import androidx.annotation.ColorInt
  * composition — works from any thread, any context.
  *
  * Layout (1080px): deep-green gradient backdrop → white rounded card →
- * drawn destination marker → title → optional origin line → dashed
- * route flourish → stat columns → date → divider → watermark footer
- * (logo disc + app name, small, centered).
+ * [optional full-camera map snapshot header with the real route] →
+ * marker + title → origin → [dashed flourish when no map] → stat
+ * columns → date → divider → watermark footer (real logo + full app
+ * name in the app's language, small, centered).
  */
 object TripCardRenderer {
     private const val TAG = "TripCardRenderer"
@@ -55,6 +57,7 @@ object TripCardRenderer {
         originName: String? = null,
         avgSpeed: String? = null,
         avgSpeedLabel: String = "Avg",
+        mapImage: Bitmap? = null,
     ): Bitmap? {
         return runCatching {
             val dm = context.resources.displayMetrics
@@ -68,7 +71,10 @@ object TripCardRenderer {
             @ColorInt val onCard = FALLBACK_ON_CARD
             @ColorInt val muted = FALLBACK_MUTED
 
+            val hasMap = mapImage != null
             val innerW = (IMG_W - MARGIN * 2 - PAD * 2).toInt()
+            val mapW = (IMG_W - MARGIN * 2).toFloat()
+            val mapH = if (hasMap) mapW * 9f / 16f else 0f
 
             fun layout(
                 text: String,
@@ -135,11 +141,17 @@ object TripCardRenderer {
             val gapFlourish = dp(28); val gapStats = dp(32)
             val gapDate = dp(24); val gapDivider = dp(28)
             val gapMark = dp(24)
-
-            var contentH = PAD + markerR * 2 + gapTitle + title.height
-            if (origin != null) contentH += gapOrigin + origin.height
             val markRowH = maxOf(if (iconBmp != null) logoSize else 0f, watermark.height.toFloat())
-            contentH += gapFlourish + flourishH + gapStats + statsH +
+
+            var contentH = title.height
+            contentH += if (hasMap) {
+                mapH + dp(28)
+            } else {
+                PAD + markerR * 2 + gapTitle
+            }
+            if (origin != null) contentH += gapOrigin + origin.height
+            contentH += if (hasMap) dp(8) else gapFlourish + flourishH
+            contentH += gapStats + statsH +
                 gapDate + date.height + gapDivider + dp(2) +
                 gapMark + markRowH + PAD
             val imgH = (MARGIN * 2 + contentH).toInt()
@@ -177,17 +189,64 @@ object TripCardRenderer {
                 },
             )
 
-            var y = (MARGIN + PAD).toFloat()
             val cx = IMG_W / 2f
+            var y: Float
 
-            // Drawn destination marker (gold disc + white core + tiny stem).
-            val my = y + markerR
-            c.drawCircle(cx, my, markerR, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gold })
-            c.drawCircle(
-                cx, my, markerR * 0.42f,
-                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = card },
-            )
-            y += markerR * 2 + gapTitle
+            if (hasMap && mapImage != null) {
+                // Full-camera route snapshot, rounded TOP corners only.
+                val mapRect = RectF(
+                    MARGIN.toFloat(), MARGIN.toFloat(),
+                    (IMG_W - MARGIN).toFloat(), MARGIN + mapH,
+                )
+                c.save()
+                c.clipPath(
+                    Path().apply {
+                        addRoundRect(
+                            mapRect,
+                            floatArrayOf(
+                                CARD_RADIUS, CARD_RADIUS,
+                                CARD_RADIUS, CARD_RADIUS,
+                                0f, 0f, 0f, 0f,
+                            ),
+                            Path.Direction.CW,
+                        )
+                    },
+                )
+                val srcAspect = mapImage.width.toFloat() / mapImage.height.coerceAtLeast(1)
+                val dstAspect = mapW / mapH.coerceAtLeast(1f)
+                val src = if (srcAspect > dstAspect) {
+                    val w = (mapImage.height * dstAspect).toInt().coerceAtLeast(1)
+                    Rect(
+                        (mapImage.width - w) / 2, 0,
+                        (mapImage.width + w) / 2, mapImage.height,
+                    )
+                } else {
+                    val h = (mapImage.width / dstAspect).toInt().coerceAtLeast(1)
+                    Rect(
+                        0, (mapImage.height - h) / 2,
+                        mapImage.width, (mapImage.height + h) / 2,
+                    )
+                }
+                c.drawBitmap(mapImage, src, mapRect, Paint(Paint.FILTER_BITMAP_FLAG))
+                c.restore()
+                // Gold underline under the map.
+                c.drawRect(
+                    MARGIN.toFloat(), MARGIN + mapH,
+                    (IMG_W - MARGIN).toFloat(), MARGIN + mapH + dp(6),
+                    Paint().apply { color = gold },
+                )
+                y = MARGIN + mapH + dp(28)
+            } else {
+                // Drawn destination marker (gold disc + white core).
+                y = (MARGIN + PAD).toFloat()
+                val my = y + markerR
+                c.drawCircle(cx, my, markerR, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gold })
+                c.drawCircle(
+                    cx, my, markerR * 0.42f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = card },
+                )
+                y += markerR * 2 + gapTitle
+            }
 
             fun drawCentered(l: StaticLayout) {
                 c.save()
@@ -202,42 +261,46 @@ object TripCardRenderer {
                 drawCentered(origin)
             }
 
-            // Dashed route flourish: start dot → curve → gold end dot.
-            y += gapFlourish
-            val fx0 = MARGIN + PAD.toFloat() + dp(40)
-            val fx1 = (IMG_W - MARGIN - PAD).toFloat() - dp(40)
-            val fy = y + flourishH / 2
-            val path = Path().apply {
-                moveTo(fx0, fy)
-                cubicTo(
-                    fx0 + (fx1 - fx0) * 0.3f, fy - flourishH * 0.55f,
-                    fx0 + (fx1 - fx0) * 0.7f, fy + flourishH * 0.55f,
-                    fx1, fy,
+            if (!hasMap) {
+                // Dashed route flourish: start dot → curve → gold end dot.
+                y += gapFlourish
+                val fx0 = MARGIN + PAD.toFloat() + dp(40)
+                val fx1 = (IMG_W - MARGIN - PAD).toFloat() - dp(40)
+                val fy = y + flourishH / 2
+                val path = Path().apply {
+                    moveTo(fx0, fy)
+                    cubicTo(
+                        fx0 + (fx1 - fx0) * 0.3f, fy - flourishH * 0.55f,
+                        fx0 + (fx1 - fx0) * 0.7f, fy + flourishH * 0.55f,
+                        fx1, fy,
+                    )
+                }
+                c.drawPath(
+                    path,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = primary
+                        style = Paint.Style.STROKE
+                        strokeWidth = dp(7)
+                        strokeCap = Paint.Cap.ROUND
+                        pathEffect = DashPathEffect(floatArrayOf(dp(16), dp(12)), 0f)
+                    },
                 )
+                c.drawCircle(
+                    fx0, fy, dp(13),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primary },
+                )
+                c.drawCircle(
+                    fx1, fy, dp(15),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gold },
+                )
+                c.drawCircle(
+                    fx1, fy, dp(6),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = card },
+                )
+                y += flourishH + gapStats
+            } else {
+                y += dp(8) + gapStats
             }
-            c.drawPath(
-                path,
-                Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = primary
-                    style = Paint.Style.STROKE
-                    strokeWidth = dp(7)
-                    strokeCap = Paint.Cap.ROUND
-                    pathEffect = DashPathEffect(floatArrayOf(dp(16), dp(12)), 0f)
-                },
-            )
-            c.drawCircle(
-                fx0, fy, dp(13),
-                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = primary },
-            )
-            c.drawCircle(
-                fx1, fy, dp(15),
-                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gold },
-            )
-            c.drawCircle(
-                fx1, fy, dp(6),
-                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = card },
-            )
-            y += flourishH + gapStats
 
             // Stat columns.
             fun drawCol(l: StaticLayout, col: Int) {
@@ -268,7 +331,10 @@ object TripCardRenderer {
             val rowH = maxOf(if (iconBmp != null) logoSize else 0f, watermark.height.toFloat())
             var rowX = cx - markRowW / 2
             if (iconBmp != null) {
-                val dst = RectF(rowX, y + (rowH - logoSize) / 2, rowX + logoSize, y + (rowH + logoSize) / 2)
+                val dst = RectF(
+                    rowX, y + (rowH - logoSize) / 2,
+                    rowX + logoSize, y + (rowH + logoSize) / 2,
+                )
                 // White bed so adaptive-icon shapes sit cleanly on white.
                 c.drawCircle(
                     dst.centerX(), dst.centerY(), logoSize * 0.62f,
