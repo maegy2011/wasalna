@@ -200,7 +200,7 @@ class TripRouteViewModel @Inject constructor(
             val local = runCatching {
                 com.app.wasalna.data.routing.routeOfflineWithAutoSelect(
                     graphManager, ghEngine, startLat, startLng, destLat, destLng,
-                ).second
+                )?.second
             }.getOrNull()
             if (local != null) return local.toGeoJson()
         }

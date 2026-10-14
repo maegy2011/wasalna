@@ -209,7 +209,7 @@ class HomeViewModel @Inject constructor(
     /** Elderly safety net (user order Oct 2026): re-adds a just-deleted place. */
     fun restoreLocation(location: Location) {
         viewModelScope.launch {
-            runCatching { savePlace(location.name, location.latitude, location.longitude) }
+            runCatching { locationRepository.addLocation(location) }
                 .onFailure { Log.e(TAG, "restoreLocation failed: ${it.message}") }
         }
     }

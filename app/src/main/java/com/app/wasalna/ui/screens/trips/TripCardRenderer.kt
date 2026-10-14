@@ -212,7 +212,7 @@ object TripCardRenderer {
             val gapMark = dp(24)
             val markRowH = maxOf(if (iconBmp != null) logoSize else 0f, watermark.height.toFloat())
 
-            var contentH = title.height
+            var contentH = title.height.toFloat()
             contentH += if (hasMap) {
                 mapH + dp(28)
             } else {
