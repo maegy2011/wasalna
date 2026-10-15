@@ -212,6 +212,7 @@ class MapViewModel @Inject constructor(
     }
 
     fun addViaPoint(lat: Double, lng: Double) {
+        if (!validCoords(lat, lng)) return
         if (_viaPoints.value.size >= MAX_VIA_POINTS) {
             viewModelScope.launch {
                 _events.emit(msg(R.string.via_max, MAX_VIA_POINTS))
@@ -885,10 +886,11 @@ class MapViewModel @Inject constructor(
             val ln = it.lng ?: return@mapNotNull null
             "${(la * 1000).toInt()}:${(ln * 1000).toInt()}"
         }.toMutableSet()
-        val merged = online.toMutableList()
+        val merged = online.filter { validCoords(it.lat, it.lng) }.toMutableList()
         for (hit in local) {
             val la = hit.lat ?: continue
             val ln = hit.lng ?: continue
+            if (!validCoords(la, ln)) continue
             val key = "${(la * 1000).toInt()}:${(ln * 1000).toInt()}"
             if (seen.add(key)) merged.add(hit)
         }
@@ -1200,16 +1202,23 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /** MapLibre's LatLng() throws on NaN/infinite/out-of-range — never let one in. */
+    private fun validCoords(lat: Double?, lng: Double?): Boolean =
+        lat != null && lng != null && lat.isFinite() && lng.isFinite() &&
+            lat in -90.0..90.0 && lng in -180.0..180.0
+
     /**
      * Map UX fixes: quick-trip entry (Home/Work tap) — selects the saved
      * point as the destination; route/ETA follow reactively. No-op when
      * the place has no coordinates yet (caller prompts to set it first).
      */
     fun selectQuickPlace(lat: Double?, lng: Double?, address: String): Boolean {
-        if (lat == null || lng == null) return false
-        _selectedName.value = address.ifBlank { fallbackName(lat, lng) }
-        _selectedAddress.value = address.ifBlank { fallbackName(lat, lng) }
-        _selectedLatLng.value = LatLng(lat, lng)
+        if (!validCoords(lat, lng)) return false
+        val la = lat ?: return false
+        val ln = lng ?: return false
+        _selectedName.value = address.ifBlank { fallbackName(la, ln) }
+        _selectedAddress.value = address.ifBlank { fallbackName(la, ln) }
+        _selectedLatLng.value = LatLng(la, ln)
         _predictions.value = emptyList()
         _searchError.value = null
         _searchQuery.value = address
@@ -1220,6 +1229,7 @@ class MapViewModel @Inject constructor(
     fun fetchPlaceDetails(result: SearchResult) {
         val lat = result.lat ?: return
         val lng = result.lng ?: return
+        if (!validCoords(lat, lng)) return
         _selectedName.value = result.name
         _selectedAddress.value = result.name
         _selectedLatLng.value = LatLng(lat, lng)
@@ -1247,6 +1257,7 @@ class MapViewModel @Inject constructor(
      * readable address used as the saved name.
      */
     fun onMapClicked(lat: Double, lng: Double) {
+        if (!validCoords(lat, lng)) return
         _selectedLatLng.value = LatLng(lat, lng)
         _predictions.value = emptyList()
         viewModelScope.launch {

@@ -1487,7 +1487,9 @@ private fun MapLibreMapView(
                 lastTempApplied = null
                 lastTempOpacityApplied = null
                 // Phase 10.4.3.1: live blue dot (guarded by runtime permission).
-                enableLocationComponent(context, map, style)
+                // LOCATION-CRASH FIX: a revoked/partial grant throws
+                // SecurityException here and used to kill the app on map open.
+                runCatching { enableLocationComponent(context, map, style) }
                 runCatching { style.addImage(MARKER_IMAGE_ID, makeMarkerBitmap()) }
                 runCatching { style.addImage(VIA_IMAGE_ID, makeViaBitmap()) }
                 // Phase 10-2: route source + styled line layer (created once

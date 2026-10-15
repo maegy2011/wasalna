@@ -43,7 +43,13 @@ class TripRouteViewModel @Inject constructor(
     private val ghEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
 ) : ViewModel() {
 
-    val tripId: Long = savedStateHandle.get<Long>("tripId") ?: 0L
+    // LIVE-ROUTE CRASH FIX: the arg can arrive as Long, Int or String
+    // depending on the navigation path — a blind get<Long> yields null
+    // (→ trip 0 → blank/broken screen). Accept every shape.
+    val tripId: Long = savedStateHandle.get<Long>("tripId")
+        ?: savedStateHandle.get<Int>("tripId")?.toLong()
+        ?: savedStateHandle.get<String>("tripId")?.toLongOrNull()
+        ?: 0L
 
     private val _trip = MutableStateFlow<TripHistory?>(null)
     val trip: StateFlow<TripHistory?> = _trip.asStateFlow()

@@ -86,12 +86,18 @@ class VelaSearchRepository @Inject constructor() {
     private fun parsePhoton(body: String): List<SearchResult> {
         val features = JSONObject(body).optJSONArray("features") ?: return emptyList()
         return List(features.length()) { i ->
-            val feature = features.optJSONObject(i) ?: return@List null
+            val feature = runCatching { features.optJSONObject(i) }.getOrNull()
+                ?: return@List null
             val props = feature.optJSONObject("properties")
             val coords = feature.optJSONObject("geometry")?.optJSONArray("coordinates")
             val lng = coords?.optDouble(0)
             val lat = coords?.optDouble(1)
             if (props == null || lat == null || lng == null) return@List null
+            // SEARCH-CRASH FIX: a malformed mirror reply (NaN, infinite or
+            // out-of-range coords) used to reach MapLibre's LatLng(), whose
+            // constructor throws and kills the app on select. Drop them here.
+            if (!lat.isFinite() || !lng.isFinite()) return@List null
+            if (lat !in -90.0..90.0 || lng !in -180.0..180.0) return@List null
             // Backstop: Photon honors bbox, but a misbehaving mirror or
             // future API change must not leak out-of-scope results.
             if (!inScope(lat, lng, rLat, rLng)) return@List null

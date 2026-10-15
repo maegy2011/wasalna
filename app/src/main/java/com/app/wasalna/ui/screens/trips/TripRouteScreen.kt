@@ -499,13 +499,18 @@ fun TripRouteScreen(
                             if (dest != null) {
                                 val origin = points.firstOrNull()
                                 val guide = remember(origin?.lat, origin?.lng, dest) {
-                                    CairoTransitStations.buildGuide(
-                                        originLat = origin?.lat ?: dest.destLat,
-                                        originLng = origin?.lng ?: dest.destLng,
-                                        destLat = dest.destLat,
-                                        destLng = dest.destLng,
-                                    )
+                                    runCatching {
+                                        CairoTransitStations.buildGuide(
+                                            originLat = origin?.lat ?: dest.destLat,
+                                            originLng = origin?.lng ?: dest.destLng,
+                                            destLat = dest.destLat,
+                                            destLng = dest.destLng,
+                                        )
+                                    }.getOrNull()
                                 }
+                                if (guide == null) {
+                                    TransitApproxNote()
+                                } else {
                                 TransitGuideCard(
                                     boardingText = stringResource(
                                         R.string.transit_board_at,
@@ -525,6 +530,7 @@ fun TripRouteScreen(
                                     // label only when both ends are OSM-covered.
                                     showApproxNote = guide.approximate,
                                 )
+                                }
                             } else {
                                 TransitApproxNote()
                             }
@@ -538,13 +544,15 @@ fun TripRouteScreen(
                             if (dest != null) {
                                 val plan = remember(points, dest, vehicle) {
                                     val origin = points.firstOrNull()
-                                    com.app.wasalna.domain.model.TransitPlanner.plan(
-                                        origin?.lat ?: dest.destLat,
-                                        origin?.lng ?: dest.destLng,
-                                        dest.destLat, dest.destLng, vehicle,
-                                    )
+                                    runCatching {
+                                        com.app.wasalna.domain.model.TransitPlanner.plan(
+                                            origin?.lat ?: dest.destLat,
+                                            origin?.lng ?: dest.destLng,
+                                            dest.destLat, dest.destLng, vehicle,
+                                        )
+                                    }.getOrNull()
                                 }
-                                if (plan.kind == "NONE") {
+                                if (plan == null || plan.kind == "NONE") {
                                     Text(
                                         text = stringResource(
                                             R.string.transit_static_none,
