@@ -120,6 +120,14 @@ class TrackingService : Service() {
     private var nudgeLeadMinutes: Int = DEFAULT_NUDGE_LEAD_MINUTES
     private var currentIntervalMs: Long = -1L
     private var isTracking = false
+    // Start-crash guard (Oct 2026 fix): the app closed right after the
+    // "trip started" Toast because ANY exception escaping onStartCommand
+    // (startForeground SecurityException on coarse-only grants, OEM FGS
+    // bans, notification errors) kills the whole process. These flags let
+    // onDestroy tell a real stop (finish → PAST) from a stillborn start
+    // (delete → no phantom row in finished trips).
+    private var foregroundStarted: Boolean = false
+    @Volatile private var everGotFix: Boolean = false
     // TRIP SIMULATION seam (وضع محاكاة للرحلة للتجربة): virtual-fix feed
     // jobs. When the controller is off these stay null and the fused GPS
     // path below runs exactly as before (zero behavior change).
@@ -280,10 +288,63 @@ class TrackingService : Service() {
                 Log.i(TAG, "Offline mode ON — OSRM bypassed, GPS + local engine only")
             }
         }
-        // Phase 10.4.2.1: open the trip row (closes any stale ACTIVE one).
-        // User order Oct 2026: SIMULATED trips are never recorded — close
-        // any stale ACTIVE row but insert nothing, so trip history +
-        // impact stats stay 100% real trips.
+        // Read the current silent flag once so the action label is correct.
+        serviceScope.launch {
+            isSilent = runCatching {
+                SettingsDataStore(applicationContext).isSilentAlarmEnabled.first()
+            }.getOrDefault(false)
+            pushNotification(null)
+        }
+
+        // START-CRASH FIX (Oct 2026): startForeground is the crash hotspot —
+        // a SecurityException here (coarse-only location grant, OEM FGS ban,
+        // notification error) used to escape onStartCommand and kill the
+        // whole app process right after the "trip started" Toast, while the
+        // async trip-row insert above had already landed → phantom PAST
+        // trip. Never let it escape: fail soft, clean the persisted state,
+        // and stop without touching the DB (nothing to finish).
+        foregroundStarted = false
+        try {
+            // API 29+ requires the FGS type at startForeground time.
+            val notification = try {
+                buildNotification(null).build()
+            } catch (e: Exception) {
+                Log.e(TAG, "buildNotification failed: ${e.message}")
+                // Minimal fallback notification — the trip matters more
+                // than the rich body.
+                NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle(getString(R.string.app_name))
+                    .setContentText(getString(R.string.tracking_text))
+                    .setSmallIcon(android.R.drawable.ic_dialog_map)
+                    .setOngoing(true)
+                    .build()
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(
+                    this,
+                    NOTIF_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
+                )
+            } else {
+                startForeground(NOTIF_ID, notification)
+            }
+            foregroundStarted = true
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed, aborting start: ${e.message}")
+            isServiceRunning = false
+            // The async startTrip insert may still land — point the
+            // destroy path at deleting it, not finishing it.
+            everGotFix = false
+            clearActiveTrip()
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
+        // Phase 10.4.2.1: open the trip row ONLY after startForeground
+        // succeeded (Oct 2026 reorder). Inserting before meant a rejected
+        // FGS left an orphan ACTIVE row → phantom PAST trip after the
+        // crash. User order Oct 2026: SIMULATED trips are never recorded.
         serviceScope.launch {
             activeTripId = runCatching {
                 if (TripSimulationController.isActive) {
@@ -297,28 +358,14 @@ class TrackingService : Service() {
             }.getOrNull()
         }
 
-        // Read the current silent flag once so the action label is correct.
-        serviceScope.launch {
-            isSilent = runCatching {
-                SettingsDataStore(applicationContext).isSilentAlarmEnabled.first()
-            }.getOrDefault(false)
-            pushNotification(null)
+        try {
+            startTracking(force = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "startTracking threw, aborting start: ${e.message}")
+            clearActiveTrip()
+            stopForegroundAndSelf()
+            return START_NOT_STICKY
         }
-
-        // API 29+ requires the FGS type at startForeground time.
-        val notification = buildNotification(null).build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceCompat.startForeground(
-                this,
-                NOTIF_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
-            )
-        } else {
-            startForeground(NOTIF_ID, notification)
-        }
-
-        startTracking(force = true)
         isServiceRunning = true
         return START_STICKY
     }
@@ -367,6 +414,7 @@ class TrackingService : Service() {
 
     private fun onFix(fix: Location) {
         if (isPaused) return
+        everGotFix = true
         // Phase 10.4.3.7 (Part 2): breadcrumb per valid fix — junk fixes
         // (>100 m accuracy) never touch the DB.
         val tripId = activeTripId
@@ -812,9 +860,14 @@ class TrackingService : Service() {
     }
 
     private fun requestUpdates(intervalMs: Long) {
+        if (!::fusedClient.isInitialized) {
+            Log.e(TAG, "requestUpdates: fusedClient not ready, stopping")
+            stopSelf()
+            return
+        }
         try {
             fusedClient.removeLocationUpdates(locationCallback)
-        } catch (e: SecurityException) {
+        } catch (e: Exception) {
             Log.e(TAG, "removeLocationUpdates failed: ${e.message}")
         }
         // Background fix (Oct 2026): HIGH_ACCURACY — BALANCED leans on
@@ -837,8 +890,13 @@ class TrackingService : Service() {
             currentIntervalMs = intervalMs
             Log.i(TAG, "requestUpdates: interval=${intervalMs}ms")
         } catch (e: SecurityException) {
+            Log.e(TAG, "requestLocationUpdates denied: ${e.message}")
+            clearActiveTrip()
+            stopForegroundAndSelf()
+        } catch (e: Exception) {
             Log.e(TAG, "requestLocationUpdates failed: ${e.message}")
-            stopSelf()
+            clearActiveTrip()
+            stopForegroundAndSelf()
         }
     }
 
@@ -1158,21 +1216,32 @@ class TrackingService : Service() {
         simWatchJob?.cancel()
         simWatchJob = null
         TripSimulationController.notifyTripEnded()
-        try {
-            fusedClient.removeLocationUpdates(locationCallback)
-        } catch (e: Exception) {
-            Log.w(TAG, "onDestroy removeLocationUpdates: ${e.message}")
+        if (::fusedClient.isInitialized) {
+            try {
+                fusedClient.removeLocationUpdates(locationCallback)
+            } catch (e: Exception) {
+                Log.w(TAG, "onDestroy removeLocationUpdates: ${e.message}")
+            }
         }
         // Phase 10.4.2.1: every stop path ends here — finish the trip row.
         // BUGFIX Oct 2026: serviceScope is cancelled below, so a finish
         // launched in it could die before running (row stuck ACTIVE and
         // re-appearing as Current after restart). Use an independent
         // scope so the write always lands.
+        // PHANTOM FIX (Oct 2026): a stillborn start (FGS rejected, no GPS
+        // fix ever) must NOT become a PAST row — delete it so failed
+        // starts never pollute finished trips / stats.
         val id = activeTripId
         activeTripId = null
+        val hadRealTrip = everGotFix || foregroundStarted
+        everGotFix = false
+        foregroundStarted = false
         if (id != null) {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                runCatching { tripRepo.finishTrip(id) }
+                runCatching {
+                    if (hadRealTrip) tripRepo.finishTrip(id)
+                    else tripRepo.deleteTrip(id)
+                }
             }
         }
         // Phase 10.4.3.4: safety reset — a fresh trip always starts clean.

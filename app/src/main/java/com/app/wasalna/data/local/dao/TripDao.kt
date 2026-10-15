@@ -42,6 +42,9 @@ interface TripDao {
     @Query("UPDATE trips SET status = '${TripStatus.PAST}', endTime = :endTime WHERE id = :id")
     suspend fun finishTrip(id: Long, endTime: Long)
 
+    @Query("DELETE FROM trips WHERE id = :id")
+    suspend fun deleteTrip(id: Long)
+
     @Query("UPDATE trips SET status = '${TripStatus.PAST}', endTime = :endTime WHERE status = '${TripStatus.ACTIVE}'")
     suspend fun closeOpenTrips(endTime: Long)
 

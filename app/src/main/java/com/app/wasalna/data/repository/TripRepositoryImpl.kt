@@ -59,6 +59,10 @@ class TripRepositoryImpl @Inject constructor(
         tripDao.finishTrip(id, System.currentTimeMillis())
     }
 
+    override suspend fun deleteTrip(id: Long) {
+        tripDao.deleteTrip(id)
+    }
+
     override suspend fun tripById(id: Long): TripHistory? =
         tripDao.tripById(id)?.toDomain()
 

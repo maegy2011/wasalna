@@ -36,6 +36,8 @@ interface TripRepository {
 
     suspend fun finishTrip(id: Long)
 
+    suspend fun deleteTrip(id: Long)
+
     suspend fun closeOpenTrips()
 
     /** Phase 10.4.3.7 (Part 2): persist one GPS breadcrumb. */
