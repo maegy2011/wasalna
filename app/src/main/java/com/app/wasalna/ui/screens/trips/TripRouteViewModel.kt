@@ -100,6 +100,31 @@ class TripRouteViewModel @Inject constructor(
     val plannedRouteGeoJson: StateFlow<String?> = _plannedRoute.asStateFlow()
     private var planJob: Job? = null
 
+    /**
+     * VEHICLE (user order Oct 2026): mid-trip vehicle switch — persisted
+     * to the same DataStore key the pre-trip sheet writes; the running
+     * TrackingService re-reads it on the next fix and recomputes the
+     * route with the new OSRM profile (see TrackingService.onFix).
+     *
+     * INIT-ORDER FIX: this MUST stay above the init block — the combine
+     * below reads it, and a later declaration is still null when init
+     * runs (NPE inside combine → "view live route" crash on open).
+     */
+    val transportMode: StateFlow<TransportMode> =
+        settingsRepository.transportMode.map { TransportMode.fromName(it) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = TransportMode.CAR,
+            )
+
+    fun setTransportMode(mode: TransportMode) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setTransportMode(mode.name) }
+                .onFailure { Log.e(TAG, "persist vehicle failed: ${it.message}") }
+        }
+    }
+
     init {
         viewModelScope.launch {
             _trip.value = runCatching { tripRepository.tripById(tripId) }
@@ -223,27 +248,6 @@ class TripRouteViewModel @Inject constructor(
         "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\"," +
             "\"geometry\":{\"type\":\"LineString\",\"coordinates\":" +
             "[[$startLng,$startLat],[$destLng,$destLat]]},\"properties\":{}}]}"
-
-    /**
-     * VEHICLE (user order Oct 2026): mid-trip vehicle switch — persisted
-     * to the same DataStore key the pre-trip sheet writes; the running
-     * TrackingService re-reads it on the next fix and recomputes the
-     * route with the new OSRM profile (see TrackingService.onFix).
-     */
-    val transportMode: StateFlow<TransportMode> =
-        settingsRepository.transportMode.map { TransportMode.fromName(it) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = TransportMode.CAR,
-            )
-
-    fun setTransportMode(mode: TransportMode) {
-        viewModelScope.launch {
-            runCatching { settingsRepository.setTransportMode(mode.name) }
-                .onFailure { Log.e(TAG, "persist vehicle failed: ${it.message}") }
-        }
-    }
 
     /**
      * REDESIGN 10 Oct 2026: prominent end-trip action — reuses the
