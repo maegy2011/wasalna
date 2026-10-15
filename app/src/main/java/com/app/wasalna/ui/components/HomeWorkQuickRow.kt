@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -163,7 +164,7 @@ fun HomeWorkQuickRow(
                     isWork = true,
                 )
             }
-            items(customShortcuts, key = { "custom-" + it.id }) { shortcut ->
+            itemsIndexed(customShortcuts, key = { i, c -> "custom-$i-" + c.name }) { _, shortcut ->
                 QuickPlaceCard(
                     title = shortcut.name.ifBlank { stringResource(R.string.custom_untitled) },
                     subtitle = shortcut.address.ifBlank { stringResource(R.string.quick_tap_hint) },
