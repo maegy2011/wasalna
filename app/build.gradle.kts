@@ -56,6 +56,11 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        // Plain-JVM unit tests: Android framework stubs return defaults
+        // instead of throwing (Log.e etc. become no-ops under test).
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -112,4 +117,15 @@ dependencies {
     implementation("com.graphhopper:graphhopper-core:11.1")
 
     debugImplementation(libs.compose.ui.tooling)
+
+    // Offline-plan test stack (§6): JVM unit first, instrumented nightly.
+    testImplementation(libs.junit4)
+    testImplementation(libs.truth)
+    testImplementation(libs.turbine)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.test.core)
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.compose.ui.test.manifest)
+    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.test.runner)
 }
