@@ -117,6 +117,22 @@ fun OfflineMapsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // M3: staleness banner for packs older than 30 days.
+            val staleIds by viewModel.staleRegionIds.collectAsState()
+            if (staleIds.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.offline_stale_banner),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
             // Live download progress.
             progress?.let { pct ->
                 Card(

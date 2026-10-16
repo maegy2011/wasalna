@@ -1308,6 +1308,7 @@ fun MapScreen(
                 aqiOn = isAqiLayer,
                 onAqi = { viewModel.setAqiLayer(it) },
                 waqiConfigured = waqiKey.isNotBlank(),
+                aqiOffline = isOfflineMode,
                 tempOn = isTempLayer,
                 onTemp = { viewModel.setTempLayer(it) },
                 tempConfigured = owmKey.isNotBlank(),
@@ -1760,6 +1761,8 @@ private fun MapLayersSheet(
     aqiOn: Boolean,
     onAqi: (Boolean) -> Unit,
     waqiConfigured: Boolean,
+    // A3: offline/token-missing banner under the AQI row.
+    aqiOffline: Boolean = false,
     // Temperature layer (Oct 2026): OWM temp_new raster + opacity.
     tempOn: Boolean,
     onTemp: (Boolean) -> Unit,
@@ -1802,6 +1805,16 @@ private fun MapLayersSheet(
                 checked = aqiOn && waqiConfigured,
                 onChecked = onAqi,
             )
+            // A3: layer ON but unusable (no token, or offline with
+            // nothing cached) — inline banner instead of a dead toggle.
+            if (aqiOn && (!waqiConfigured || aqiOffline)) {
+                Text(
+                    text = stringResource(R.string.layer_aqi_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
+                )
+            }
             // AQI upgrade: EPA color-scale legend under the toggle.
             if (aqiOn && waqiConfigured) {
                 AqiLegendCard()

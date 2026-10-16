@@ -57,6 +57,10 @@ fun OfflineRoutingScreen(
     viewModel: OfflineRoutingViewModel = hiltViewModel(),
 ) {
     val engineError by viewModel.engineError.collectAsState()
+    // R6+P3: reactive region list + update badges + names coverage.
+    val regions by viewModel.regionsFlow.collectAsState()
+    val updateIds by viewModel.graphUpdateIds.collectAsState()
+    val gazCoverage by viewModel.gazetteerCoverage.collectAsState()
     // رسالة تأكيد قبل حذف جراف التوجيه (إعادة التنزيل مجهود كبير).
     var pendingGraphDelete by remember { mutableStateOf<String?>(null) }
 
@@ -90,11 +94,22 @@ fun OfflineRoutingScreen(
                     )
                 }
             }
+            if (regions.isNotEmpty()) {
+                Text(
+                    text = stringResource(
+                        R.string.routing_names_coverage,
+                        gazCoverage.size,
+                        regions.size,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(viewModel.regions, key = { it.id }) { region ->
+                items(regions, key = { it.id }) { region ->
                     val state by viewModel.stateFor(region.id).collectAsState()
                     // Gazetteer row state (Oct 2026): file-based, re-read
                     // on every gazVersion bump (download/delete/fail).
@@ -105,6 +120,7 @@ fun OfflineRoutingScreen(
                     OfflineRegionCard(
                         region = region,
                         state = state,
+                        hasUpdate = updateIds.contains(region.id),
                         onDownload = { viewModel.download(region) },
                         onDelete = { pendingGraphDelete = region.id },
                         gazStored = viewModel.isGazStored(region.id),
@@ -119,7 +135,7 @@ fun OfflineRoutingScreen(
         }
     }
     pendingGraphDelete?.let { regionId ->
-        val regionName = viewModel.regions.firstOrNull { it.id == regionId }?.name
+        val regionName = regions.firstOrNull { it.id == regionId }?.name
             ?: stringResource(R.string.routing_region_fallback)
         ConfirmDialog(
             title = stringResource(R.string.routing_delete_title),
@@ -139,6 +155,7 @@ fun OfflineRoutingScreen(
 private fun OfflineRegionCard(
     region: RoutingRegion,
     state: OfflineGraphState,
+    hasUpdate: Boolean,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     gazStored: Boolean,
@@ -251,8 +268,21 @@ private fun OfflineRegionCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
+                    if (hasUpdate) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.routing_update_available),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (hasUpdate) {
+                            Button(onClick = onDownload) {
+                                Text(stringResource(R.string.common_update))
+                            }
+                        }
                         OutlinedButton(onClick = onDelete) {
                             Text(stringResource(R.string.common_delete))
                         }

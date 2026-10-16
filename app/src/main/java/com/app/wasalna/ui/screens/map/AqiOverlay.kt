@@ -112,6 +112,12 @@ fun AqiLegendCard(modifier: Modifier = Modifier) {
                     )
                 }
             }
+            // A4: WAQI license attribution (required by aqicn.org terms).
+            Text(
+                text = stringResource(R.string.aqi_attribution),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

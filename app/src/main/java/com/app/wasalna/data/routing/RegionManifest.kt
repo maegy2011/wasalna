@@ -102,6 +102,10 @@ data class RoutingRegion(
     val maxLat: Double,
     val minLng: Double,
     val maxLng: Double,
+    /** R5: expected SHA-256 of the .ghz (null/absent = skip check, old manifests). */
+    val sha256: String? = null,
+    /** R6: server-side graph build number (null/absent = unknown, no badge). */
+    val version: Int? = null,
 ) {
     fun contains(lat: Double, lng: Double): Boolean =
         lat in minLat..maxLat && lng in minLng..maxLng

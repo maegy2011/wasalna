@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,8 +35,35 @@ class OfflineRoutingViewModel @Inject constructor(
     private val manifestRepo: RegionManifestRepository,
 ) : ViewModel() {
 
-    /** Region list from dynamic manifest. */
-    val regions: List<RoutingRegion> = manifestRepo.getManifest()?.regions ?: emptyList()
+    /**
+     * Region list from the dynamic manifest — reactive: empty until the
+     * first fetch lands, then populated (cached 7 days server-side).
+     * Screens collect this, never a stale snapshot.
+     */
+    private val _manifestTick = MutableStateFlow(0)
+    val regionsFlow: StateFlow<List<RoutingRegion>> = _manifestTick
+        .map { manifestRepo.getManifest()?.regions.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Legacy snapshot access (dialogs outside composition). */
+    val regions: List<RoutingRegion>
+        get() = manifestRepo.getManifest()?.regions.orEmpty()
+
+    /**
+     * R6: installed graphs with a NEWER server build — the screen badges
+     * these rows ("update available"); re-download replaces in place.
+     * Recomputed on manifest fetch + every download/delete.
+     */
+    val graphUpdateIds: StateFlow<Set<String>> = _manifestTick
+        .map { graphManager.updateAvailableIds(manifestRepo.getManifest()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    init {
+        viewModelScope.launch {
+            runCatching { manifestRepo.fetchManifest() }
+            _manifestTick.value += 1
+        }
+    }
 
     /** Engine load error (exact message) for status display. */
     val engineError: StateFlow<String?> = routeEngine.loadError
@@ -52,6 +80,8 @@ class OfflineRoutingViewModel @Inject constructor(
                     routeEngine.ensureLoadedFor(region.id, graphManager.graphDir(region.id))
                 }
             }
+            // Refresh R6 update badges (fresh stamp may clear the badge).
+            _manifestTick.value += 1
         }
     }
 
@@ -59,6 +89,7 @@ class OfflineRoutingViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { routeEngine.reset() }
             runCatching { graphManager.delete(regionId) }
+            _manifestTick.value += 1
         }
     }
 
@@ -73,6 +104,21 @@ class OfflineRoutingViewModel @Inject constructor(
 
     private val _gazFailed = MutableStateFlow<Set<String>>(emptySet())
     val gazFailed: StateFlow<Set<String>> = _gazFailed
+
+    /**
+     * P3: gazetteer coverage — region ids with a stored search index.
+     * Mirrors the graph `installedRegionIds` pattern so UI can show
+     * "names ✓" per region without touching files on Main.
+     */
+    val gazetteerCoverage: StateFlow<Set<String>> = _gazVersion
+        .map {
+            manifestRepo.getManifest()?.regions
+                ?.filter { region ->
+                    runCatching { gazetteer.isStored(region.id) }.getOrDefault(false)
+                }
+                ?.map { it.id }.orEmpty().toSet()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun isGazStored(regionId: String): Boolean =
         runCatching { gazetteer.isStored(regionId) }.getOrDefault(false)

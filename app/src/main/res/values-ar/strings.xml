@@ -141,7 +141,9 @@
     <string name="layer_aqi">جودة الهواء</string>
     <string name="layer_aqi_sub">خريطة التلوث (أونلاين، تحتاج رمز WAQI مجاني)</string>
     <string name="layer_aqi_need_token">أضف رمز WAQI المجاني من الإعدادات ← جودة الهواء</string>
+    <string name="layer_aqi_unavailable">الطبقة مفعّلة لكنها غير متاحة — تحتاج إنترنت ورمز WAQI صالحًا (القيم المخزنة فقط دون إنترنت)</string>
     <string name="aqi_legend_title">مقياس الجودة (US-EPA)</string>
+    <string name="aqi_attribution">بيانات جودة الهواء: المؤشر العالمي لجودة الهواء (waqi.info)</string>
     <string name="aqi_good">جيد</string>
     <string name="aqi_moderate">مقبول</string>
     <string name="aqi_usg">ضار للحساسين</string>
@@ -231,6 +233,7 @@
     <string name="common_delete">حذف</string>
     <string name="common_retry">إعادة المحاولة</string>
     <string name="common_download">تنزيل</string>
+    <string name="common_update">تحديث</string>
     <string name="common_share">مشاركة</string>
     <string name="common_ok">حسنًا</string>
     <string name="common_manage">إدارة</string>
@@ -504,6 +507,10 @@
     <string name="offline_ready_chip">يعمل بدون إنترنت 📴</string>
     <string name="offline_none_chip">لا تغطية أوفلاين هنا</string>
     <string name="offline_badge">أوفلاين: المسار %1$s · الأسماء %2$s · الجودة %3$s</string>
+    <string name="routing_update_available">تتوفر بيانات توجيه جديدة — حدّث لطرق أحدث</string>
+    <string name="offline_interrupted">توقّف تنزيل “%1$s” — اضغط إعادة المحاولة للبدء من جديد</string>
+    <string name="offline_stale_banner">بعض التنزيلات أقدم من 30 يومًا — قد تكون البلاطات قديمة، أعد التنزيل للتحديث</string>
+    <string name="routing_names_coverage">‏%1$d من %2$d مناطق لديها أسماء شوارع دون إنترنت</string>
     <string name="offline_graph_done">تم تحميل الخريطة — جاهز للأوفلاين ✅</string>
     <string name="offline_graph_fail">فشل التحميل — حاول مجددًا على واي فاي</string>
     <string name="nav_home">الرئيسية</string>

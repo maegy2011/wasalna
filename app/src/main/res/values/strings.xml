@@ -193,7 +193,9 @@
     <string name="layer_aqi">Air quality</string>
     <string name="layer_aqi_sub">AQI heatmap (online, needs a free WAQI token)</string>
     <string name="layer_aqi_need_token">Add your free WAQI token in Settings → Air quality</string>
+    <string name="layer_aqi_unavailable">Layer is on but unavailable — needs network + a valid WAQI token (cached values only offline)</string>
     <string name="aqi_legend_title">AQI scale (US-EPA)</string>
+    <string name="aqi_attribution">Air-quality data: World Air Quality Index (waqi.info)</string>
     <string name="aqi_good">Good</string>
     <string name="aqi_moderate">Moderate</string>
     <string name="aqi_usg">Unhealthy for sensitive groups</string>
@@ -227,6 +229,7 @@
     <string name="common_delete">Delete</string>
     <string name="common_retry">Retry</string>
     <string name="common_download">Download</string>
+    <string name="common_update">Update</string>
     <string name="common_share">Share</string>
     <string name="common_ok">OK</string>
     <string name="common_manage">Manage</string>
@@ -504,6 +507,10 @@
     <string name="offline_ready_chip">Works offline 📴</string>
     <string name="offline_none_chip">No offline coverage here</string>
     <string name="offline_badge">Offline: route %1$s · names %2$s · AQI %3$s</string>
+    <string name="routing_update_available">New routing data available — update for fresher roads</string>
+    <string name="offline_interrupted">Tile download for “%1$s” was interrupted — tap retry to restart</string>
+    <string name="offline_stale_banner">Some downloads are older than 30 days — tiles may be stale, re-download to refresh</string>
+    <string name="routing_names_coverage">%1$d of %2$d regions have offline street names</string>
     <string name="offline_graph_done">Map downloaded — offline ready ✅</string>
     <string name="offline_graph_fail">Download failed — try again on Wi-Fi</string>
     <string name="nav_home">Home</string>

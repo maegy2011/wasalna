@@ -217,6 +217,27 @@ class RoutingGraphManager @Inject constructor(
             .sumOf { it.length() }
     }.getOrDefault(0L)
 
+    /** R6: server build number stamped at install (null = pre-R6 graph). */
+    fun installedGraphVersion(regionId: String): Int? = runCatching {
+        val f = File(graphDir(regionId), VERSION_FILE)
+        if (!f.exists()) return null
+        f.readText().trim().toIntOrNull()
+    }.getOrNull()
+
+    /**
+     * R6: installed regions whose manifest build is NEWER than the stamp
+     * (unknown versions on either side = no badge, never a false alarm).
+     */
+    fun updateAvailableIds(manifest: RegionManifest?): Set<String> {
+        if (manifest == null) return emptySet()
+        return manifest.regions.mapNotNull { region ->
+            val server = region.version ?: return@mapNotNull null
+            if (!isInstalled(region.id)) return@mapNotNull null
+            val local = installedGraphVersion(region.id) ?: return@mapNotNull null
+            region.id.takeIf { server > local }
+        }.toSet()
+    }
+
     /**
      * Dynamic fetch (Oct 2026): background-safe entry — skips when the
      * graph is already installed, refuses metered networks and tight
@@ -321,6 +342,15 @@ class RoutingGraphManager @Inject constructor(
                     }
                 }
             check(tmpZip.length() > 1024) { "graph download implausibly small" }
+            // R5: integrity gate — a truncated or swapped .ghz used to
+            // explode later at engine load (confusing message, wasted
+            // storage). Mismatch → clean Error + tmp wiped in finally.
+            region.sha256?.takeIf { it.isNotBlank() }?.let { expected ->
+                val actual = sha256Of(tmpZip)
+                check(actual.equals(expected, ignoreCase = true)) {
+                    "corrupt graph (checksum mismatch)"
+                }
+            }
             emit(region.id, OfflineGraphState.Extracting)
             unzip(tmpZip, tmpDir)
             check(File(tmpDir, "properties").exists()) { "no prepared graph inside ZIP" }
@@ -332,6 +362,11 @@ class RoutingGraphManager @Inject constructor(
                     true
                 }.getOrDefault(false)
             check(installed) { "install move failed" }
+            // R6: stamp the server build number beside the graph so a
+            // newer manifest can badge "update available".
+            region.version?.let { v ->
+                runCatching { File(dest, VERSION_FILE).writeText(v.toString()) }
+            }
             Log.i(TAG, "graph ${region.id} installed at ${dest.absolutePath}")
             emit(region.id, OfflineGraphState.Ready)
             true
@@ -399,5 +434,25 @@ class RoutingGraphManager @Inject constructor(
 
         /** 8KB stream buffer for download + extraction (constant memory). */
         private const val BUFFER_8K = 8 * 1024
+
+        /** R6 sidecar: server build number stamped at install time. */
+        const val VERSION_FILE = "wasalna_version.txt"
+    }
+
+    /**
+     * R5: SHA-256 of a file, streaming (constant memory). Lowercase hex.
+     * Runs on the caller's thread — always Dispatchers.IO here.
+     */
+    private fun sha256Of(file: File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered(BUFFER_8K).use { ins ->
+            val buf = ByteArray(BUFFER_8K)
+            while (true) {
+                val n = ins.read(buf)
+                if (n < 0) break
+                digest.update(buf, 0, n)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }

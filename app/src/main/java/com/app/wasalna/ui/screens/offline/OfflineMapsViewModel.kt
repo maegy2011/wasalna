@@ -96,6 +96,13 @@ class OfflineMapsViewModel @Inject constructor(
 
     private var downloadingRegion: OfflineRegion? = null
 
+    /**
+     * M3: ids of tile regions downloaded > 30 days ago — the screen
+     * banners them (OpenFreeMap re-renders; old packs go stale).
+     */
+    private val _staleRegionIds = MutableStateFlow<Set<Long>>(emptySet())
+    val staleRegionIds: StateFlow<Set<Long>> = _staleRegionIds.asStateFlow()
+
     private val _graphInstalled = MutableStateFlow(false)
     val graphInstalled: StateFlow<Boolean> = _graphInstalled.asStateFlow()
 
@@ -114,9 +121,16 @@ class OfflineMapsViewModel @Inject constructor(
     /** Last tile-download bbox — drives the alongside-graph fetch. */
     private var lastTileBounds: LatLngBounds? = null
 
+    /** M4: last journaled progress (5% throttle for the cache file). */
+    private var lastJournaledPct = 0f
+
     init {
         refreshRegions()
         refreshGraphState()
+        // Warm the region manifest (7-day cache) so graph lookups and
+        // update badges work without opening the routing screen first.
+        viewModelScope.launch { runCatching { manifestRepo.fetchManifest() } }
+        viewModelScope.launch { restoreInterruptedDownload() }
     }
 
     fun clearError() {
@@ -239,12 +253,20 @@ class OfflineMapsViewModel @Inject constructor(
             offlineManager.listOfflineRegions(
                 object : OfflineManager.ListOfflineRegionsCallback {
                     override fun onList(regions: Array<OfflineRegion>?) {
-                        _regions.value = regions.orEmpty().map { region ->
+                        val list = regions.orEmpty()
+                        _regions.value = list.map { region ->
                             OfflineRegionInfo(
                                 id = region.id,
                                 name = regionName(region),
                             )
                         }
+                        // M3: flag packs older than 30 days (missing stamp
+                        // = pre-M3 pack → treat as stale, honest default).
+                        val now = System.currentTimeMillis()
+                        _staleRegionIds.value = list.mapNotNull { region ->
+                            val at = regionDownloadedAt(region)
+                            region.id.takeIf { at == null || now - at > TILE_STALE_MS }
+                        }.toSet()
                         _isLoading.value = false
                     }
 
@@ -308,8 +330,11 @@ class OfflineMapsViewModel @Inject constructor(
                 MAX_ZOOM,
                 appContext.resources.displayMetrics.density,
             )
-            val metadata = JSONObject().put(META_NAME, cleanName).toString()
-                .toByteArray(Charsets.UTF_8)
+            // M3: stamp creation time so 30-day staleness can banner.
+            val metadata = JSONObject()
+                .put(META_NAME, cleanName)
+                .put(META_DOWNLOADED_AT, System.currentTimeMillis())
+                .toString().toByteArray(Charsets.UTF_8)
             offlineManager.createOfflineRegion(
                 definition,
                 metadata,
@@ -325,9 +350,17 @@ class OfflineMapsViewModel @Inject constructor(
                                     if (done) return
                                     val required = status.requiredResourceCount
                                     val doneCount = status.completedResourceCount
-                                    _downloadProgress.value =
+                                    val pct =
                                         if (status.isComplete || required <= 0) 1f
                                         else (doneCount.toFloat() / required).coerceIn(0f, 1f)
+                                    _downloadProgress.value = pct
+                                    // M4: journal progress (5% steps) so a
+                                    // process death offers a restart, not
+                                    // a silent partial pack.
+                                    if (!status.isComplete && pct - lastJournaledPct >= 0.05f) {
+                                        lastJournaledPct = pct
+                                        journalProgress(cleanName, lastRequest?.second, pct)
+                                    }
                                     if (status.isComplete) {
                                         done = true
                                         finishDownload(verifyId = region.id)
@@ -387,6 +420,7 @@ class OfflineMapsViewModel @Inject constructor(
         _downloadProgress.value = null
         lastRequest = null
         _canRetry.value = false
+        clearJournal()
         runCatching { partial?.setObserver(null) }
         runCatching { partial?.setDownloadState(OfflineRegion.STATE_INACTIVE) }
         if (partial == null) {
@@ -467,18 +501,87 @@ class OfflineMapsViewModel @Inject constructor(
         }
     }
 
-    /** Best-effort size of the MapLibre offline DB (filesDir scan, IO). */
+    /**
+     * Best-effort size of the MapLibre offline DB (IO).
+     * M5: scans the internal files dir AND the external app-private dir —
+     * graphs live externally and the old scan missed that side entirely.
+     */
     private suspend fun queryOfflineDbSize() = withContext(Dispatchers.IO) {
         val bytes = runCatching {
-            val dir = appContext.filesDir ?: return@runCatching null
-            dir.listFiles()
-                ?.filter { f ->
-                    f.isFile && (f.name.contains("offline", ignoreCase = true) ||
-                        f.name.startsWith("mbgl", ignoreCase = true))
-                }
-                ?.sumOf { it.length() }
+            val dirs = listOfNotNull(
+                appContext.filesDir,
+                appContext.getExternalFilesDir(null),
+            )
+            dirs.sumOf { dir ->
+                dir.listFiles()
+                    ?.filter { f ->
+                        f.isFile && (f.name.contains("offline", ignoreCase = true) ||
+                            f.name.startsWith("mbgl", ignoreCase = true))
+                    }
+                    ?.sumOf { it.length() } ?: 0L
+            }
         }.getOrNull()
         _offlineDbBytes.value = bytes
+    }
+
+    /**
+     * M4: journal the running tile download to the cache dir (IO).
+     * Survives process death; [restoreInterruptedDownload] turns it into
+     * a one-tap restart. True resume is impossible (MapLibre limitation)
+     * so the copy is honest: a fresh download, orphan partial cleaned
+     * from the list by the user.
+     */
+    private fun journalProgress(name: String, bounds: LatLngBounds?, pct: Float) {
+        if (bounds == null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val root = JSONObject()
+                    .put("name", name)
+                    .put("south", bounds.latitudeSouth)
+                    .put("west", bounds.longitudeWest)
+                    .put("north", bounds.latitudeNorth)
+                    .put("east", bounds.longitudeEast)
+                    .put("pct", (pct * 100).toInt())
+                File(appContext.cacheDir, JOURNAL_FILE).writeText(root.toString())
+            }
+        }
+    }
+
+    private fun clearJournal() {
+        lastJournaledPct = 0f
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { File(appContext.cacheDir, JOURNAL_FILE).delete() }
+        }
+    }
+
+    /**
+     * M4: called once from init — a leftover journal means the process
+     * died mid-download. Surfaces the area + a retry affordance via the
+     * existing [lastRequest]/error path (no new UI state).
+     */
+    private fun restoreInterruptedDownload() {
+        val (name, bounds) = runCatching {
+            val f = File(appContext.cacheDir, JOURNAL_FILE)
+            if (!f.exists()) return
+            val root = JSONObject(f.readText())
+            val b = LatLngBounds.Builder()
+                .include(
+                    org.maplibre.android.geometry.LatLng(
+                        root.getDouble("south"), root.getDouble("west"),
+                    ),
+                )
+                .include(
+                    org.maplibre.android.geometry.LatLng(
+                        root.getDouble("north"), root.getDouble("east"),
+                    ),
+                )
+                .build()
+            root.getString("name") to b
+        }.getOrNull() ?: return
+        lastRequest = name to bounds
+        lastTileBounds = bounds
+        _error.value = appContext.getString(R.string.offline_interrupted, name)
+        _canRetry.value = true
     }
 
     /**
@@ -489,6 +592,7 @@ class OfflineMapsViewModel @Inject constructor(
         runCatching { downloadingRegion?.setObserver(null) }
         downloadingRegion = null
         _downloadProgress.value = null
+        clearJournal()
         if (verifyId == null) {
             refreshRegions()
             return
@@ -536,6 +640,13 @@ class OfflineMapsViewModel @Inject constructor(
             JSONObject(meta).optString(META_NAME).ifBlank { "Region ${region.id}" }
         }.getOrDefault("Region ${region.id}")
 
+    /** M3: creation timestamp from metadata (null = pre-M3 pack). */
+    private fun regionDownloadedAt(region: OfflineRegion): Long? =
+        runCatching {
+            val meta = region.metadata?.toString(Charsets.UTF_8).orEmpty()
+            JSONObject(meta).optLong(META_DOWNLOADED_AT, -1L).takeIf { it > 0 }
+        }.getOrNull()
+
     override fun onCleared() {
         runCatching { downloadingRegion?.setObserver(null) }
         downloadingRegion = null
@@ -545,6 +656,15 @@ class OfflineMapsViewModel @Inject constructor(
     companion object {
         private const val TAG = "OfflineMaps"
         private const val META_NAME = "name"
+
+        /** M3: creation timestamp key in region metadata. */
+        private const val META_DOWNLOADED_AT = "downloadedAt"
+
+        /** M3: packs older than this banner as possibly stale. */
+        private const val TILE_STALE_MS = 30L * 24L * 60L * 60L * 1000L
+
+        /** M4: cache-dir journal of the running tile download. */
+        private const val JOURNAL_FILE = "tile_download.json"
 
         /**
          * City-level pack: zoom 10 (city) → 14 (streets, vector last zoom).
