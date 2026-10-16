@@ -132,6 +132,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import com.app.wasalna.data.service.TrackingService
 import com.app.wasalna.data.service.TripStarter
+import com.app.wasalna.ui.screens.offline.OPENFREEMAP_STYLE_URL
 import kotlinx.coroutines.delay
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
@@ -142,8 +143,7 @@ import org.maplibre.android.plugins.annotation.SymbolOptions
 
 private val DefaultCairoLibre = MapLibreLatLng(30.0444, 31.2357)
 
-/** Phase 10-1: free vector style — OpenFreeMap tiles, no API key. */
-private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
+/** M1: single style source of truth — shared with offline packs. */
 private const val MARKER_IMAGE_ID = "wasalna-marker"
 // True offline mode (GPS-chip only): Arabic toggle confirmations.
 /** Phase 10-2: OSRM route source + layer ids (MapLibre free engine). */
@@ -210,6 +210,8 @@ fun MapScreen(
     val destinationAqi by viewModel.destinationAqi.collectAsState()
     // Offline upgrade: readiness of the picked route + graph progress.
     val offlineReadiness by viewModel.offlineReadiness.collectAsState()
+    // C1: unified Offline Ready badge (route + names + AQI, one line).
+    val offlineBadgeLabel by viewModel.offlineBadgeLabel.collectAsState()
     val graphDownloadingId by viewModel.graphDownloadingId.collectAsState()
     val graphDownloadProgress by viewModel.graphDownloadProgress.collectAsState()
     var layersOpen by remember { mutableStateOf(false) }
@@ -731,6 +733,24 @@ fun MapScreen(
                                 .align(Alignment.TopCenter)
                                 .padding(top = 12.dp),
                         )
+                    }
+                    // C1: one-line badge under the AQI dot (all states —
+                    // Ready/NoCoverage used to show nothing at all).
+                    offlineBadgeLabel?.let { label ->
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
                     }
                     offlineReadiness?.let { readiness ->
                         if (readiness is MapViewModel.OfflineReadiness.NeedDownload) {
@@ -1478,7 +1498,7 @@ private fun MapLibreMapView(
         lifecycle.addObserver(observer)
         mapView.getMapAsync { map ->
             mapRef = map
-            map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE)) { style ->
+            map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE_URL)) { style ->
                 styleRef = style
                 lastRouteApplied = null
                 lastTrafficApplied = null

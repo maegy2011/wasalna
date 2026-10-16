@@ -34,11 +34,48 @@ fun decideOfflineRoute(
     dLng: Double,
 ): OfflineRouteDecision {
     val covering = manager.coveringRegionFor(sLat, sLng, dLat, dLng)
+        ?.takeIf { regionCoversMidpoints(it, sLat, sLng, dLat, dLng) }
     if (covering != null) return OfflineRouteDecision.Routable(covering)
     return OfflineRouteDecision.SpansUnstored(
         manager.knownRegionFor(sLat, sLng, dLat, dLng),
     )
 }
+
+/**
+ * R2 road-aware guard: bbox endpoints are not enough — roads near a
+ * graph border can leave the baked network mid-route. Samples the
+ * 25/50/75% points of every leg; all must sit inside the bbox or the
+ * region is rejected (caller falls back, never fakes). The engine
+ * query itself is the final arbiter (null on true road gaps).
+ */
+fun regionCoversMidpoints(
+    region: RoutingRegion,
+    sLat: Double,
+    sLng: Double,
+    dLat: Double,
+    dLng: Double,
+): Boolean = MIDPOINT_FRACTIONS.all { f ->
+    region.contains(
+        sLat + (dLat - sLat) * f,
+        sLng + (dLng - sLng) * f,
+    )
+}
+
+/** Same guard for via routes: every leg's midpoints must stay inside. */
+fun regionCoversAllMidpoints(
+    region: RoutingRegion,
+    points: List<Pair<Double, Double>>,
+): Boolean {
+    if (points.size < 2) return false
+    for (i in 0 until points.size - 1) {
+        val (sLat, sLng) = points[i]
+        val (dLat, dLng) = points[i + 1]
+        if (!regionCoversMidpoints(region, sLat, sLng, dLat, dLng)) return false
+    }
+    return true
+}
+
+private val MIDPOINT_FRACTIONS = doubleArrayOf(0.25, 0.5, 0.75)
 
 /**
  * Executes the decision: loads the covering graph (region-aware,
@@ -77,7 +114,8 @@ suspend fun routeOfflineWithAutoSelectVia(
     points: List<Pair<Double, Double>>,
 ): Pair<RoutingRegion, RouteResult>? {
     if (points.size < 2) return null
-    val region = manager.coveringRegionForAll(points) ?: return null
+    val region = manager.coveringRegionForAll(points)
+        ?.takeIf { regionCoversAllMidpoints(it, points) } ?: return null
     val dir = manager.graphDir(region.id)
     if (!engine.ensureLoadedFor(region.id, dir)) return null
     val result = engine.calculateRouteVia(points) ?: return null

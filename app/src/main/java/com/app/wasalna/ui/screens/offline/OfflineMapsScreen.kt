@@ -245,7 +245,9 @@ fun OfflineMapsScreen(
                             }
                         } else {
                             Button(
-                                onClick = { viewModel.downloadGraph() },
+                                onClick = {
+                                    viewModel.getFirstRegionId()?.let { viewModel.downloadGraph(it) }
+                                },
                                 enabled = !graphBusy,
                             ) {
                                 Text(if (graphBusy) stringResource(R.string.common_working) else stringResource(R.string.common_download))
@@ -333,7 +335,7 @@ fun OfflineMapsScreen(
             confirmLabel = stringResource(R.string.common_delete),
             isDestructive = true,
             onConfirm = {
-                viewModel.deleteGraph()
+                viewModel.getFirstInstalledRegionId()?.let { viewModel.deleteGraph(it) }
                 showGraphDeleteConfirm = false
             },
             onDismiss = { showGraphDeleteConfirm = false },
@@ -439,52 +441,38 @@ private fun RegionPickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // Quick-area presets with pre-download size (Vela catalog).
+                // Use current map view for custom area download.
                 Text(
-                    text = stringResource(R.string.offline_presets_label),
+                    text = stringResource(R.string.offline_pick_area),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                val presets = listOf(
-                    Triple(
-                        R.string.offline_preset_cairo,
-                        OfflineMapsViewModel.PRESET_CAIRO,
-                        11.0,
-                    ),
-                    Triple(
-                        R.string.offline_preset_giza,
-                        OfflineMapsViewModel.PRESET_GIZA,
-                        11.0,
-                    ),
-                    Triple(
-                        R.string.offline_preset_cairo_giza,
-                        OfflineMapsViewModel.PRESET_CAIRO_GIZA,
-                        10.0,
-                    ),
-                )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    presets.forEach { (nameRes, bounds, zoom) ->
-                        OutlinedButton(
-                            onClick = {
-                                regionName = context.getString(nameRes)
-                                runCatching {
+                    OutlinedButton(
+                        onClick = {
+                            runCatching {
+                                val camera = mapRef?.cameraPosition
+                                val target = camera?.target
+                                target?.let {
+                                    val bounds = LatLngBounds.Builder()
+                                        .include(LatLng(it.latitude - 0.5, it.longitude - 0.5))
+                                        .include(LatLng(it.latitude + 0.5, it.longitude + 0.5))
+                                        .build()
+                                    regionName = context.getString(R.string.offline_default_city)
                                     mapRef?.moveCamera(
-                                        CameraUpdateFactory.newLatLngZoom(
-                                            OfflineMapsViewModel.centerOf(bounds),
-                                            zoom,
-                                        ),
+                                        CameraUpdateFactory.newLatLngBounds(bounds, 50)
                                     )
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                        ) {
-                            Text(
-                                text = "${context.getString(nameRes)} · ${presetSizeLabel(bounds)}",
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Text(
+                            text = context.getString(R.string.offline_pick_area),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))

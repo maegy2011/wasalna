@@ -61,6 +61,8 @@ class OfflineMapsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val graphManager: com.app.wasalna.data.routing.RoutingGraphManager,
     private val routeEngine: com.app.wasalna.data.routing.GraphHopperRouteEngine,
+    private val manifestRepo: com.app.wasalna.data.routing.RegionManifestRepository,
+    private val gazetteer: com.app.wasalna.data.search.OfflineGazetteer,
 ) : ViewModel() {
 
     private val offlineManager: OfflineManager by lazy {
@@ -135,14 +137,14 @@ class OfflineMapsViewModel @Inject constructor(
     val graphDownloadingId = graphManager.downloadingId
 
     fun refreshGraphState() {
-        _graphInstalled.value = graphManager.isInstalled(
-            com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id,
-        )
+        // Check if any region is installed
+        val installedIds = runCatching { graphManager.installedRegionIds() }
+            .getOrDefault(emptyList())
+        _graphInstalled.value = installedIds.isNotEmpty()
         // Upgrade: all-region installed ids (IO inside manager is cheap
         // file checks; refresh on the caller thread is safe — no network).
         // ── OFFLINE BOUNDARY: file checks only, zero network. ──
-        _installedGraphIds.value = runCatching { graphManager.installedRegionIds() }
-            .getOrDefault(emptyList())
+        _installedGraphIds.value = installedIds
     }
 
     /** Which known graph overlaps this tile bbox (null = uncharted area). */
@@ -177,8 +179,7 @@ class OfflineMapsViewModel @Inject constructor(
 
     /** Download any region by id (tile-flow entry; progress in graph card). */
     fun downloadRegionById(regionId: String) {
-        val region = com.app.wasalna.data.routing.RoutingGraphManager.REGIONS
-            .firstOrNull { it.id == regionId } ?: return
+        val region = manifestRepo.getManifest()?.regionById(regionId) ?: return
         if (_graphBusy.value) return
         _graphBusy.value = true
         viewModelScope.launch {
@@ -187,6 +188,8 @@ class OfflineMapsViewModel @Inject constructor(
                 runCatching {
                     routeEngine.ensureLoadedFor(region.id, graphManager.graphDir(region.id))
                 }
+                // Auto-download gazetteer for this region
+                gazetteer.ensureRegion(region)
             } else {
                 _error.value = "Routing data download failed — check connection."
             }
@@ -195,20 +198,18 @@ class OfflineMapsViewModel @Inject constructor(
         }
     }
 
-    fun downloadGraph() {
+    /** Download a specific region by id (replaces old downloadGraph). */
+    fun downloadGraph(regionId: String) {
+        val region = manifestRepo.getManifest()?.regionById(regionId) ?: return
         if (_graphBusy.value) return
         _graphBusy.value = true
         viewModelScope.launch {
-            val ok = graphManager.download(
-                com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION,
-            )
+            val ok = graphManager.download(region)
             if (ok) {
-                val dir = graphManager.graphDir(
-                    com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id,
-                )
-                routeEngine.ensureLoadedFor(
-                    com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id, dir,
-                )
+                val dir = graphManager.graphDir(region.id)
+                routeEngine.ensureLoadedFor(region.id, dir)
+                // Auto-download gazetteer for this region
+                gazetteer.ensureRegion(region)
             } else {
                 _error.value = "Routing data download failed — check connection."
             }
@@ -217,14 +218,20 @@ class OfflineMapsViewModel @Inject constructor(
         }
     }
 
-    fun deleteGraph() {
+    /** Delete a specific region by id (replaces old deleteGraph). */
+    fun deleteGraph(regionId: String) {
         viewModelScope.launch {
-            val id = com.app.wasalna.data.routing.RoutingGraphManager.TEST_REGION.id
             routeEngine.reset()
-            graphManager.delete(id)
+            graphManager.delete(regionId)
             refreshGraphState()
         }
     }
+
+    /** Get first available region ID from manifest for generic download. */
+    fun getFirstRegionId(): String? = manifestRepo.getManifest()?.regions?.firstOrNull()?.id
+
+    /** Get first installed region ID for generic delete. */
+    fun getFirstInstalledRegionId(): String? = graphManager.installedRegionIds().firstOrNull()
 
     fun refreshRegions() {
         _isLoading.value = true
@@ -502,7 +509,13 @@ class OfflineMapsViewModel @Inject constructor(
                             // Upgrade: tiles verified → ensure the overlapping
                             // routing graph downloads alongside (progress in
                             // the existing graph card; silent when uncharted).
-                            lastTileBounds?.let { bounds -> ensureGraphForBounds(bounds) }
+                            lastTileBounds?.let { bounds ->
+                                ensureGraphForBounds(bounds)
+                                // Also download gazetteer for the overlapping region
+                                graphForBounds(bounds)?.let { region ->
+                                    viewModelScope.launch { gazetteer.ensureRegion(region) }
+                                }
+                            }
                             lastTileBounds = null
                         }
                         refreshRegions()
@@ -542,20 +555,6 @@ class OfflineMapsViewModel @Inject constructor(
         private const val MAX_ZOOM = 14.0
         const val MIN_ZOOM_INT = 10
         const val MAX_ZOOM_INT = 14
-
-        /** Cairo + Giza first: quick-area presets (approx metro boxes). */
-        val PRESET_CAIRO = LatLngBounds.Builder()
-            .include(LatLng(30.20, 31.55))
-            .include(LatLng(29.95, 31.10))
-            .build()
-        val PRESET_GIZA = LatLngBounds.Builder()
-            .include(LatLng(30.15, 31.25))
-            .include(LatLng(29.85, 30.90))
-            .build()
-        val PRESET_CAIRO_GIZA = LatLngBounds.Builder()
-            .include(LatLng(30.25, 31.60))
-            .include(LatLng(29.80, 30.85))
-            .build()
 
         /** Center of a bounds (for preset camera jumps). */
         fun centerOf(bounds: LatLngBounds): LatLng = LatLng(

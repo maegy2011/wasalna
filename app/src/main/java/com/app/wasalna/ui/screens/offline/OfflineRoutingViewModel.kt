@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.wasalna.data.routing.GraphHopperRouteEngine
 import com.app.wasalna.data.routing.OfflineGraphState
+import com.app.wasalna.data.routing.RegionManifestRepository
 import com.app.wasalna.data.routing.RoutingGraphManager
 import com.app.wasalna.data.routing.RoutingRegion
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,10 +31,11 @@ class OfflineRoutingViewModel @Inject constructor(
     private val graphManager: RoutingGraphManager,
     private val routeEngine: GraphHopperRouteEngine,
     private val gazetteer: com.app.wasalna.data.search.OfflineGazetteer,
+    private val manifestRepo: RegionManifestRepository,
 ) : ViewModel() {
 
-    /** Region list (hardcoded for now, list-designed via REGIONS). */
-    val regions: List<RoutingRegion> = RoutingGraphManager.REGIONS
+    /** Region list from dynamic manifest. */
+    val regions: List<RoutingRegion> = manifestRepo.getManifest()?.regions ?: emptyList()
 
     /** Engine load error (exact message) for status display. */
     val engineError: StateFlow<String?> = routeEngine.loadError

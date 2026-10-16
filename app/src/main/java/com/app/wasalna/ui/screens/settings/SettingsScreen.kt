@@ -59,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -129,6 +130,19 @@ fun SettingsScreen(
     val routesApiKey by viewModel.routesApiKey.collectAsState()
     // AQI BYOK (Oct 2026): free WAQI token for the air-quality layer.
     val waqiApiKey by viewModel.waqiApiKey.collectAsState()
+    // A2: daily re-validation + expiry notice (cleared token + toast).
+    val waqiExpired by viewModel.waqiExpired.collectAsState()
+    LaunchedEffect(Unit) { viewModel.revalidateWaqiIfStale() }
+    LaunchedEffect(waqiExpired) {
+        if (waqiExpired) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_waqi_invalid),
+                Toast.LENGTH_LONG,
+            ).show()
+            viewModel.consumeWaqiExpired()
+        }
+    }
     // Temperature layer BYOK (Oct 2026): user's own OpenWeatherMap key.
     val owmApiKey by viewModel.owmApiKey.collectAsState()
 

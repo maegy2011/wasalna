@@ -342,7 +342,18 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit {
             if (normalized.isEmpty()) it.remove(Keys.WAQI_API_KEY)
             else it[Keys.WAQI_API_KEY] = normalized
+            // Any (re)save restarts the validation clock.
+            it[Keys.WAQI_LAST_VALIDATED] = System.currentTimeMillis()
         }
+    }
+
+    // A2: last successful WAQI validation (ms epoch, 0 = never). Drives
+    // the daily re-validation in SettingsViewModel.
+    val waqiLastValidated: Flow<Long> =
+        dataStore.data.map { it[Keys.WAQI_LAST_VALIDATED] ?: 0L }
+
+    suspend fun setWaqiLastValidated(atMs: Long) {
+        dataStore.edit { it[Keys.WAQI_LAST_VALIDATED] = atMs }
     }
 
     // Temperature layer prefs (Oct 2026): toggle + BYOK key + opacity.
@@ -533,6 +544,7 @@ class SettingsDataStore @Inject constructor(
         val TRANSIT_LAYER_ENABLED = booleanPreferencesKey("transit_layer_enabled")
         val AQI_LAYER_ENABLED = booleanPreferencesKey("aqi_layer_enabled")
         val WAQI_API_KEY = stringPreferencesKey("waqi_api_key")
+        val WAQI_LAST_VALIDATED = longPreferencesKey("waqi_last_validated")
         // Temperature layer (Oct 2026): OpenWeatherMap BYOK + toggle + opacity.
         val TEMP_LAYER_ENABLED = booleanPreferencesKey("temp_layer_enabled")
         val OWM_API_KEY = stringPreferencesKey("owm_api_key")

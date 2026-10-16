@@ -15,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -374,8 +375,54 @@ class SettingsViewModel @Inject constructor(
             }
             runCatching { settingsRepository.setWaqiApiKey(trimmed) }
                 .onFailure { Log.e(TAG, "waqi key save failed: ${it.message}") }
+            if (verdict == true) {
+                runCatching { settingsRepository.setWaqiLastValidated(System.currentTimeMillis()) }
+            }
+            _waqiHealth.value = verdict
             onValidated?.invoke(verdict)
         }
+    }
+
+    /**
+     * A2 daily re-validation: called when Settings opens. A stored token
+     * older than 24 h since its last success is re-probed; a 401/403
+     * clears it (with [waqiExpired] event so the UI toasts "token
+     * expired") instead of leaving a silently blank layer. Network
+     * failures (null) keep the token — the layer retries when back.
+     */
+    private val _waqiHealth = MutableStateFlow<Boolean?>(null)
+    val waqiHealth: StateFlow<Boolean?> = _waqiHealth.asStateFlow()
+
+    private val _waqiExpired = MutableStateFlow(false)
+    val waqiExpired: StateFlow<Boolean> = _waqiExpired.asStateFlow()
+
+    fun revalidateWaqiIfStale() {
+        viewModelScope.launch {
+            val key = runCatching { settingsRepository.waqiApiKey.first() }
+                .getOrDefault("").trim()
+            if (key.isEmpty()) return@launch
+            val last = runCatching { settingsRepository.waqiLastValidated.first() }
+                .getOrDefault(0L)
+            if (System.currentTimeMillis() - last < WAQI_REVALIDATE_MS) return@launch
+            when (validateWaqiKey(key)) {
+                true -> {
+                    runCatching {
+                        settingsRepository.setWaqiLastValidated(System.currentTimeMillis())
+                    }
+                    _waqiHealth.value = true
+                }
+                false -> {
+                    runCatching { settingsRepository.setWaqiApiKey("") }
+                    _waqiHealth.value = false
+                    _waqiExpired.value = true
+                }
+                null -> Unit // offline — keep token, retry next open
+            }
+        }
+    }
+
+    fun consumeWaqiExpired() {
+        _waqiExpired.value = false
     }
 
     // OpenWeatherMap BYOK (Oct 2026, temperature layer): user's own key.
@@ -575,5 +622,7 @@ class SettingsViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "SettingsVM"
+        /** A2: re-probe a stored WAQI token at most once a day. */
+        private const val WAQI_REVALIDATE_MS = 24L * 60L * 60L * 1000L
     }
 }

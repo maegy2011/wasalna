@@ -275,6 +275,13 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDataStore.setWaqiApiKey(key)
     }
 
+    override val waqiLastValidated: Flow<Long>
+        get() = settingsDataStore.waqiLastValidated
+
+    override suspend fun setWaqiLastValidated(atMs: Long) {
+        settingsDataStore.setWaqiLastValidated(atMs)
+    }
+
     override val isTempLayerEnabled: Flow<Boolean>
         get() = settingsDataStore.isTempLayerEnabled
 

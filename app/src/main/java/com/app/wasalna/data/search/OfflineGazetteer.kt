@@ -2,6 +2,7 @@ package com.app.wasalna.data.search
 
 import android.content.Context
 import android.util.Log
+import com.app.wasalna.data.routing.RegionManifestRepository
 import com.app.wasalna.data.routing.RoutingGraphManager
 import com.app.wasalna.data.routing.RoutingRegion
 import com.app.wasalna.utils.AppLinks
@@ -41,6 +42,7 @@ import javax.inject.Singleton
 @Singleton
 class OfflineGazetteer @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val manifestRepo: RegionManifestRepository,
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -58,6 +60,8 @@ class OfflineGazetteer @Inject constructor(
         val lng: Double,
         /** 0 street · 1 district/place · 2 station · 3 service(med Beach) · 4 poi */
         val kind: Int,
+        /** P1: owning region — deletes filter by this instead of clearing all. */
+        val regionId: String = "",
     )
 
     data class GazHit(
@@ -66,10 +70,30 @@ class OfflineGazetteer @Inject constructor(
         val lng: Double,
     )
 
-    /** Normalized Arabic for search: strips tashkeel/tatweel, unifies alef/hamza + taa/haa. */
+    /**
+     * Normalized Arabic for search: strips tashkeel/tatweel, unifies alef/hamza + taa/haa.
+     * P4: lam-alef presentation ligatures (ﻻ ﻷ ﻹ ﻵ, isolated + final forms
+     * U+FEF5–U+FEFC) decompose to ل + ا (+hamza carrier) first, so pasted
+     * text with presentation forms matches typed text and vice versa.
+     */
     fun normalize(s: String): String {
-        val sb = StringBuilder(s.length)
-        for (ch in s) {
+        var input = s
+        // U+FEF5–U+FEFC range check: lam-alef presentation ligatures.
+        if (input.any { ch -> ch.code in 0xFEF5..0xFEFC }) {
+            val pre = StringBuilder(input.length + 8)
+            for (ch in input) {
+                when (ch.code) {
+                    0xFEF5, 0xFEF6 -> pre.append("لآ")
+                    0xFEF7, 0xFEF8 -> pre.append("لأ")
+                    0xFEF9, 0xFEFA -> pre.append("لإ")
+                    0xFEFB, 0xFEFC -> pre.append("لا")
+                    else -> pre.append(ch)
+                }
+            }
+            input = pre.toString()
+        }
+        val sb = StringBuilder(input.length)
+        for (ch in input) {
             val c = when (ch) {
                 '\u064B', '\u064C', '\u064D', '\u064E', '\u064F', '\u0650',
                 '\u0651', '\u0652', '\u0653', '\u0654', '\u0655', '\u0656',
@@ -107,16 +131,24 @@ class OfflineGazetteer @Inject constructor(
             .getOrDefault(0L)
 
     /**
-     * Deletes the stored file and drops the in-memory index (entries are
-     * not region-tagged, so the whole index rebuilds lazily on next
-     * search). Returns true when something was removed.
+     * P1: Deletes the stored file and drops ONLY that region's entries —
+     * other loaded regions keep working (the old code cleared the whole
+     * index, silently breaking search for every other region).
+     * Returns true when something was removed.
      */
     suspend fun delete(regionId: String): Boolean = mutex.withLock {
         val removed = runCatching {
             gazFile(regionId).delete() || !gazFile(regionId).exists()
         }.getOrDefault(false)
-        loadedRegions.clear()
-        index.clear()
+        loadedRegions.remove(regionId)
+        if (index.any { it.regionId == regionId }) {
+            index.removeAll { it.regionId == regionId }
+        } else {
+            // Legacy rows stored without a tag (pre-P1 cache): fall back
+            // to a full rebuild so stale entries can't linger.
+            loadedRegions.clear()
+            index.clear()
+        }
         removed
     }
 
@@ -150,11 +182,10 @@ class OfflineGazetteer @Inject constructor(
      * are ~100× smaller than graphs).
      */
     suspend fun ensureForLocation(
-        manager: RoutingGraphManager,
         lat: Double,
         lng: Double,
     ): Boolean {
-        val region = RoutingGraphManager.REGIONS.firstOrNull {
+        val region = manifestRepo.getManifest()?.regions?.firstOrNull {
             it.contains(lat, lng)
         } ?: return anyLoaded()
         return ensureRegion(region)
@@ -250,6 +281,7 @@ class OfflineGazetteer @Inject constructor(
                             lat = lat,
                             lng = lng,
                             kind = o.optInt("t", 4),
+                            regionId = regionId,
                         ),
                     )
                     added++

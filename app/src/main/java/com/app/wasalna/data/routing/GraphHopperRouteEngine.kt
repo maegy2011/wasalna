@@ -70,39 +70,9 @@ class GraphHopperRouteEngine @Inject constructor(
      * ── OFFLINE BOUNDARY: pure file + memory work, zero network. ──
      */
     suspend fun ensureLoaded(graphDir: File): Boolean = withContext(Dispatchers.IO) {
-        if (isReady && loadedDir == graphDir.absolutePath) return@withContext true
         mutex.withLock {
             if (isReady && loadedDir == graphDir.absolutePath) return@withLock true
-            val ok = runCatching {
-                // A prepared graph always carries a properties file.
-                check(File(graphDir, "properties").exists()) { "no prepared graph in $graphDir" }
-                configureEngine(graphDir)
-                // load() (not importOrLoad): the graph is baked server-side.
-                // Step 2: Android-safe load — first attempt with the
-                // default store; on store-level failure close + reconfigure
-                // and retry as the RAM fallback (ART-safe, no MMAP bulk
-                // IO on phones; ByteBufferCompat covers bulk reads).
-                val firstOk = runCatching {
-                    check(gh.load()) { "graph load failed" }
-                    true
-                }.getOrDefault(false)
-                if (!firstOk) {
-                    runCatching { gh.close() }
-                    configureEngine(graphDir)
-                    check(gh.load()) { "graph load failed (RAM fallback)" }
-                }
-                loadedDir = graphDir.absolutePath
-                true
-            }.onFailure {
-                // Step 2: catch ALL (profile mismatch / corrupt / IO) —
-                // exact message into StateFlow, never a crash.
-                val msg = it.message?.ifBlank { null } ?: it.javaClass.simpleName
-                _loadError.value = msg
-                Log.e(TAG, "ensureLoaded failed: $msg", it)
-            }.getOrDefault(false)
-            if (ok) _loadError.value = null
-            isReady = ok
-            ok
+            doEnsureLoaded(graphDir)
         }
     }
 
@@ -110,25 +80,73 @@ class GraphHopperRouteEngine @Inject constructor(
      * Upgrade (Oct 2026): region-aware load — the engine holds ONE
      * graph at a time, so switching regions closes + reloads. Same-dir
      * + same-region repeats are no-ops. Returns readiness.
+     *
+     * R3: the whole switch (fast-path check + close + load) runs inside
+     * [mutex] — concurrent route requests can no longer interleave a
+     * close between another coroutine's load and query (double-close /
+     * use-after-close). [ensureLoaded] delegates to the same inner body,
+     * so there is exactly one lock acquisition per call (no nesting).
      * ── OFFLINE BOUNDARY: pure file + memory work, zero network. ──
      */
     suspend fun ensureLoadedFor(regionId: String, graphDir: File): Boolean =
         withContext(Dispatchers.IO) {
-            if (isReady && loadedDir == graphDir.absolutePath &&
-                loadedRegionId == regionId
-            ) {
-                return@withContext true
+            mutex.withLock {
+                if (isReady && loadedDir == graphDir.absolutePath &&
+                    loadedRegionId == regionId
+                ) {
+                    return@withLock true
+                }
+                if (loadedDir != graphDir.absolutePath) {
+                    runCatching { gh.close() }
+                        .onFailure { Log.w(TAG, "switch close swallowed: ${it.message}") }
+                    isReady = false
+                    loadedDir = null
+                    loadedRegionId = null
+                }
+                val ok = doEnsureLoaded(graphDir)
+                if (ok) loadedRegionId = regionId
+                ok
             }
-            if (isReady && loadedDir != graphDir.absolutePath) {
-                runCatching { gh.close() }
-                isReady = false
-                loadedDir = null
-                loadedRegionId = null
-            }
-            val ok = ensureLoaded(graphDir)
-            if (ok) loadedRegionId = regionId
-            ok
         }
+
+    /**
+     * Inner load body — caller must hold [mutex]. Shared by
+     * [ensureLoaded] and [ensureLoadedFor] so close + load can never
+     * interleave across coroutines.
+     */
+    private fun doEnsureLoaded(graphDir: File): Boolean {
+        if (isReady && loadedDir == graphDir.absolutePath) return true
+        val ok = runCatching {
+            // A prepared graph always carries a properties file.
+            check(File(graphDir, "properties").exists()) { "no prepared graph in $graphDir" }
+            configureEngine(graphDir)
+            // load() (not importOrLoad): the graph is baked server-side.
+            // Step 2: Android-safe load — first attempt with the
+            // default store; on store-level failure close + reconfigure
+            // and retry as the RAM fallback (ART-safe, no MMAP bulk
+            // IO on phones; ByteBufferCompat covers bulk reads).
+            val firstOk = runCatching {
+                check(gh.load()) { "graph load failed" }
+                true
+            }.getOrDefault(false)
+            if (!firstOk) {
+                runCatching { gh.close() }
+                configureEngine(graphDir)
+                check(gh.load()) { "graph load failed (RAM fallback)" }
+            }
+            loadedDir = graphDir.absolutePath
+            true
+        }.onFailure {
+            // Step 2: catch ALL (profile mismatch / corrupt / IO) —
+            // exact message into StateFlow, never a crash.
+            val msg = it.message?.ifBlank { null } ?: it.javaClass.simpleName
+            _loadError.value = msg
+            Log.e(TAG, "ensureLoaded failed: $msg", it)
+        }.getOrDefault(false)
+        if (ok) _loadError.value = null
+        isReady = ok
+        return ok
+    }
 
     /**
      * On-device route, CH-accelerated. Null when no graph is loaded or the

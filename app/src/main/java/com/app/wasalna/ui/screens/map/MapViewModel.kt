@@ -81,6 +81,7 @@ class MapViewModel @Inject constructor(
     private val traffic: TrafficRepository,
     private val gazetteer: com.app.wasalna.data.search.OfflineGazetteer,
     private val aqi: AqiRepository,
+    private val manifestRepo: com.app.wasalna.data.routing.RegionManifestRepository,
 ) : ViewModel() {
 
     private val fusedClient by lazy {
@@ -596,8 +597,11 @@ class MapViewModel @Inject constructor(
 
     // AQI value chip (Oct 2026, layer upgrade): null unless the layer is
     // on, keyed, online, and a destination is selected (see init below).
+    // A1: offline serves the 6 h cache with [destinationAqiStale] set.
     private val _destinationAqi = MutableStateFlow<Int?>(null)
     val destinationAqi: StateFlow<Int?> = _destinationAqi.asStateFlow()
+    private val _destinationAqiStale = MutableStateFlow(false)
+    val destinationAqiStale: StateFlow<Boolean> = _destinationAqiStale.asStateFlow()
 
     /** Offline upgrade (Oct 2026): route coverage state for the Map chip. */
     sealed interface OfflineReadiness {
@@ -612,6 +616,15 @@ class MapViewModel @Inject constructor(
 
     private val _offlineReadiness = MutableStateFlow<OfflineReadiness?>(null)
     val offlineReadiness: StateFlow<OfflineReadiness?> = _offlineReadiness.asStateFlow()
+
+    /**
+     * C1 unified "Offline Ready" badge: one line summarizing route +
+     * names + AQI for the picked destination (null = no destination).
+     * Symbols: ✓ ready · ○ downloadable/missing-names · ~ cached AQI ·
+     * ✗ unavailable. Localizable format lives in res ([R.string.offline_badge]).
+     */
+    private val _offlineBadgeLabel = MutableStateFlow<String?>(null)
+    val offlineBadgeLabel: StateFlow<String?> = _offlineBadgeLabel.asStateFlow()
 
     /** Bumped after a graph download so readiness recomputes. */
     private val _graphRefreshTick = MutableStateFlow(0)
@@ -634,8 +647,8 @@ class MapViewModel @Inject constructor(
                 return@withContext OfflineReadiness.Ready(covering.name)
             }
             val known =
-                com.app.wasalna.data.routing.RoutingGraphManager.REGIONS
-                    .firstOrNull { region ->
+                manifestRepo.getManifest()?.regions
+                    ?.firstOrNull { region ->
                         pts.all { (la, ln) -> region.contains(la, ln) }
                     }
             if (known != null) {
@@ -646,11 +659,26 @@ class MapViewModel @Inject constructor(
             OfflineReadiness.NoCoverage
         }
 
+    /** C1 badge line: route + names + AQI state for [readiness]. */
+    private fun buildOfflineBadge(readiness: OfflineReadiness?): String? {
+        if (readiness == null) return null
+        val route = when (readiness) {
+            is OfflineReadiness.Ready -> "✓"
+            is OfflineReadiness.NeedDownload -> "○"
+            OfflineReadiness.NoCoverage -> "✗"
+        }
+        val names = if (runCatching { gazetteer.anyLoaded() }.getOrDefault(false)) "✓" else "○"
+        val aqiState = when {
+            _destinationAqi.value == null -> "✗"
+            _destinationAqiStale.value -> "~"
+            else -> "✓"
+        }
+        return msg(R.string.offline_badge, route, names, aqiState)
+    }
+
     /** One-tap graph download from the Map chip (explicit user action). */
     fun downloadOfflineGraph(regionId: String) {
-        val region =
-            com.app.wasalna.data.routing.RoutingGraphManager.REGIONS
-                .firstOrNull { it.id == regionId } ?: return
+        val region = manifestRepo.getManifest()?.regionById(regionId) ?: return
         viewModelScope.launch {
             val ok = runCatching { graphManager.download(region) }
                 .getOrDefault(false)
@@ -725,13 +753,23 @@ class MapViewModel @Inject constructor(
             combine(
                 _selectedLatLng, _isAqiLayer, _waqiKey, isOfflineMode,
             ) { sel, on, key, offline ->
-                if (!on || key.isBlank() || offline) null else sel?.let { it to key }
-            }.debounce(800).collectLatest { pair ->
-                _destinationAqi.value = if (pair == null) {
-                    null
-                } else {
+                Triple(sel, on && key.isNotBlank(), if (offline) null else sel?.let { it to key })
+            }.debounce(800).collectLatest { (sel, usable, pair) ->
+                if (!usable || sel == null) {
+                    _destinationAqi.value = null
+                    _destinationAqiStale.value = false
+                } else if (pair != null) {
                     val (latLng, key) = pair
-                    aqi.fetchAqi(latLng.latitude, latLng.longitude, key)
+                    _destinationAqi.value =
+                        aqi.fetchAqi(latLng.latitude, latLng.longitude, key)
+                    _destinationAqiStale.value = false
+                } else {
+                    // A1 offline: serve the 6 h cache (stale-flagged) —
+                    // the chip keeps working with zero network.
+                    _destinationAqi.value = withContext(Dispatchers.IO) {
+                        aqi.cachedAqi(sel.latitude, sel.longitude)
+                    }
+                    _destinationAqiStale.value = _destinationAqi.value != null
                 }
             }
         }
@@ -742,12 +780,16 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 _selectedLatLng, _viaPoints, _graphRefreshTick,
-            ) { sel, _, _ -> sel }
+                _destinationAqi, _destinationAqiStale,
+            ) { sel, _, _, _, _ -> sel }
                 .debounce(800).collectLatest { sel ->
-                    _offlineReadiness.value = if (sel == null) {
-                        null
+                    if (sel == null) {
+                        _offlineReadiness.value = null
+                        _offlineBadgeLabel.value = null
                     } else {
-                        computeOfflineReadiness(sel)
+                        val readiness = computeOfflineReadiness(sel)
+                        _offlineReadiness.value = readiness
+                        _offlineBadgeLabel.value = buildOfflineBadge(readiness)
                     }
                 }
         }
@@ -834,7 +876,7 @@ class MapViewModel @Inject constructor(
         runCatching {
             val fix = currentFix()
             if (fix != null) {
-                gazetteer.ensureForLocation(graphManager, fix.latitude, fix.longitude)
+                gazetteer.ensureForLocation(fix.latitude, fix.longitude)
             } else {
                 gazetteer.preloadInstalled(graphManager)
             }
@@ -881,17 +923,19 @@ class MapViewModel @Inject constructor(
         local: List<SearchResult>,
     ): List<SearchResult> {
         if (local.isEmpty()) return online
+        // P5: 50 m cells (~0.0005°) — the old 100 m quantization merged
+        // distinct POIs in dense souqs/malls into one row.
         val seen = online.mapNotNull {
             val la = it.lat ?: return@mapNotNull null
             val ln = it.lng ?: return@mapNotNull null
-            "${(la * 1000).toInt()}:${(ln * 1000).toInt()}"
+            "${(la * 2000).toInt()}:${(ln * 2000).toInt()}"
         }.toMutableSet()
         val merged = online.filter { validCoords(it.lat, it.lng) }.toMutableList()
         for (hit in local) {
             val la = hit.lat ?: continue
             val ln = hit.lng ?: continue
             if (!validCoords(la, ln)) continue
-            val key = "${(la * 1000).toInt()}:${(ln * 1000).toInt()}"
+            val key = "${(la * 2000).toInt()}:${(ln * 2000).toInt()}"
             if (seen.add(key)) merged.add(hit)
         }
         return merged.take(12)

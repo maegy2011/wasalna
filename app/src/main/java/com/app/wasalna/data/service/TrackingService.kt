@@ -72,8 +72,11 @@ class TrackingService : Service() {
     private val osrm = OSRMRepository()
     // Phase 10.4.3.9: on-device routing fallback (plain Service — manual
     // construction like osrm above; Hilt singletons serve the UI layer).
+    private val manifestRepo by lazy {
+        com.app.wasalna.data.routing.RegionManifestRepository(applicationContext)
+    }
     private val graphManager by lazy {
-        com.app.wasalna.data.routing.RoutingGraphManager(applicationContext)
+        com.app.wasalna.data.routing.RoutingGraphManager(applicationContext, manifestRepo)
     }
     private val ghEngine by lazy {
         com.app.wasalna.data.routing.GraphHopperRouteEngine(applicationContext)
